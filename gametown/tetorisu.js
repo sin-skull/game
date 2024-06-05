@@ -51,19 +51,6 @@ function drawSquare(context, x, y, color, sqSize = SQ) {
     context.fillRect(x * sqSize, y * sqSize, sqSize, sqSize);
     context.strokeStyle = "black";
     context.strokeRect(x * sqSize, y * sqSize, sqSize, sqSize);
-
-    // グラデーションと影を追加
-    context.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    context.shadowBlur = 10;
-    context.shadowOffsetX = 2;
-    context.shadowOffsetY = 2;
-
-    let gradient = context.createLinearGradient(x * sqSize, y * sqSize, (x + 1) * sqSize, (y + 1) * sqSize);
-    gradient.addColorStop(0, '#ffffff');
-    gradient.addColorStop(1, color);
-
-    context.fillStyle = gradient;
-    context.fillRect(x * sqSize, y * sqSize, sqSize, sqSize);
 }
 
 // 次のブロックの描画
