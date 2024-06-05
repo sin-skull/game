@@ -1,405 +1,261 @@
+// キャンバスとコンテキストの取得
 const canvas = document.getElementById('tetris');
 const context = canvas.getContext('2d');
-const nextCanvas = document.getElementById('next');
-const nextContext = nextCanvas.getContext('2d');
-const holdCanvas = document.getElementById('hold');
-const holdContext = holdCanvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 const levelElement = document.getElementById('level');
 const highScoreElement = document.getElementById('highScore');
-const pauseButton = document.getElementById('pauseButton');
-const titleScreen = document.getElementById('titleScreen');
-const gameScreen = document.getElementById('game');
-const controlsScreen = document.getElementById('controls');
-const gameOverScreen = document.getElementById('gameOverScreen');
+const timeElement = document.getElementById('time');
+const linesElement = document.getElementById('lines');
+const nextBlockCanvas1 = document.getElementById('nextBlock1');
+const nextBlockContext1 = nextBlockCanvas1.getContext('2d');
+const nextBlockCanvas2 = document.getElementById('nextBlock2');
+const nextBlockContext2 = nextBlockCanvas2.getContext('2d');
+const nextBlockCanvas3 = document.getElementById('nextBlock3');
+const nextBlockContext3 = nextBlockCanvas3.getContext('2d');
+const holdBlockCanvas = document.getElementById('holdBlock');
+const holdBlockContext = holdBlockCanvas.getContext('2d');
 
+// サウンドエフェクトの取得
 const moveSound = document.getElementById('moveSound');
 const rotateSound = document.getElementById('rotateSound');
 const lineClearSound = document.getElementById('lineClearSound');
 const gameOverSound = document.getElementById('gameOverSound');
+const selectionSound = document.getElementById('selectionSound');
+const backgroundMusic = document.getElementById('backgroundMusic');
+const blockTouchSound = document.getElementById('blockTouchSound');
 
+// ゲーム設定
 const ROW = 20;
 const COL = 10;
 const SQ = 30;
-const VACANT = "black"; // 空いているセルの色
+const VACANT = "black";
 
-let gamePaused = false;
-let soundEnabled = true;
-let gameOver = false;
-let dropInterval = 1000;
-
-document.getElementById('toggleSound').addEventListener('click', () => {
-    soundEnabled = !soundEnabled;
-    document.getElementById('toggleSound').innerText = soundEnabled ? "サウンド: オン" : "サウンド: オフ";
-});
-
-pauseButton.addEventListener('click', () => {
-    gamePaused = !gamePaused;
-    pauseButton.innerText = gamePaused ? "再開" : "一旦停止";
-    if (!gamePaused) {
-        drop();
-    }
-});
-
-document.getElementById('retryButton').addEventListener('click', () => {
-    document.location.reload();
-});
-
-const startGame = (difficulty) => {
-    titleScreen.style.display = 'none';
-    gameScreen.style.display = 'flex';
-    controlsScreen.style.display = 'flex';
-    dropInterval = difficulty;
-    drop();
-}
-
-document.getElementById('startEasy').addEventListener('click', () => startGame(1000));
-document.getElementById('startNormal').addEventListener('click', () => startGame(500));
-document.getElementById('startHard').addEventListener('click', () => startGame(200));
-
-// カスタマイズしたブロックの形と色
-const Z = [
-    [ [1, 1, 0],
-      [0, 1, 1],
-      [0, 0, 0] ],
-    [ [0, 1, 0],
-      [1, 1, 0],
-      [1, 0, 0] ]
-];
-
-const S = [
-    [ [0, 1, 1],
-      [1, 1, 0],
-      [0, 0, 0] ],
-    [ [1, 0, 0],
-      [1, 1, 0],
-      [0, 1, 0] ]
-];
-
-const T = [
-    [ [0, 1, 0],
-      [1, 1, 1],
-      [0, 0, 0] ],
-    [ [0, 1, 0],
-      [0, 1, 1],
-      [0, 1, 0] ],
-    [ [0, 0, 0],
-      [1, 1, 1],
-      [0, 1, 0] ],
-    [ [0, 1, 0],
-      [1, 1, 0],
-      [0, 1, 0] ]
-];
-
-const O = [
-    [ [1, 1],
-      [1, 1] ]
-];
-
-const L = [
-    [ [0, 0, 1],
-      [1, 1, 1],
-      [0, 0, 0] ],
-    [ [0, 1, 0],
-      [0, 1, 0],
-      [0, 1, 1] ],
-    [ [0, 0, 0],
-      [1, 1, 1],
-      [1, 0, 0] ],
-    [ [1, 1, 0],
-      [0, 1, 0],
-      [0, 1, 0] ]
-];
-
-const I = [
-    [ [0, 0, 0, 0],
-      [1, 1, 1, 1],
-      [0, 0, 0, 0],
-      [0, 0, 0, 0] ],
-    [ [0, 0, 1, 0],
-      [0, 0, 1, 0],
-      [0, 0, 1, 0],
-      [0, 0, 1, 0] ]
-];
-
-const J = [
-    [ [1, 0, 0],
-      [1, 1, 1],
-      [0, 0, 0] ],
-    [ [0, 1, 1],
-      [0, 1, 0],
-      [0, 1, 0] ],
-    [ [0, 0, 0],
-      [1, 1, 1],
-      [0, 0, 1] ],
-    [ [0, 1, 0],
-      [0, 1, 0],
-      [1, 1, 0] ]
-];
-
-// カスタマイズしたブロックの色
+// テトリミノの定義
 const PIECES = [
-    [Z, "#FF6347"], // Tomato
-    [S, "#3CB371"], // MediumSeaGreen
-    [T, "#DAA520"], // GoldenRod
-    [O, "#4682B4"], // SteelBlue
-    [L, "#9370DB"], // MediumPurple
-    [I, "#00CED1"], // DarkTurquoise
-    [J, "#FF8C00"]  // DarkOrange
+    { shape: [[1, 1, 1, 1]], color: "#00CED1" }, // I-テトリミノ（水色）
+    { shape: [[1, 1], [1, 1]], color: "#FFD700" }, // O-テトリミノ（黄色）
+    { shape: [[0, 1, 1], [1, 1, 0]], color: "#3CB371" }, // S-テトリミノ（緑）
+    { shape: [[1, 1, 0], [0, 1, 1]], color: "#FF6347" }, // Z-テトリミノ（赤）
+    { shape: [[1, 0, 0], [1, 1, 1]], color: "#4682B4" }, // J-テトリミノ（青）
+    { shape: [[0, 0, 1], [1, 1, 1]], color: "#FFA500" }, // L-テトリミノ（オレンジ）
+    { shape: [[0, 1, 0], [1, 1, 1]], color: "#800080" }  // T-テトリミノ（紫）
 ];
 
 // ハイスコアの取得
-let highScore = localStorage.getItem('highScore') || 0;
+let highScore = localStorage.getItem('highScore') || 230;
 highScoreElement.innerHTML = "ハイスコア: " + highScore;
 
 // ブロックの描画
-function drawSquare(x, y, color, ctx = context) {
-    ctx.fillStyle = color;
-    ctx.fillRect(x * SQ, y * SQ, SQ, SQ);
+function drawSquare(context, x, y, color, sqSize = SQ) {
+    context.fillStyle = color;
+    context.fillRect(x * sqSize, y * sqSize, sqSize, sqSize);
+    context.strokeStyle = "black";
+    context.strokeRect(x * sqSize, y * sqSize, sqSize, sqSize);
 
-    ctx.strokeStyle = "black";
-    ctx.strokeRect(x * SQ, y * SQ, SQ, SQ);
+    // グラデーションと影を追加
+    context.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    context.shadowBlur = 10;
+    context.shadowOffsetX = 2;
+    context.shadowOffsetY = 2;
+
+    let gradient = context.createLinearGradient(x * sqSize, y * sqSize, (x + 1) * sqSize, (y + 1) * sqSize);
+    gradient.addColorStop(0, '#ffffff');
+    gradient.addColorStop(1, color);
+
+    context.fillStyle = gradient;
+    context.fillRect(x * sqSize, y * sqSize, sqSize, sqSize);
 }
 
-// ゲーム盤面
-let board = [];
-for (let r = 0; r < ROW; r++) {
-    board[r] = [];
-    for (let c = 0; c < COL; c++) {
-        board[r][c] = VACANT;
+// 次のブロックの描画
+function drawNextBlocks() {
+    nextBlockContext1.clearRect(0, 0, nextBlockCanvas1.width, nextBlockCanvas1.height);
+    drawPiece(nextBlockContext1, nextPieces[0], 1, 1, 15);
+    nextBlockContext2.clearRect(0, 0, nextBlockCanvas2.width, nextBlockCanvas2.height);
+    drawPiece(nextBlockContext2, nextPieces[1], 1, 1, 15);
+    nextBlockContext3.clearRect(0, 0, nextBlockCanvas3.width, nextBlockCanvas3.height);
+    drawPiece(nextBlockContext3, nextPieces[2], 1, 1, 15);
+}
+
+// ホールドブロックの描画
+function drawHoldBlock() {
+    holdBlockContext.clearRect(0, 0, holdBlockCanvas.width, holdBlockCanvas.height);
+    if (holdPiece) {
+        drawPiece(holdBlockContext, holdPiece, 1, 1, 30);
     }
 }
 
-// ゲーム盤面を描画
+function drawPiece(context, piece, offsetX, offsetY, sqSize = SQ) {
+    piece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value) {
+                drawSquare(context, x + offsetX, y + offsetY, piece.color, sqSize);
+            }
+        });
+    });
+}
+
+// ゲーム盤面の設定
+let board = Array.from({ length: ROW }, () => Array(COL).fill(VACANT));
+
+// ゲーム盤面の描画
 function drawBoard() {
-    for (let r = 0; r < ROW; r++) {
-        for (let c = 0; c < COL; c++) {
-            drawSquare(c, r, board[r][c]);
-        }
-    }
+    board.forEach((row, r) => {
+        row.forEach((color, c) => {
+            drawSquare(context, c, r, color);
+        });
+    });
 }
 
 drawBoard();
 
-// テトリスブロックの生成
-function Piece(tetromino, color) {
-    this.tetromino = tetromino;
-    this.color = color;
-
-    this.tetrominoN = 0;
-    this.activeTetromino = this.tetromino[this.tetrominoN];
-
-    this.x = 3;
-    this.y = -2;
-}
-
-// ブロックの塗りつぶし
-Piece.prototype.fill = function(color, ctx = context) {
-    for (let r = 0; r < this.activeTetromino.length; r++) {
-        for (let c = 0; c < this.activeTetromino[r].length; c++) {
-            if (this.activeTetromino[r][c]) {
-                drawSquare(this.x + c, this.y + r, color, ctx);
-            }
-        }
+// テトリミノの生成
+class Piece {
+    constructor(shape, color) {
+        this.shape = shape;
+        this.color = color;
+        this.x = 3;
+        this.y = -2;
     }
-}
 
-// ブロックを描画
-Piece.prototype.draw = function(ctx = context) {
-    this.fill(this.color, ctx);
-}
-
-// ブロックを消去
-Piece.prototype.unDraw = function(ctx = context) {
-    this.fill(VACANT, ctx);
-}
-
-// ブロックを下に移動
-Piece.prototype.moveDown = function() {
-    if (!this.collision(0, 1, this.activeTetromino)) {
-        this.unDraw();
-        this.y++;
-        this.draw();
-        if (soundEnabled) moveSound.play();
-    } else {
-        this.lock();
-        p = nextPiece;
-        nextPiece = randomPiece();
-        displayNextPiece();
+    fill(color) {
+        this.shape.forEach((row, r) => {
+            row.forEach((value, c) => {
+                if (value) {
+                    drawSquare(context, this.x + c, this.y + r, color);
+                }
+            });
+        });
     }
-}
 
-// ブロックを右に移動
-Piece.prototype.moveRight = function() {
-    if (!this.collision(1, 0, this.activeTetromino)) {
-        this.unDraw();
-        this.x++;
-        this.draw();
-        if (soundEnabled) moveSound.play();
+    draw() {
+        this.fill(this.color);
     }
-}
 
-// ブロックを左に移動
-Piece.prototype.moveLeft = function() {
-    if (!this.collision(-1, 0, this.activeTetromino)) {
-        this.unDraw();
-        this.x--;
-        this.draw();
-        if (soundEnabled) moveSound.play();
+    unDraw() {
+        this.fill(VACANT);
     }
-}
 
-// ブロックを回転
-Piece.prototype.rotate = function() {
-    let nextPattern = this.tetromino[(this.tetrominoN + 1) % this.tetromino.length];
-    let kick = 0;
-
-    if (this.collision(0, 0, nextPattern)) {
-        if (this.x > COL / 2) {
-            kick = -1;
+    moveDown() {
+        if (!this.collision(0, 1)) {
+            this.unDraw();
+            this.y++;
+            this.draw();
+            if (soundOn) moveSound.play();
         } else {
-            kick = 1;
+            this.lock();
+            p = nextPieces.shift();
+            nextPieces.push(randomPiece());
+            drawNextBlocks();
+            holdUsed = false;
         }
     }
 
-    if (!this.collision(kick, 0, nextPattern)) {
-        this.unDraw();
-        this.x += kick;
-        this.tetrominoN = (this.tetrominoN + 1) % this.tetromino.length;
-        this.activeTetromino = this.tetromino[this.tetrominoN];
-        this.draw();
-        if (soundEnabled) rotateSound.play();
-    }
-}
-
-// 衝突判定
-Piece.prototype.collision = function(x, y, piece) {
-    for (let r = 0; r < piece.length; r++) {
-        for (let c = 0; c < piece[r].length; c++) {
-            if (!piece[r][c]) {
-                continue;
-            }
-
-            let newX = this.x + c + x;
-            let newY = this.y + r + y;
-
-            if (newX < 0 || newX >= COL || newY >= ROW) {
-                return true;
-            }
-
-            if (newY < 0) {
-                continue;
-            }
-
-            if (board[newY][newX] !== VACANT) {
-                return true;
-            }
+    moveRight() {
+        if (!this.collision(1, 0)) {
+            this.unDraw();
+            this.x++;
+            this.draw();
+            if (soundOn) moveSound.play();
         }
     }
-    return false;
-}
 
-// ブロックを固定
-Piece.prototype.lock = function() {
-    for (let r = 0; r < this.activeTetromino.length; r++) {
-        for (let c = 0; c < this.activeTetromino[r].length; c++) {
-            if (!this.activeTetromino[r][c]) {
-                continue;
-            }
+    moveLeft() {
+        if (!this.collision(-1, 0)) {
+            this.unDraw();
+            this.x--;
+            this.draw();
+            if (soundOn) moveSound.play();
+        }
+    }
 
-            if (this.y + r < 0) {
-                if (soundEnabled) gameOverSound.play();
-                if (score > highScore) {
-                    highScore = score;
-                    localStorage.setItem('highScore', highScore);
+    rotate() {
+        const nextPattern = rotateMatrix(this.shape);
+        const kick = this.collision(0, 0, nextPattern) ? (this.x > COL / 2 ? -1 : 1) : 0;
+        if (!this.collision(kick, 0, nextPattern)) {
+            this.unDraw();
+            this.x += kick;
+            this.shape = nextPattern;
+            this.draw();
+            if (soundOn) rotateSound.play();
+        }
+    }
+
+    collision(x, y, shape = this.shape) {
+        return shape.some((row, r) => {
+            return row.some((value, c) => {
+                if (value) {
+                    const newX = this.x + c + x;
+                    const newY = this.y + r + y;
+                    return newX < 0 || newX >= COL || newY >= ROW || (newY >= 0 && board[newY][newX] !== VACANT);
                 }
-                gameOverScreen.style.display = 'flex';
-                gameScreen.style.display = 'none';
-                controlsScreen.style.display = 'none';
-                return;
-            }
-
-            board[this.y + r][this.x + c] = this.color;
-        }
+                return false;
+            });
+        });
     }
 
-    // ラインが揃ったかチェック
-    for (let r = 0; r < ROW; r++) {
-        let isRowFull = true;
-        for (let c = 0; c < COL; c++) {
-            isRowFull = isRowFull && (board[r][c] !== VACANT);
-        }
-        if (isRowFull) {
-            // ラインが揃ったらスコアを加算
-            score += 10;
-            scoreElement.innerHTML = "スコア: " + score;
-
-            for (let y = r; y > 1; y--) {
-                for (let c = 0; c < COL; c++) {
-                    board[y][c] = board[y - 1][c];
+    lock() {
+        this.shape.forEach((row, r) => {
+            row.forEach((value, c) => {
+                if (value) {
+                    if (this.y + r < 0) {
+                        if (soundOn) gameOverSound.play();
+                        if (score > highScore) {
+                            highScore = score;
+                            localStorage.setItem('highScore', highScore);
+                        }
+                        alert("ゲームオーバー");
+                        document.location.reload();
+                    }
+                    board[this.y + r][this.x + c] = this.color;
                 }
-            }
+            });
+        });
 
-            for (let c = 0; c < COL; c++) {
-                board[0][c] = VACANT;
-            }
-
-            if (soundEnabled) lineClearSound.play();
-
-            // レベルアップ判定
-            if (score % 100 === 0) {
-                level++;
-                levelElement.innerHTML = "レベル: " + level;
-                if (dropInterval > 100) {
-                    dropInterval -= 50;
+        for (let r = 0; r < ROW; r++) {
+            if (board[r].every(value => value !== VACANT)) {
+                for (let y = r; y > 0; y--) {
+                    board[y] = [...board[y - 1]];
                 }
+                board[0] = Array(COL).fill(VACANT);
+                score += 10;
+                if (soundOn) lineClearSound.play();
             }
         }
-    }
-
-    drawBoard();
-}
-
-// ゴーストピースを描画
-Piece.prototype.drawGhost = function() {
-    let ghostY = this.y;
-    while (!this.collision(0, 1, this.activeTetromino)) {
-        ghostY++;
-    }
-    ghostY--;
-    for (let r = 0; r < this.activeTetromino.length; r++) {
-        for (let c = 0; c < this.activeTetromino[r].length; c++) {
-            if (this.activeTetromino[r][c]) {
-                drawSquare(this.x + c, ghostY + r, 'rgba(255, 255, 255, 0.3)');
+        scoreElement.innerHTML = `スコア: ${score}`;
+        if (score % 100 === 0) {
+            level++;
+            levelElement.innerHTML = `レベル: ${level}`;
+            if (dropInterval > 100) {
+                dropInterval -= 50;
             }
         }
+        if (soundOn) blockTouchSound.play();
+        drawBoard();
     }
 }
 
-// ランダムなテトリスブロックを生成
+function rotateMatrix(matrix) {
+    return matrix[0].map((_, i) => matrix.map(row => row[i])).reverse();
+}
+
 function randomPiece() {
-    let r = Math.floor(Math.random() * PIECES.length);
-    return new Piece(PIECES[r][0], PIECES[r][1]);
-}
-
-// 次のテトリスブロックを表示
-function displayNextPiece() {
-    nextContext.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-    nextPiece.draw(nextContext);
-}
-
-// 保留ブロックを表示
-function displayHoldPiece() {
-    holdContext.clearRect(0, 0, holdCanvas.width, holdCanvas.height);
-    holdPiece.draw(holdContext);
+    const { shape, color } = PIECES[Math.floor(Math.random() * PIECES.length)];
+    return new Piece(shape, color);
 }
 
 let p = randomPiece();
-let nextPiece = randomPiece();
+let nextPieces = [randomPiece(), randomPiece(), randomPiece()];
 let holdPiece = null;
 let holdUsed = false;
 let score = 0;
 let level = 1;
+let dropStart = Date.now();
+let gameOver = false;
+let dropInterval = 1000;
+let paused = false;
+let soundOn = true;
+
+drawNextBlocks();
 
 document.addEventListener("keydown", CONTROL);
 
@@ -415,12 +271,17 @@ function CONTROL(event) {
         dropStart = Date.now();
     } else if (event.keyCode == 40) {
         p.moveDown();
-    } else if (event.keyCode == 67) { // 'C'キーでブロックを保留
+    } else if (event.keyCode == 32) {
+        togglePause();
+    } else if (event.keyCode == 72) {
         hold();
     }
 }
 
-// タッチコントロール
+document.getElementById('startButton').addEventListener('click', startGame);
+document.getElementById('soundButton').addEventListener('click', toggleSound);
+document.getElementById('volumeSlider').addEventListener('input', adjustVolume);
+
 document.getElementById('leftButton').addEventListener('click', () => {
     p.moveLeft();
     dropStart = Date.now();
@@ -440,48 +301,78 @@ document.getElementById('downButton').addEventListener('click', () => {
     p.moveDown();
 });
 
+document.getElementById('pauseButton').addEventListener('click', () => {
+    togglePause();
+});
+
 document.getElementById('holdButton').addEventListener('click', () => {
     hold();
 });
 
 function hold() {
     if (!holdUsed) {
-        p.unDraw();
-        if (holdPiece === null) {
+        if (holdPiece) {
+            const temp = holdPiece;
             holdPiece = p;
-            p = nextPiece;
-            nextPiece = randomPiece();
-            displayNextPiece();
+            p = temp;
         } else {
-            let temp = p;
-            p = holdPiece;
-            holdPiece = temp;
+            holdPiece = p;
+            p = nextPieces.shift();
+            nextPieces.push(randomPiece());
+            drawNextBlocks();
         }
-        holdPiece.x = 3;
-        holdPiece.y = -2;
-        displayHoldPiece();
+        p.x = 3;
+        p.y = -2;
+        drawHoldBlock();
         holdUsed = true;
     }
 }
 
-let dropStart = Date.now();
+function startGame() {
+    selectionSound.play();  // 再生時に効果音を鳴らす
+    backgroundMusic.loop = true;
+    backgroundMusic.volume = document.getElementById('volumeSlider').value / 100;
+    if (soundOn) backgroundMusic.play();
+    document.getElementById('titleScreen').style.display = 'none';
+    document.getElementById('game').style.display = 'flex';
+    document.getElementById('controls').style.display = 'flex';
+    drop();
+}
 
-function drop() {
-    if (gamePaused || gameOver) return;
-    let now = Date.now();
-    let delta = now - dropStart;
-    if (delta > dropInterval) {
-        p.moveDown();
-        dropStart = Date.now();
-    }
-    if (!gameOver) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        drawBoard();
-        p.drawGhost();
-        p.draw();
-        requestAnimationFrame(drop);
+function togglePause() {
+    paused = !paused;
+    document.getElementById('pauseButton').innerText = paused ? '再開' : '一時停止';
+    if (!paused) {
+        if (soundOn) backgroundMusic.play();
+    } else {
+        backgroundMusic.pause();
     }
 }
 
-displayNextPiece();
-drop();
+function toggleSound() {
+    soundOn = !soundOn;
+    document.getElementById('soundButton').innerText = soundOn ? 'サウンド: オン' : 'サウンド: オフ';
+    if (soundOn) {
+        backgroundMusic.play();
+    } else {
+        backgroundMusic.pause();
+    }
+}
+
+function adjustVolume() {
+    backgroundMusic.volume = document.getElementById('volumeSlider').value / 100;
+}
+
+function drop() {
+    if (!paused) {
+        const now = Date.now();
+        const delta = now - dropStart;
+        if (delta > dropInterval) {
+            p.moveDown();
+            dropStart = Date.now();
+        }
+    }
+    if (!gameOver) {
+        requestAnimationFrame(drop);
+    }
+}
