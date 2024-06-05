@@ -1,85 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
 body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #000;
+    background-color: #1a1a1a; /* ダークグレーの背景 */
+    background-image: url('tetorisu.png'); /* 背景画像の設定 */
+    background-size: cover; /* 画像のサイズをカバーに */
+    background-position: center; /* 画像の位置をセンターに */
     margin: 0;
-    font-family: 'Arial', sans-serif;
+    font-family: 'Roboto', sans-serif;
+    color: #ffffff;
 }
 
-#titleScreen, #gameOverScreen {
+#titleScreen {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin-top: 50px;
-    color: #fff;
+    background-color: rgba(34, 34, 34, 0.9); /* 少し明るいグレーの背景 */
+    padding: 20px;
+    border-radius: 10px;
 }
 
-#titleScreen h1, #gameOverScreen h1 {
+#titleScreen h1 {
+    color: #ffffff;
     font-size: 48px;
-    margin-bottom: 20px;
 }
 
-#titleScreen button, #gameOverScreen button {
-    background-color: #444;
-    color: #fff;
+#titleScreen button, #titleScreen input[type="range"] {
+    background-color: #444444; /* ダークグレーのボタン */
+    color: #ffffff;
     border: none;
     padding: 10px 20px;
     font-size: 18px;
-    margin: 10px;
     cursor: pointer;
+    margin: 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
 }
 
-#titleScreen button:hover, #gameOverScreen button:hover {
-    background-color: #666;
+#titleScreen button:hover {
+    background-color: #555555; /* ホバー時に少し明るいグレー */
 }
 
 #game {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     justify-content: center;
+    align-items: flex-start;
+    margin-top: 50px;
+    padding: 20px;
+    background-color: rgba(34, 34, 34, 0.9); /* 少し明るいグレーの背景 */
+    border-radius: 10px;
+}
+
+#leftPanel {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    border: 2px solid #fff;
+    margin-right: 20px;
+}
+
+#holdBlockContainer {
+    text-align: center;
+    color: #ffffff;
     margin-bottom: 20px;
-    background-image: url('background.jpg'); /* 背景画像の追加 */
-    background-size: cover;
 }
 
-canvas {
-    background-color: rgba(0, 0, 0, 0.5); /* 背景を半透明に */
+#gameStatus {
+    text-align: left;
+    color: #cccccc;
+    font-size: 20px;
 }
 
-#score, #level, #highScore {
-    color: #fff;
-    font-size: 24px;
+#holdBlockContainer canvas, #nextBlockContainer canvas {
+    border: 1px solid #444444; /* ダークグレーの境界線 */
     margin-top: 10px;
+    background-color: rgba(34, 34, 34, 0.9); /* 背景を半透明に */
+    border-radius: 5px;
+    width: 120px; /* キャンバスの固定幅 */
+    height: 120px; /* キャンバスの固定高さ */
 }
 
-#pauseButton {
-    background-color: #444;
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
-    font-size: 18px;
-    margin: 10px;
-    cursor: pointer;
+#nextBlockContainer canvas {
+    width: 60px; /* 次のブロックのキャンバス固定幅 */
+    height: 60px; /* 次のブロックのキャンバス固定高さ */
+}
+
+#nextBlockContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: 20px;
+    text-align: center;
+    color: #ffffff;
 }
 
 #controls {
     display: flex;
     justify-content: center;
     gap: 10px;
+    margin-top: 20px;
 }
 
 #controls button {
-    background-color: #444;
-    color: #fff;
+    background-color: #444444; /* ダークグレーのボタン */
+    color: #ffffff;
     border: none;
     padding: 10px 20px;
     font-size: 18px;
     cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
 }
 
 #controls button:hover {
-    background-color: #666;
+    background-color: #555555; /* ホバー時に少し明るいグレー */
+}
+
+#gameContainer {
+    position: relative;
+}
+
+#tetris {
+    z-index: 1;
+    width: 300px; /* キャンバスの固定幅 */
+    height: 600px; /* キャンバスの固定高さ */
+}
+
+#gridOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 30px 30px; /* マス目のサイズ */
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* ミノのスタイル */
+.mino {
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    border-radius: 3px;
+    background: linear-gradient(145deg, #fff, #ccc);
 }
