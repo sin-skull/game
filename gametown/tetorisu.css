@@ -141,10 +141,3 @@ body {
     z-index: 2;
     pointer-events: none;
 }
-
-/* ミノのスタイル */
-.mino {
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    border-radius: 3px;
-    background: linear-gradient(145deg, #fff, #ccc);
-}
