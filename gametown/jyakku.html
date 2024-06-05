@@ -1,0 +1,36 @@
+<iframe src="header.html" frameborder="0" style="width: 100%; height: 10%;"></iframe>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ブラックジャック</title>
+    <link rel="stylesheet" href="jyakku.css">
+</head>
+<body>
+    <div id="container">
+        <h1>🃏ブラック・ジャック🃏</h1>
+        <p>持ち点: <span id="player-balance">10000</span>点</p>
+        <p>賭け点:
+            <select id="bet-select">
+                <option value="100">100</option>
+                <option value="1000">1000</option>
+                <option value="10000">10000</option>
+            </select>
+        </p>
+        <div id="player-hand">
+            <!-- JavaScriptでプレイヤーのカードを生成してここに挿入 -->
+        </div>
+        <div id="dealer-hand">
+            <!-- JavaScriptでディーラーのカードを生成してここに挿入 -->
+        </div>
+        <p>プレイヤーのスコア: <span id="player-score">0</span></p>
+        <p>ディーラーのスコア: <span id="dealer-score">0</span></p>
+        <button id="deal-button" onclick="startGame()">ディール</button>
+        <button id="hit-button" disabled onclick="hit()">ヒット</button>
+        <button id="stand-button" disabled onclick="stand()">スタンド</button>
+        <div class="game-message" id="game-message"></div>
+    </div>
+
+    <script src="jyakku.js"></script>
+</body>
+</html>

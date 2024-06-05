@@ -1,0 +1,34 @@
+<iframe src="header.html" frameborder="0" style="width: 100%; height: 10%;"></iframe>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    
+    <link rel="stylesheet" href="hai.css">
+</head>
+<body>
+    <div id="header"></div>
+    <h1>High & Low</h1>
+    <div id="gameArea">
+        <div id="Card_img_Before" class="card"></div>
+        <div id="Card_img_After" class="card"></div>
+
+        <p id="Before"></p>
+        <p id="After">次のカードは場にあるカードより高いか低いか考えてみよう！</p>
+        <p id="winningProbability"></p>
+
+        <input type="button" value="High" onclick="High_Low(1);"/>
+        <input type="button" value="Low" onclick="High_Low(0);"/>
+
+        <!-- 賭け点入力欄 -->
+        <div id="betArea">
+            <label for="betInput">賭け点: </label>
+            <input type="number" id="betInput" min="1" max="10000">
+            <p id="pointsDisplay">持ち点: 10000点</p>
+        </div>
+    </div>
+    <script src="hai1.js"> </script>
+   
+</body>
+</html>

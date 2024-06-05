@@ -1,0 +1,104 @@
+
+body { font-family: Arial, sans-serif;
+    background-color: #b5d6b5;
+    text-align: center;
+   
+
+}
+
+h1 {
+font-size: 36px;
+
+text-align: center;
+
+}
+.center { text-align: center; }
+
+.board {
+    display: grid;
+    grid-template: repeat(8, 50px) / repeat(8, 50px);
+    width: 400px;
+    height: 400px;
+    margin: 0 auto;
+}
+
+.cell {
+    width: 50px;
+    height: 50px;
+    border: 1px solid #333;
+    background-color: #99d499;
+    position: relative;
+}
+
+.disc {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.black { background-color: #000; }
+.white { background-color: #fff; }
+
+#gameInfo {
+    margin: 20px;
+    font-size: 18px;
+}
+
+button {
+    display: block;
+    margin: 20px auto;
+   
+    font-size: 16px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+button:hover { background-color: #555; }
+
+.center {
+  text-align: center;
+}
+
+
+.board {
+display: grid;
+grid-template-columns: repeat(8, 50px);
+grid-template-rows: repeat(8, 50px);
+margin: 0 auto; /* 左右の余白を自動的に中央配置 */
+width: 400px; /* オセロ盤の幅を指定 */
+height: 400px; /* オセロ盤の高さを指定 */
+}
+
+
+.cell {
+    width: 50px;
+    height: 50px;
+    border: 1px solid black;
+    position: relative;
+    background-color: rgb(153, 212, 153);
+}
+
+.disc {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    transition: 0;
+}
+
+.black { background-color: black; }
+.white { background-color: white; }
+
+#gameInfo {
+    margin: 20px;
+    font-size: 18px;
+}

@@ -1,0 +1,176 @@
+
+        /* 他のスタイルはそのまま維持 */
+        .card {
+            width: 100px;
+            height: 150px;
+            border: 1px solid #b0afaf;
+            border-radius: 8px;
+            background-color: white;
+            background-image: url('card-texture.png'); /* トランプのテクスチャ画像 */
+            color: #bebebe;
+            font-family: 'Arial', sans-serif;
+            position: relative;
+            display: inline-block;
+            margin: 5px;
+            box-shadow: 0 4px 8px rgba(122, 122, 122, 0.77);
+            transform: scale(0); /* アニメーションの初期状態 */
+            animation: scaleUp 0.5s ease forwards; /* アニメーションの設定 */
+        }
+
+        /* カード表示のアニメーション */
+        @keyframes scaleUp {
+            0% {
+                transform: scale(0);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .number {
+            position: absolute;
+            font-size: 20px;
+        }
+
+        .top-left {
+            top: 5px;
+            left: 5px;
+        }
+
+        .bottom-right {
+            bottom: 5px;
+            right: 5px;
+            transform: rotate(180deg);
+        }
+
+        .suit {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+        }
+
+        .red { color: red; }
+        .black { color: rgb(208, 208, 208); }
+
+        /* ゲームメッセージのスタイル */
+        .game-message {
+            color: #f1c40f;
+            font-size: 24px;
+            margin-top: 10px;
+        }
+        /* 全体のスタイル */
+body {
+    background-color: #3c3c3c;
+    color: white;
+    text-align: center;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    font-size: 36px;
+    margin-bottom: 20px;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 50px;
+}
+
+/* カードのスタイル */
+.card {
+    width: 100px;
+    height: 150px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background-color: #222;
+    color: white;
+    font-size: 18px;
+    position: relative;
+    display: inline-block;
+    margin: 5px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.5s ease; /* カードのアニメーション */
+}
+
+.card:hover {
+    transform: scale(1.1); /* ホバー時にカードを拡大 */
+}
+
+.number {
+    position: absolute;
+    font-size: 20px;
+}
+
+.top-left {
+    top: 10px;
+    left: 10px;
+}
+
+.bottom-right {
+    bottom: 10px;
+    right: 10px;
+    transform: rotate(180deg);
+}
+
+.suit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 30px;
+}
+
+.red { color: #ff5050; }
+.black { color: #333; }
+
+/* ゲームメッセージのスタイル */
+.game-message {
+    color: #f1c40f;
+    font-size: 24px;
+    margin-top: 10px;
+}
+
+/* ボタンのスタイル */
+button {
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 10px 20px;
+    font-size: 18px;
+    margin: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease; /* ボタンのホバーアニメーション */
+}
+
+button:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+}
+
+button:hover {
+    background-color: #848484; /* ホバー時の背景色 */
+}
+
+/* レスポンシブデザイン */
+@media (max-width: 600px) {
+    .card {
+        width: 80px;
+        height: 120px;
+        font-size: 14px;
+    }
+
+    .number {
+        font-size: 16px;
+    }
+
+    .suit {
+        font-size: 24px;
+    }
+}
+
+ 

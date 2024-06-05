@@ -1,0 +1,86 @@
+
+        
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-size: cover;
+            transition: background 0.5s ease;
+            color: rgb(233, 233, 233);
+            padding: 5px;
+            top: 5px;
+        
+        text-shadow: 
+                -1px -1px 0 #000,  
+                1px -1px 0 #000,
+                -1px 1px 0 #000,
+                1px 1px 0 #000;
+       }
+
+        .dice {
+            width: 100px;
+            height: 100px;
+            border: 2px solid rgb(255, 255, 255);
+            display: inline-block;
+            margin: 10px;
+            position: relative;
+            background-color: white;
+        }
+
+        .dot {
+            width: 20px;
+            height: 20px;
+            background-color: black;
+            border-radius: 50%;
+            position: absolute;
+            display: none;
+        }
+
+        .top-left { top: 15px; left: 15px; }
+        .top-right { top: 15px; right: 15px; }
+        .center { top: 40px; left: 40px; }
+        .middle-left { top: 40px; left: 15px; }
+        .middle-right { top: 40px; right: 15px; }
+        .bottom-left { bottom: 15px; left: 15px; }
+        .bottom-right { bottom: 15px; right: 15px; }
+
+        button {
+            background-color: #a4c8a5;
+            color: rgb(0, 0, 0);
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 20px 2px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-size: 20px;
+            color: rgb(255, 185, 9);
+        }
+        #betSelection {
+            margin: 20px;
+            font-size: 16px;
+        }
+        #points {
+            font-size: 20px;
+        }
+        #record {
+            font-size: 24px;
+            color: rgb(255, 0, 0);
+        }
+        #recordTable {
+            font-size: 18px;
+            text-align: left;
+            margin-top: 20px;
+        }
+        /* 追加のスタイル */
+        #specialMessage {
+            font-size: 40px;
+            color: red;
+            display: none; /* 初期状態では非表示 */
+        }
+    

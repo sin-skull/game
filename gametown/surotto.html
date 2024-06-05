@@ -1,0 +1,64 @@
+<iframe src="header.html" frameborder="0" style="width: 100%; height: 10%;"></iframe>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>フルーツスロットゲーム</title>
+
+    <link rel="stylesheet" href="surotto.css">
+</head>
+<body>
+    <h1>フルーツスロットゲーム</h1>
+
+    <div id="slotMachine">
+        <div class="slot" id="slot1">?</div>
+        <div class="slot" id="slot2">?</div>
+        <div class="slot" id="slot3">?</div>
+    </div>
+    <table>
+        <tr>
+            <th>絵柄</th>
+            <th>回数</th>
+            <th>確率 (%)</th>
+        </tr>
+        <tr>
+            <td>🍒</td>
+            <td id="symbol🍒Count">0</td>
+            <td id="symbol🍒Rate">0</td>
+        </tr>
+        <tr>
+            <td>🍋</td>
+            <td id="symbol🍋Count">0</td>
+            <td id="symbol🍋Rate">0</td>
+        </tr>
+        <tr>
+            <td>🍇</td>
+            <td id="symbol🍇Count">0</td>
+            <td id="symbol🍇Rate">0</td>
+        </tr>
+        <tr>
+            <td>🍊</td>
+            <td id="symbol🍊Count">0</td>
+            <td id="symbol🍊Rate">0</td>
+        </tr>
+        <tr>
+            <td>🍉</td>
+            <td id="symbol🍉Count">0</td>
+            <td id="symbol🍉Rate">0</td>
+        </tr>
+        <!-- 他の絵柄の行も同様に追加 -->
+    </table>
+    
+    <button id="spinButton">スピン</button>
+    <button id="spinTenButton">10回連続スピン</button>
+
+    <div id="resultMessage"></div>
+
+    <p id="playerPoints">持ち点: 1000</p>
+
+    <!-- 絵柄の回数と確率を表示する表 -->
+    <script src="surotto.js"></script>
+  
+</body>
+</html>

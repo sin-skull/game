@@ -1,0 +1,112 @@
+
+
+
+<!DOCTYPE html>
+<html lang="ja1">
+<head>
+    <title>運命のチンチロリン</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* 目次のスタイル */
+        .table-of-contents {
+            background-color: #e60012;
+            color: #ffffff;
+            padding: 10px 0;
+            position: fixed; /* 目次を固定 */
+            left: 0;
+            width: 100%;
+            z-index: 100; /* 他の要素より手前に表示 */
+            opacity: 0; /* 初期状態は非表示 */
+            transition: opacity 0.3s ease-in-out; /* アニメーションを追加 */
+            border-radius: 10px; /* 右下の角を丸くする */
+        }
+
+        .table-of-contents ul {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        .table-of-contents li {
+            display: inline;
+            margin: 0 20px;
+        }
+
+        .table-of-contents a {
+            text-decoration: none;
+            color: #ffffff;
+        }
+
+        .table-of-contents a:hover {
+            text-decoration: underline;
+        }
+
+        /* マウスアイコンのスタイル */
+        .mouse-icon {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            color: #e60012;
+            opacity: 0.7;
+            transition: opacity 0.3s ease-in-out;
+        }
+
+        .mouse-icon:hover {
+            opacity: 1;
+        }
+
+        /* 仮のコンテンツ領域を作成 */
+        .content {
+            height: 1000px; /* コンテンツの高さを適宜調整 */
+            margin-top: 50px; /* 目次の高さ分下げる */
+        }
+
+        /* スクロールバーを表示するためのスタイル（適宜調整してください） */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #e60012;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ここから目次 -->
+        <nav class="table-of-contents">
+            <ul>
+                <li><a href="index.html" target="_parent">ホーム</a></li>
+                <li><a href="tintiro.html" target="_parent">チンチロ</a></li>
+                <li><a href="surotto.html" target="_parent">スロット</a></li>
+                <li><a href="jyakku.html" target="_parent">ブラックジャック</a></li>
+                <li><a href="hai.html" target="_parent">ハイアンドロー</a></li>
+                <li><a href="osero.html" target="_parent">オセロ</a></li>
+                <li><a href="tetorisu.html" target="_parent">テトリス</a></li>
+                <li><a href="piano.html" target="_parent">ピアノ</a></li>
+            </ul>
+        </nav>
+        <!-- 目次ここまで -->
+
+    </div>
+
+    <!-- マウスイベントを制御するJavaScriptコード -->
+    <script>
+        const tableOfContents = document.querySelector(".table-of-contents");
+        const container = document.querySelector(".container");
+
+        container.addEventListener("mouseenter", function() {
+            tableOfContents.style.opacity = "0.9"; // マウスが近づいたら目次を表示
+        });
+
+        container.addEventListener("mouseleave", function() {
+            tableOfContents.style.opacity = "0"; // マウスが遠ざかったら目次を非表示
+        });
+    </script>
+</body>
+</html>

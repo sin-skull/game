@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本版テトリス</title>
+    <link rel="stylesheet" href="tetorisu.css">
+</head>
+<body>
+    <div id="titleScreen">
+        <h1>日本版テトリス</h1>
+        <div>
+            <button id="startEasy">簡単</button>
+            <button id="startNormal">普通</button>
+            <button id="startHard">難しい</button>
+        </div>
+        <div>
+            <button id="toggleSound">サウンド: オン</button>
+        </div>
+    </div>
+    <div id="game" style="display:none;">
+        <canvas id="tetris" width="300" height="600"></canvas>
+        <div id="score">スコア: 0</div>
+        <div id="level">レベル: 1</div>
+        <div id="highScore">ハイスコア: 0</div>
+        <button id="pauseButton">一旦停止</button>
+        <canvas id="next" width="150" height="150"></canvas>
+        <canvas id="hold" width="150" height="150"></canvas>
+    </div>
+    <div id="controls" style="display:none;">
+        <button id="leftButton">左</button>
+        <button id="rotateButton">回転</button>
+        <button id="rightButton">右</button>
+        <button id="downButton">下</button>
+        <button id="holdButton">保留</button>
+    </div>
+    <div id="gameOverScreen" style="display:none;">
+        <h1>ゲームオーバー</h1>
+        <button id="retryButton">再挑戦</button>
+    </div>
+    <audio id="moveSound" src="sounds/move.mp3"></audio>
+    <audio id="rotateSound" src="sounds/rotate.mp3"></audio>
+    <audio id="lineClearSound" src="sounds/line_clear.mp3"></audio>
+    <audio id="gameOverSound" src="sounds/game_over.mp3"></audio>
+    <script src="tetorisu.js"></script>
+</body>
+</html>

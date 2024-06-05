@@ -1,0 +1,45 @@
+<iframe src="header.html" frameborder="0" style="width: 100%; height: 10%;"></iframe>
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    
+    <link rel="stylesheet" href="tintiro.css">
+</head>
+
+<body>
+    <h1>運命のチンチロリン</h1>
+    <div class="container">
+        <div id="dice1" class="dice"></div>
+        <div id="dice2" class="dice"></div>
+        <div id="dice3" class="dice"></div>
+        <div id="betSelection">
+            <label for="bet">ポイントを選択:</label>
+            <select id="bet">
+                <option value="10">10点</option>
+                <option value="100">100点</option>
+                <option value="1000">1000点</option>
+                <option value="10000">10000点</option>
+            </select>
+        </div>
+        <button onclick="rollDices()">サイコロを振る</button>
+        <button onclick="rollTenTimes()">10回連続で回転</button>
+        <div id="result"></div>
+        <div id="points">持ち点: 10000点</div>
+        <div id="record">
+            <div>記録:</div>
+            <table id="recordTable">
+                <tr>
+                    <th>役</th>
+                    <th>回数</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script src="tintiro.js"></script>
+    
+</body>
+</html>
+

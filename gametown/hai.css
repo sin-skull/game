@@ -1,0 +1,137 @@
+
+ 
+ /* トランプカードのスタイル */
+ .card {
+    width: 1000px;
+    height: 250px;
+    border: 2px solid #333; /* 枠線を太くして色を設定 */
+    position: relative;
+    display: inline-block;
+    margin: 10px;
+    border-radius: 10px; /* 角を丸くする */
+    font-size: 20px;
+    font-family: 'Arial', sans-serif;
+    background-color: #fff; /* カードの背景色 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); /* 影を追加 */
+}
+
+.number {
+    position: absolute;
+}
+
+.top-left {
+    top: 5px;
+    left: 5px;
+}
+
+.bottom-right {
+    bottom: 5px;
+    right: 5px;
+    transform: rotate(180deg);
+}
+h1{
+color: #ffffff;
+}
+
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        background-color: #464545;
+        color: #333;
+        margin: 0;
+        padding: 10px;
+        top: 5px;
+       
+    }
+    h1 {
+font-size: 36px;
+margin-bottom: 20px;
+
+}
+    #gameArea {
+        background-color: rgba(152, 234, 132, 0.757);
+        padding: 30px 30% 0;
+        border-radius: 10px;
+        box-shadow: 0 0 0px rgba(175, 149, 149, 0.864);
+        display: inline-block;
+        margin: 0px;
+        padding: 10%;
+    }
+   
+    .card {
+        width: 100px;
+        height: 150px;
+        border: 2px solid #a4a0a0;
+        position: relative;
+        display: inline-block;
+        margin: 10px;
+        border-radius: 10px;
+        font-size: 20px;
+        font-family: 'Arial', sans-serif;
+        background-color: #d3d3d3;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .number {
+        position: absolute;
+    }
+
+    .top-left {
+        top: 5px;
+        left: 5px;
+    }
+
+    .bottom-right {
+        bottom: 5px;
+        right: 5px;
+        transform: rotate(180deg);
+    }
+
+    button {
+        background-color: #90e093;
+        color: rgb(20, 20, 20);
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s;
+    }
+
+    button:hover {
+        background-color: #367C2B;
+    }
+
+    #betArea {
+        margin-top: 20px;
+    }
+
+    #betArea label, #betArea input {
+        font-size: 16px;
+        padding: 5px;
+    }
+
+    #pointsDisplay, #winningProbability {
+        margin-top: 15px;
+        font-size: 18px;
+        color: #333;
+    }
+            /* ここに必要なスタイルを記述 */
+            .card {
+        border: 2px solid #333;
+        display: inline-block;
+        margin: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        font-size: 20px;
+        font-family: 'Arial', sans-serif;
+        background-color: #f5f5f5;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+    .number {
+        font-size: 24px;
+        font-weight: bold;
+    }
+    .suit {
+        font-size: 18px;
+    }
