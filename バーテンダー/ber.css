@@ -804,3 +804,144 @@ button{
     display:flex;
   }
 }
+
+
+/* =====================
+   iPhone Safe Area / Notch Fix
+   viewport-fit=cover 前提
+===================== */
+
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+
+/* 横画面iPhoneのノッチ・Dynamic Island対策 */
+#topbar{
+  top:calc(18px + var(--safe-top));
+  left:calc(18px + var(--safe-left));
+  right:calc(18px + var(--safe-right));
+}
+
+/* 選択肢も左右ノッチに入らないようにする */
+#choicePanel{
+  width:min(960px, calc(88% - var(--safe-left) - var(--safe-right)));
+  max-width:calc(100vw - var(--safe-left) - var(--safe-right) - 32px);
+}
+
+/* テキストボックスも左右・下部ホームバーから離す */
+#textbox{
+  width:min(1040px, calc(92% - var(--safe-left) - var(--safe-right)));
+  max-width:calc(100vw - var(--safe-left) - var(--safe-right) - 32px);
+  bottom:calc(22px + var(--safe-bottom));
+  left:calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
+}
+
+/* スコア表示がある場合も安全域へ */
+#scoreChip{
+  right:calc(18px + var(--safe-right));
+  top:calc(72px + var(--safe-top));
+}
+
+/* モーダルもノッチに密着しない */
+.modalBox{
+  max-width:calc(100vw - var(--safe-left) - var(--safe-right) - 32px);
+  max-height:calc(100vh - var(--safe-top) - var(--safe-bottom) - 32px);
+}
+
+/* 回転案内も安全域を考慮 */
+#rotate{
+  padding:
+    calc(32px + var(--safe-top))
+    calc(32px + var(--safe-right))
+    calc(32px + var(--safe-bottom))
+    calc(32px + var(--safe-left));
+}
+
+@media (max-width:900px){
+  #topbar{
+    top:calc(10px + var(--safe-top));
+    left:calc(10px + var(--safe-left));
+    right:calc(10px + var(--safe-right));
+  }
+
+  #choicePanel{
+    width:min(92%, calc(100vw - var(--safe-left) - var(--safe-right) - 24px));
+    max-width:calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
+  }
+
+  #textbox{
+    width:min(94%, calc(100vw - var(--safe-left) - var(--safe-right) - 24px));
+    max-width:calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
+    bottom:calc(12px + var(--safe-bottom));
+    left:calc(50% + (var(--safe-left) - var(--safe-right)) / 2);
+  }
+}
+
+/* iPhone横画面の高さが低い場合の圧縮 */
+@media (orientation:landscape) and (max-height:460px){
+  #topbar{
+    top:calc(8px + var(--safe-top));
+  }
+
+  .brand{
+    padding:6px 9px;
+  }
+
+  .brand-main{
+    font-size:11px;
+  }
+
+  .brand-sub{
+    display:none;
+  }
+
+  .mini{
+    padding:6px 9px;
+    font-size:10px;
+  }
+
+  #choicePanel{
+    bottom:calc(34% + 10px);
+    gap:6px;
+  }
+
+  .choice{
+    padding:8px 10px;
+    font-size:11px;
+    line-height:1.35;
+  }
+
+  #textbox{
+    min-height:96px;
+    max-height:42vh;
+    padding:22px 18px 12px;
+  }
+
+  #speaker{
+    top:-18px;
+    min-width:92px;
+    padding:5px 10px;
+    font-size:10px;
+  }
+
+  #text{
+    font-size:13px;
+    line-height:1.55;
+    max-height:calc(42vh - 64px);
+  }
+
+  #systemLine{
+    margin-top:6px;
+    font-size:9px;
+  }
+
+  #nextMark{
+    right:14px;
+    bottom:8px;
+    font-size:13px;
+  }
+}
+
