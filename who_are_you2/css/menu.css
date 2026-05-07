@@ -1,0 +1,87 @@
+/* 共通Tメニュー */
+#t-menu-overlay{display:none;position:fixed;inset:0;z-index:4200;background:rgba(5,7,14,.64);backdrop-filter:blur(7px);align-items:center;justify-content:center;padding:18px}
+#t-menu-overlay.open{display:flex}
+.t-menu-card{width:min(430px,94vw);background:rgba(10,13,24,.94);border:1px solid rgba(255,255,255,.18);box-shadow:0 26px 80px rgba(0,0,0,.42);border-radius:18px;padding:22px;color:#f4f6ff;font-family:'Noto Serif JP',serif}
+.t-menu-card h2{font-size:18px;letter-spacing:.18em;margin:0 0 6px;font-weight:700}
+.t-menu-card p{margin:0 0 18px;color:rgba(255,255,255,.64);font-size:12px;line-height:1.8;letter-spacing:.06em}
+.t-menu-actions{display:grid;gap:10px}
+.t-menu-actions button{width:100%;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.075);color:#fff;border-radius:11px;padding:13px 14px;font-family:inherit;font-size:14px;letter-spacing:.08em;cursor:pointer;text-align:left}
+.t-menu-actions button:hover{background:rgba(255,255,255,.15)}
+.t-menu-actions button.primary{background:rgba(80,108,205,.58);border-color:rgba(145,165,255,.45)}
+.t-menu-actions button.danger{background:rgba(65,32,42,.62);border-color:rgba(255,150,150,.28)}
+.t-menu-divider{height:1px;background:rgba(255,255,255,.12);margin:16px 0 8px}
+.t-menu-close{margin-top:12px;width:100%;border:0;background:transparent;color:rgba(255,255,255,.56);font-family:inherit;font-size:12px;padding:8px;cursor:pointer;letter-spacing:.08em}
+.t-menu-close:hover{color:#fff}
+
+/* v16: smartphone portrait menu */
+@media (max-width: 640px) and (orientation: portrait) {
+  #t-menu-overlay { padding: 14px; align-items: flex-end; }
+  .t-menu-card {
+    width: 100%;
+    max-height: calc(100svh - 28px);
+    overflow-y: auto;
+    border-radius: 18px 18px 14px 14px;
+    padding: 20px 16px max(16px, env(safe-area-inset-bottom));
+  }
+  .t-menu-actions button { min-height: 46px; font-size: 14px; }
+}
+
+
+/* 常時表示メニューボタン：スマホでもPCでも使う */
+.hamburger-menu-btn{
+  position:fixed;
+  right:max(10px, env(safe-area-inset-right));
+  top:max(10px, env(safe-area-inset-top));
+  transform:none;
+  z-index:4100;
+  width:46px;
+  height:46px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.24);
+  background:rgba(7,11,24,.68);
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  cursor:pointer;
+  box-shadow:0 10px 28px rgba(0,0,0,.28);
+  backdrop-filter:blur(9px);
+  -webkit-backdrop-filter:blur(9px);
+  touch-action:manipulation;
+}
+.hamburger-menu-btn span{
+  display:block;
+  width:20px;
+  height:2px;
+  border-radius:999px;
+  background:rgba(255,255,255,.88);
+  box-shadow:0 0 8px rgba(95,145,255,.32);
+}
+.hamburger-menu-btn:hover,
+.hamburger-menu-btn:focus-visible{
+  background:rgba(28,40,76,.82);
+  border-color:rgba(155,180,255,.48);
+  outline:none;
+}
+body.menu-open .hamburger-menu-btn{
+  background:rgba(60,78,145,.86);
+  border-color:rgba(190,210,255,.58);
+}
+@media (max-width: 640px) and (orientation: portrait) {
+  .hamburger-menu-btn{
+    width:48px;
+    height:48px;
+    right:max(8px, env(safe-area-inset-right));
+    top:max(8px, env(safe-area-inset-top));
+  }
+}
+
+
+/* special.html 専用：メニュー内スキップ */
+.t-menu-actions button.menu-skip{
+  background:rgba(120,94,42,.48);
+  border-color:rgba(245,205,122,.28);
+}
+.t-menu-actions button.menu-skip[hidden]{display:none!important;}

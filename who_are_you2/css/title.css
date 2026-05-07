@@ -1,0 +1,125 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;min-height:100%;background:#051120;color:#f7f4ec;font-family:'Noto Serif JP','Yu Mincho','Hiragino Mincho ProN',serif;overflow:hidden}
+body{position:relative;min-height:100vh;min-height:100svh}
+.title-bg{position:fixed;inset:0;background:#07142a var(--title-bg,url('../logo.png')) center center/cover no-repeat;z-index:0;transition:filter .35s ease,opacity .35s ease}
+.title-bg::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 43%,rgba(7,22,45,.1),rgba(5,12,25,.16) 42%,rgba(0,0,0,.28) 100%);pointer-events:none}
+.title-stage{position:relative;z-index:2;width:100vw;height:100vh;height:100svh;display:flex;align-items:center;justify-content:center;padding:clamp(18px,4vw,56px)}
+.title-panel{width:min(760px,90vw);display:flex;flex-direction:column;align-items:center;gap:clamp(18px,3.2vh,34px);transform:translateY(-1.5vh)}
+.brand{width:100%;text-align:center;filter:drop-shadow(0 14px 32px rgba(0,0,0,.5))}
+.game-title{position:relative;display:inline-flex;align-items:baseline;justify-content:center;gap:.02em;font-size:clamp(58px,9.4vw,150px);font-weight:900;letter-spacing:.03em;line-height:.95;color:#f6f3ed;text-shadow:0 1px 0 rgba(255,255,255,.7),0 0 18px rgba(255,255,255,.18),0 10px 30px rgba(0,0,0,.85);white-space:nowrap}
+.game-title::before,.game-title::after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;opacity:.16;mix-blend-mode:screen}
+.game-title::before{color:#3dd6ff;transform:translate(-2px,1px);clip-path:polygon(0 0,100% 0,100% 42%,0 42%)}
+.game-title::after{color:#e24645;transform:translate(2px,-1px);clip-path:polygon(0 56%,100% 56%,100% 100%,0 100%)}
+.game-title .red{color:#d13a38;text-shadow:0 0 2px rgba(255,255,255,.25),0 0 18px rgba(211,45,45,.24),0 10px 30px rgba(0,0,0,.9)}
+.game-title .q{letter-spacing:0}
+.subtitle{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:clamp(12px,2vh,22px);font-size:clamp(15px,2.1vw,28px);font-weight:600;letter-spacing:.32em;color:rgba(255,250,240,.9);text-shadow:0 0 14px rgba(255,255,255,.12),0 8px 24px rgba(0,0,0,.7)}
+.subtitle::before,.subtitle::after{content:"";display:block;width:clamp(44px,9vw,130px);height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.68),transparent)}
+.menu{width:min(520px,78vw);display:grid;gap:clamp(12px,2.3vh,20px);margin-top:clamp(8px,1.5vh,16px)}
+.menu-btn{height:clamp(58px,9.2vh,88px);border:1px solid rgba(255,255,255,.45);background:linear-gradient(180deg,rgba(10,24,45,.56),rgba(3,9,18,.38));color:#fff;font-family:inherit;font-size:clamp(24px,4.1vw,44px);font-weight:600;letter-spacing:.2em;cursor:pointer;text-shadow:0 0 16px rgba(255,255,255,.22),0 6px 18px rgba(0,0,0,.88);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05),0 18px 42px rgba(0,0,0,.28);backdrop-filter:blur(6px);transition:transform .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease,opacity .16s ease}
+.menu-btn:hover,.menu-btn:focus-visible{transform:translateY(-2px);background:linear-gradient(180deg,rgba(30,61,102,.68),rgba(7,18,36,.48));border-color:rgba(255,255,255,.78);box-shadow:inset 0 0 0 1px rgba(255,255,255,.13),0 0 34px rgba(94,160,255,.18),0 20px 48px rgba(0,0,0,.34);outline:none}
+.menu-btn[disabled]{opacity:.32;cursor:not-allowed;transform:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04),0 12px 30px rgba(0,0,0,.2)}
+.sub-actions{width:min(520px,78vw);display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:clamp(6px,1vh,12px);text-align:center}.sub-actions .wide{grid-column:1/-1}
+.text-btn{border:0;border-top:1px solid rgba(255,255,255,.24);border-bottom:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.015);color:rgba(255,255,255,.86);height:clamp(36px,5.4vh,50px);font-family:inherit;font-size:clamp(14px,1.7vw,20px);letter-spacing:.18em;cursor:pointer;text-shadow:0 0 12px rgba(255,255,255,.12);transition:background .16s ease,color .16s ease,border-color .16s ease}
+.text-btn:hover,.text-btn:focus-visible{background:rgba(255,255,255,.07);color:#fff;border-color:rgba(255,255,255,.5);outline:none}
+.true-movie-btn{display:none;border:1px solid rgba(216,188,111,.48);background:rgba(37,26,8,.42);color:#f0ddb0;padding:12px 20px;font-family:inherit;font-size:clamp(12px,1.6vw,16px);letter-spacing:.16em;cursor:pointer;backdrop-filter:blur(5px);text-shadow:0 0 12px rgba(0,0,0,.8);margin-top:2px}.true-movie-btn:hover{background:rgba(73,51,16,.56);box-shadow:0 0 22px rgba(224,181,92,.14)}
+body.is-clear .true-movie-btn{display:block}
+.clear-only{display:none}
+body.is-clear .clear-only{display:block}
+.save-note{font-size:clamp(12px,1.5vw,15px);letter-spacing:.18em;color:rgba(255,255,255,.68);text-shadow:0 4px 12px rgba(0,0,0,.8);margin-top:2px;grid-column:1/-1}
+body.is-clear .title-bg{filter:saturate(.98) brightness(.9)}body.is-clear .game-title .red{color:#d7b35b;text-shadow:0 0 18px rgba(216,176,81,.22),0 10px 30px rgba(0,0,0,.9)}
+.modal{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.62);backdrop-filter:blur(5px);padding:22px}.modal.open{display:flex}.modal-card{width:min(92vw,640px);border:1px solid rgba(255,255,255,.24);background:linear-gradient(180deg,rgba(14,24,38,.96),rgba(4,8,15,.97));box-shadow:0 28px 80px rgba(0,0,0,.58);padding:clamp(22px,4vw,38px);color:#ece8df}.modal-card h2{font-size:clamp(20px,3vw,30px);letter-spacing:.16em;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.14);padding-bottom:12px}.modal-card p{font-size:clamp(13px,1.7vw,16px);line-height:2;letter-spacing:.05em;color:rgba(244,241,234,.84);margin:12px 0}.modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}.modal-card button{height:46px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);color:#fff;font-family:inherit;font-size:15px;letter-spacing:.14em;cursor:pointer}.modal-card button:hover{background:rgba(255,255,255,.14)}.modal-card .one{grid-column:1/-1}
+.tutorial{z-index:20;background:#000;animation:fadeIn .28s ease forwards}.tutorial .modal-card{background:linear-gradient(180deg,rgba(8,16,28,.98),rgba(0,0,0,.98));border-color:rgba(175,205,255,.22);text-align:left}.tutorial-step{font-size:12px;letter-spacing:.16em;color:rgba(182,209,255,.66);margin-bottom:10px}.tutorial-card-title{font-size:clamp(22px,3.4vw,34px);letter-spacing:.13em;margin-bottom:16px}.tutorial-em{color:#dbe8ff;font-weight:700}.tutorial-hint{border-left:2px solid rgba(130,170,255,.5);padding-left:14px;margin-top:14px;color:rgba(231,239,255,.82)}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+.music-card{width:min(92vw,760px)}
+.music-list{display:grid;gap:10px;margin-top:18px;max-height:min(46vh,420px);overflow:auto;padding-right:4px}
+.music-row{display:grid;grid-template-columns:minmax(0,1fr) 78px 78px 78px;gap:8px;align-items:center;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.045);padding:10px;border-radius:10px}
+.music-name{font-size:14px;letter-spacing:.08em;color:rgba(255,255,255,.88);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.music-row button,.music-save{height:36px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:12px;letter-spacing:.08em;cursor:pointer;border-radius:8px}
+.music-row button:hover,.music-save:hover{background:rgba(255,255,255,.16)}
+.clear-info-list{margin:16px 0 0;padding-left:1.3em;color:rgba(244,241,234,.86);line-height:2;letter-spacing:.05em;font-size:14px}
+@media(max-width:620px){.music-row{grid-template-columns:1fr 1fr 1fr}.music-name{grid-column:1/-1}.music-row button,.music-save{height:38px}}
+
+@media(max-width:720px){.title-panel{transform:translateY(-.5vh);gap:16px}.game-title{font-size:clamp(46px,13vw,82px)}.subtitle{letter-spacing:.18em;font-size:clamp(13px,3.4vw,20px);gap:10px}.subtitle::before,.subtitle::after{width:42px}.menu{width:min(86vw,430px)}.menu-btn{font-size:clamp(22px,6vw,32px);height:62px}.sub-actions{width:min(78vw,360px)} }
+/* v16: smartphone portrait title layout */
+@media (max-width: 640px) and (orientation: portrait) {
+  html, body { overflow: hidden; }
+  .title-bg { background-position: center center; }
+  .title-bg::after { background: radial-gradient(circle at 50% 32%,rgba(7,22,45,.04),rgba(5,12,25,.22) 46%,rgba(0,0,0,.36) 100%); }
+  .title-stage {
+    align-items: flex-start;
+    justify-content: center;
+    padding: max(28px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .title-panel {
+    width: 100%;
+    min-height: calc(100svh - 56px);
+    justify-content: center;
+    gap: 18px;
+    transform: none;
+  }
+  .game-title {
+    font-size: clamp(42px, 15vw, 64px);
+    letter-spacing: .015em;
+    white-space: nowrap;
+  }
+  .subtitle {
+    margin-top: 12px;
+    font-size: clamp(13px, 4vw, 17px);
+    letter-spacing: .14em;
+    gap: 8px;
+  }
+  .subtitle::before,.subtitle::after { width: 30px; }
+  .menu {
+    width: min(100%, 360px);
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .menu-btn {
+    height: 58px;
+    font-size: clamp(22px, 7vw, 30px);
+    letter-spacing: .14em;
+    border-radius: 13px;
+  }
+  .sub-actions {
+    width: min(100%, 360px);
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .text-btn {
+    height: 44px;
+    font-size: 14px;
+    letter-spacing: .12em;
+    border-radius: 10px;
+  }
+  .autosave-note {
+    font-size: 11px;
+    line-height: 1.7;
+    padding: 0 8px;
+  }
+  .modal-card {
+    width: min(94vw, 420px);
+    max-height: calc(100svh - 34px);
+    overflow-y: auto;
+    padding: 22px 18px;
+    border-radius: 16px;
+  }
+  .music-card { width: min(94vw, 520px); }
+  .music-list { max-height: 46svh; }
+  .music-row { grid-template-columns: 1fr 1fr 1fr; padding: 9px; }
+  .music-name { grid-column: 1 / -1; font-size: 13px; }
+}
+
+/* v17: smartphone portrait uses dedicated vertical title backgrounds */
+@media (max-width: 640px) and (orientation: portrait) {
+  .title-bg {
+    background-image: var(--mobile-title-bg, var(--title-bg, url('../logo.png')));
+    background-size: cover;
+    background-position: center center;
+  }
+  body.is-clear .title-bg {
+    background-image: var(--mobile-clear-bg, var(--mobile-title-bg, var(--title-bg, url('../logo.png'))));
+  }
+}

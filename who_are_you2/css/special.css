@@ -1,0 +1,237 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Serif JP',serif;background:#000;color:#e8e0d0;min-height:100vh;overflow:hidden}
+
+/* 背景 */
+#scene-bg{position:fixed;inset:0;z-index:0;background:#000}
+#scene-bg:after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.12);pointer-events:none}
+.bg-layer{position:absolute;inset:0;background-size:contain;background-position:center center;background-repeat:no-repeat;background-color:#000;transition:opacity .5s ease}
+#bg-a{opacity:1}#bg-b{opacity:0}
+
+/* プレイヤーUI */
+#player-ui{
+  position:fixed;z-index:30;
+  left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  display:flex;align-items:center;gap:16px;
+  background:rgba(0,0,0,.65);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:40px;
+  padding:10px 22px;
+  backdrop-filter:blur(8px);
+  opacity:0;
+  transition:opacity .35s ease;
+  pointer-events:none;
+}
+#player-ui.visible{opacity:1;pointer-events:auto;}
+
+#play-pause-btn{
+  width:40px;height:40px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.35);
+  background:rgba(255,255,255,.12);
+  color:#fff;font-size:15px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  transition:background .2s;
+}
+#play-pause-btn:hover{background:rgba(255,255,255,.28);}
+#title-return-btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:rgba(255,255,255,.82);border-radius:999px;padding:8px 14px;font-size:11px;letter-spacing:.12em;cursor:pointer;white-space:nowrap}
+#title-return-btn:hover{background:rgba(255,255,255,.18);color:#fff}
+
+#progress-wrap{
+  width:clamp(120px,20vw,260px);
+  height:3px;background:rgba(255,255,255,.2);
+  border-radius:2px;overflow:hidden;
+}
+#progress-bar{height:100%;background:rgba(255,255,255,.75);width:0;transition:width .25s linear;}
+
+#esc-hint{font-size:11px;letter-spacing:.13em;color:rgba(255,255,255,.4);white-space:nowrap;}
+
+/* 字幕 */
+#container{
+  position:fixed;z-index:20;
+  left:50%;bottom:4vh;
+  transform:translateX(-50%);
+  width:100%;max-width:min(820px,96vw);
+  padding:0 clamp(10px,3vw,22px) clamp(8px,1.5vh,14px);
+  /* クリック進行時に字幕ボックスの位置が毎行変わらないよう、表示枠を固定する */
+  min-height:clamp(116px,17vh,156px);
+}
+#story{
+  position:relative;text-align:center;
+  width:100%;
+  height:clamp(86px,13vh,124px);
+  min-height:clamp(86px,13vh,124px);
+  max-height:clamp(86px,13vh,124px);
+  padding:clamp(10px,2vh,16px) clamp(16px,4vw,40px);
+  font-size:clamp(14px,2.1vw,18px);
+  line-height:2;letter-spacing:.06em;
+  user-select:none;
+  text-shadow:0 1px 10px rgba(0,0,0,1),0 0 30px rgba(0,0,0,.9);
+  background:rgba(0,0,0,.55);
+  border-top:1px solid rgba(255,255,255,.07);
+  display:flex;align-items:center;justify-content:center;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-width:thin;
+  opacity:0;
+  pointer-events:none;
+  transition:background .2s ease,border-color .2s ease;
+}
+#story.has-text{opacity:1;pointer-events:auto;}
+
+#story.fade-out{opacity:1;}
+
+#choices{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+#choices button{
+  width:100%;text-align:left;
+  border:1px solid rgba(220,210,235,.28);border-radius:4px;
+  background:rgba(255,255,255,.07);color:#d7cdea;
+  padding:clamp(14px,2.2vh,20px) clamp(18px,4vw,28px);
+  font-size:clamp(14px,2vw,17px);font-family:inherit;line-height:1.6;
+  cursor:pointer;backdrop-filter:blur(4px);
+}
+#choices button:hover:not(.locked){background:rgba(220,210,235,.15);transform:translateX(4px)}
+#choices button.locked{opacity:.35;cursor:default;font-style:italic}
+#scene-indicator{display:none}
+
+/* エンドロール */
+#endroll{display:none;position:fixed;inset:0;background:rgba(5,5,12,.95);z-index:100;color:#eee;overflow:hidden}
+#endroll.open{display:block}
+.roll-layout{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(240px,.9fr);gap:28px;padding:7vh 7vw}
+.roll-left{position:relative;overflow:hidden}
+.roll-lines{position:absolute;left:0;right:0;top:100%;text-align:left;animation:rollUp 34s linear forwards}
+.roll-lines p{font-size:clamp(15px,2vw,22px);line-height:2.1;letter-spacing:.08em}
+.roll-right{display:flex;align-items:center;justify-content:center}
+.roll-frame{width:min(36vw,360px);height:min(52vh,360px);border:1px solid rgba(255,255,255,.18);background:#000;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.roll-frame img{width:100%;height:100%;object-fit:contain;display:block;opacity:.94;background:#000}
+@keyframes rollUp{from{top:100%}to{top:-150%}}
+#endroll-note{position:fixed;left:0;right:0;bottom:18px;text-align:center;font-size:12px;color:rgba(255,255,255,.45);letter-spacing:.12em}
+@media(max-width:720px){.roll-layout{grid-template-columns:1fr .75fr;gap:12px;padding:8vh 5vw}.roll-frame{width:34vw;height:46vh}.roll-lines p{font-size:13px}}
+
+/* リザルト */
+#complete-panel{display:none;position:fixed;inset:0;z-index:120;background:rgba(5,5,12,.96);color:#eee;align-items:center;justify-content:center;text-align:center;padding:7vh 8vw}
+#complete-panel.open{display:flex}
+.complete-card{max-width:760px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);padding:clamp(24px,5vw,46px);box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.complete-card h2{font-size:clamp(22px,4vw,38px);letter-spacing:.18em;margin-bottom:22px}
+.complete-score{font-size:clamp(16px,2.5vw,24px);line-height:2;margin:16px 0}
+.complete-note{font-size:clamp(12px,1.8vw,15px);line-height:2;color:rgba(255,255,255,.66);margin-top:22px}
+.complete-special{margin-top:18px;font-size:clamp(14px,2vw,18px);letter-spacing:.12em;color:#f0d6a0}
+
+
+.complete-unlocks,.complete-secret{margin-top:18px;text-align:left;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.045);padding:16px 18px}
+.complete-unlocks h3,.complete-secret h3{font-size:14px;letter-spacing:.16em;color:#f0d6a0;margin-bottom:12px;text-align:center}
+.unlock-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;border-top:1px solid rgba(255,255,255,.09);padding:10px 0;font-size:13px;line-height:1.7;color:rgba(255,255,255,.78)}
+.unlock-row:first-of-type{border-top:0}
+.unlock-row strong{color:#fff;letter-spacing:.08em}
+.complete-secret p{font-size:13px;line-height:1.9;color:rgba(255,255,255,.72);letter-spacing:.06em;text-align:center}
+@media(max-width:620px){.unlock-row{grid-template-columns:1fr;gap:3px}.complete-unlocks,.complete-secret{padding:14px}}
+
+/* 再生方法選択：Spaceキーを押した時だけ表示 */
+#play-mode-overlay{
+  position:fixed;inset:0;z-index:220;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.62);backdrop-filter:blur(6px);
+}
+#play-mode-overlay.open{display:flex}
+.play-mode-card{
+  width:min(520px,92vw);
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(8,8,14,.92);
+  box-shadow:0 28px 80px rgba(0,0,0,.55);
+  padding:28px;
+  text-align:center;
+}
+.play-mode-card h2{font-size:20px;letter-spacing:.16em;margin-bottom:12px;color:#fff}
+.play-mode-card p{font-size:13px;line-height:1.9;color:rgba(255,255,255,.66);margin-bottom:20px}
+.play-mode-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.play-mode-actions button{
+  border:1px solid rgba(255,255,255,.24);
+  background:rgba(255,255,255,.08);
+  color:#fff;
+  padding:14px 12px;
+  font-family:inherit;
+  font-size:14px;
+  letter-spacing:.08em;
+  cursor:pointer;
+}
+.play-mode-actions button:hover{background:rgba(255,255,255,.18)}
+.play-mode-close{margin-top:14px;background:transparent!important;color:rgba(255,255,255,.55)!important;border:0!important;font-size:12px!important;padding:6px!important}
+@media(max-width:560px){.play-mode-actions{grid-template-columns:1fr}}
+/* v16: smartphone portrait movie/story layout */
+@media (max-width: 640px) and (orientation: portrait) {
+  body { min-height: 100svh; overflow: hidden; }
+  /* v18: スマホ縦では画像の横幅を画面に合わせる。縦に余白が出る場合は、その余白を字幕領域として使う。 */
+  .bg-layer { background-size: 100% auto; background-position: center center; }
+  #player-ui {
+    top: max(14px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100vw - 24px);
+    max-width: 430px;
+    gap: 9px;
+    padding: 8px 10px;
+    border-radius: 20px;
+  }
+  #progress-wrap { flex: 1; width: auto; min-width: 70px; }
+  #esc-hint { font-size: 10px; letter-spacing: .08em; }
+  #play-pause-btn { width: 36px; height: 36px; }
+  #container {
+    bottom: max(14px, env(safe-area-inset-bottom));
+    max-width: 100vw;
+    padding: 0 12px;
+    min-height: 162px;
+  }
+  #story {
+    height: 132px;
+    min-height: 132px;
+    max-height: 132px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.9;
+    border-radius: 13px;
+    border: 1px solid rgba(255,255,255,.1);
+    background: rgba(0,0,0,.62);
+  }
+  #choices {
+    gap: 8px;
+    margin-top: 10px;
+  }
+  #choices button {
+    padding: 13px 14px;
+    font-size: 14px;
+    border-radius: 11px;
+  }
+  .roll-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 6vh 6vw 10vh;
+  }
+  .roll-left { flex: 1; min-height: 44vh; }
+  .roll-right { flex: 0 0 auto; }
+  .roll-frame { width: min(68vw, 260px); height: min(34vh, 220px); }
+  .roll-lines p { font-size: 13px; line-height: 2.2; }
+  #endroll-note { bottom: max(14px, env(safe-area-inset-bottom)); font-size: 11px; }
+  #complete-panel { padding: max(18px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)); }
+  .complete-card {
+    width: 100%;
+    max-height: calc(100svh - 32px);
+    overflow-y: auto;
+    padding: 22px 16px;
+    border-radius: 14px;
+  }
+  .complete-card h2 { font-size: 24px; }
+  .complete-score { font-size: 16px; line-height: 1.8; }
+  .complete-unlocks,.complete-secret { padding: 13px; }
+  .play-mode-card { width: min(92vw, 420px); padding: 22px 18px; border-radius: 16px; }
+}
+
+
+/* v20: 操作は右上☰メニューに集約。中央の停止/進行UIは使わない。 */
+#player-ui{display:none!important;}
+
+@media (max-width: 640px) and (orientation: portrait) {
+  /* 画像は横幅基準のまま、画面中央に配置する */
+  .bg-layer { background-size: 100% auto; background-position: center center; }
+}
