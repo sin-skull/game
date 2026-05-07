@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お前は誰だ？</title>
+
+<link rel="stylesheet" href="css/special.css">
+<link rel="stylesheet" href="css/menu.css">
+</head>
+<body data-bgm="audio/シーン１.mp3">
+<div id="scene-bg"><div id="bg-a" class="bg-layer"></div><div id="bg-b" class="bg-layer"></div></div>
+
+<div id="player-ui">
+  <button id="play-pause-btn" type="button" aria-label="再生/停止">⏸</button>
+  <div id="progress-wrap"><div id="progress-bar"></div></div>
+  <button id="skip-btn" type="button" style="display:none;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.7);border-radius:4px;padding:6px 14px;font-size:11px;letter-spacing:.14em;cursor:pointer;">SKIP</button>
+  <span id="esc-hint">☰ボタン / Tキーでメニュー</span>
+</div>
+
+<main id="container">
+  <div id="story"></div>
+  <div id="choices"></div>
+  <div id="scene-indicator"></div>
+</main>
+
+<section id="endroll">
+  <div class="roll-layout">
+    <div class="roll-left"><div id="roll-lines" class="roll-lines"></div></div>
+    <div class="roll-right"><div class="roll-frame"><img id="roll-img" src="" alt=""></div></div>
+  </div>
+  <div id="endroll-note">クリックでスキップできます。</div>
+</section>
+
+<section id="complete-panel">
+  <div class="complete-card">
+    <h2 id="complete-heading">RESULT</h2>
+    <div id="complete-score" class="complete-score"></div>
+    <div id="complete-special" class="complete-special"></div>
+    <div id="complete-unlocks" class="complete-unlocks"></div>
+    <div id="complete-secret" class="complete-secret"></div>
+    <div id="complete-note" class="complete-note">右上の☰ボタン、またはTキーでメニューを開きます。</div>
+  </div>
+</section>
+
+
+<section id="play-mode-overlay" aria-hidden="true">
+  <div class="play-mode-card">
+    <h2>再生方法</h2>
+    <p>Spaceキーでこの画面を開けます。<br>クリックで1文ずつ進めるか、自動再生するかを選んでください。</p>
+    <div class="play-mode-actions">
+      <button id="mode-click-btn" type="button">クリックで進める</button>
+      <button id="mode-auto-btn" type="button">自動再生</button>
+    </div>
+    <button id="mode-close-btn" class="play-mode-close" type="button">閉じる</button>
+  </div>
+</section>
+
+<button id="hamburger-menu-btn" class="hamburger-menu-btn" type="button" onclick="toggleTMenu()" aria-label="メニューを開く" aria-controls="t-menu-overlay" aria-expanded="false">
+  <span></span><span></span><span></span>
+</button>
+
+<section id="t-menu-overlay" aria-hidden="true">
+  <div class="t-menu-card" role="dialog" aria-label="ゲームメニュー">
+    <h2>MENU</h2>
+    <p>右上の☰ボタン、またはTキーで開閉します。ここからスキップ・移動先・音量を選びます。</p>
+    <div class="t-menu-actions">
+      <button id="menu-skip-btn" type="button" class="menu-skip" onclick="skipCurrentSceneFromMenu()" hidden>このシーンをスキップ</button>
+      <button type="button" class="primary" onclick="goMain()">検索欄へ戻る</button>
+      <button type="button" class="danger" onclick="goTitle()">タイトルへ戻る</button>
+    </div>
+    <div class="t-menu-divider"></div>
+    <div id="bgm-mount"></div>
+    <button type="button" class="t-menu-close" onclick="closeTMenu()">閉じる</button>
+  </div>
+</section>
+
+<script src="js/bgm.js"></script>
+<script src="js/gameData.js"></script>
+<script src="js/menu.js"></script>
+<script src="js/special.js"></script>
+</body>
+</html>

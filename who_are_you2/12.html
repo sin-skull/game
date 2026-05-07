@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お前は誰だ？</title>
+
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/menu.css">
+</head>
+<body data-bgm="audio/お前は誰だ検索.mp3">
+<div id="browser-shell">
+    <header id="site-head">
+        <div id="logo-row"><h1 id="game-title">お前は誰だ？</h1></div>
+        <div id="input-area">
+            <input type="text" id="userInput" placeholder="キーワードを入力..." autocomplete="off">
+            <button id="check-btn" onclick="checkAnswer()">検索</button>
+        </div>
+        <div id="search-suggest" aria-label="検索候補">
+            <div class="suggest-label">検索履歴</div>
+            <div id="searchHistoryList"></div>
+        </div>
+    </header>
+
+    <div id="page-body">
+        <aside id="left-rail">
+            <section id="progress-section" class="portal-box">
+                <div id="progress-label"><span>達成率</span></div>
+                <div id="progressBar"><div id="progressFill"></div></div>
+            </section>
+            <section id="secret-progress-section" class="portal-box">
+                <div id="progress-label"><span>裏達成度</span></div>
+                <div id="secretProgressBar"><div id="secretProgressFill"></div></div>
+                <div id="secretProgressText">未集計</div>
+            </section>
+            <section id="voice-memo-section" class="portal-box">
+                <div class="portal-title">ボイスメモ</div>
+                <div id="voiceMemoList">
+                    <button class="voice-memo-btn" type="button" onclick="openVoiceMemoWindow()">
+                        <small>VOICE / PLAYER LOG</small>
+                        感染PLAYERの反応を見る
+                    </button>
+                </div>
+            </section>
+        </aside>
+
+        <main id="center-column">
+            <div id="response"></div>
+            <div id="articleList"></div>
+            <!-- タイトル/続きから/はじめから等の導線は title.html 側へ移動。☰ボタン / Tキーでメニュー表示。 -->
+        </main>
+
+        <aside id="side-rail" aria-label="広告エリア">
+            <div id="introAdStatus">AD確認 0 / 3</div>
+            <button class="ad-box" type="button" onclick="openIntroAd('virus_reason')">
+                <span class="ad-pr">AD</span>
+                <strong>検索窓が閉じられない方へ</strong>
+                <small>この画面でプレイしている理由</small>
+            </button>
+            <button class="ad-box ad-blue" type="button" onclick="openIntroAd('article_guide')">
+                <span class="ad-pr">AD</span>
+                <strong>投下記事を確認してください</strong>
+                <small>次に検索すべき言葉は、記事の中に残されています。</small>
+            </button>
+            <div id="linkedHintAd" style="display:none;"></div>
+            <div id="clearAdArea" aria-label="クリア後広告エリア"></div>
+            <button class="ad-box ad-dark" type="button" onclick="openIntroAd('isolation_notice')">
+                <span class="ad-pr">AD</span>
+                <strong>感染した検索エンジンを隔離中</strong>
+                <small>外部の履歴や個人情報は取得しません。</small>
+            </button>
+        </aside>
+    </div>
+</div>
+
+<div id="movie-overlay" aria-hidden="true">
+    <div id="movie-frame" role="dialog" aria-label="TRUE ROUTE MOVIE">
+        <div id="movie-visual" class="no-image"></div>
+        <section id="movie-panel">
+            <header id="movie-head">
+                <div id="movie-kicker">TRUE ROUTE MOVIE</div>
+                <div id="movie-title">復元された記憶データ</div>
+            </header>
+            <div id="movie-text"></div>
+            <div id="movie-count">0 / 0</div>
+            <div id="movie-controls">
+                <button class="movie-control-btn" type="button" onclick="closeTrueRouteMovie()">閉じる</button>
+                <button id="movie-auto-btn" class="movie-control-btn" type="button" onclick="toggleMovieAuto()">AUTO</button>
+                <button class="movie-control-btn primary" type="button" onclick="nextMovieLine()">次へ</button>
+            </div>
+        </section>
+    </div>
+</div>
+
+<button id="hamburger-menu-btn" class="hamburger-menu-btn" type="button" onclick="toggleTMenu()" aria-label="メニューを開く" aria-controls="t-menu-overlay" aria-expanded="false">
+  <span></span><span></span><span></span>
+</button>
+
+<section id="t-menu-overlay" aria-hidden="true">
+  <div class="t-menu-card" role="dialog" aria-label="ゲームメニュー">
+    <h2>MENU</h2>
+    <p>右上の☰ボタン、またはTキーで開閉します。ここから移動先と音量を選びます。</p>
+    <div class="t-menu-actions">
+      <button type="button" class="primary" onclick="tMenuFocusSearch()">検索欄へ戻る</button>
+      <button type="button" class="danger" onclick="goTitle()">タイトルへ戻る</button>
+    </div>
+    <div class="t-menu-divider"></div>
+    <div id="bgm-mount"></div>
+    <button type="button" class="t-menu-close" onclick="closeTMenu()">閉じる</button>
+  </div>
+</section>
+
+<script src="js/bgm.js"></script>
+<script src="js/gameData.js"></script>
+<script src="js/menu.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

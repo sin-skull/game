@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>お前は誰だ？｜タイトル</title>
+
+<link rel="stylesheet" href="css/title.css">
+</head>
+<body data-bgm="audio/お前は誰だタイトル.mp3">
+<div class="title-bg" aria-hidden="true"></div>
+<main class="title-stage" aria-label="お前は誰だ？ タイトル画面">
+  <section class="title-panel">
+    <header class="brand">
+      <h1 class="game-title" data-text="お前は誰だ？"><span>お前は</span><span class="red">誰</span><span class="q">だ？</span></h1>
+      <p class="subtitle">検索型記憶復元ノベル</p>
+    </header>
+    <nav class="menu" aria-label="タイトルメニュー">
+      <button id="startBtn" class="menu-btn" type="button">はじめから</button>
+      <button id="continueBtn" class="menu-btn" type="button">続きから</button>
+    </nav>
+    <div class="sub-actions">
+      <button id="helpBtn" class="text-btn" type="button">操作説明</button>
+      <button id="volumeBtn" class="text-btn" type="button">音量設定</button>
+      <button id="musicBtn" class="text-btn clear-only" type="button">MUSIC</button>
+      <button id="trueMovieBtn" class="true-movie-btn wide" type="button">TRUE ROUTE MOVIE</button>
+      <p class="save-note">※オートセーブ対応</p>
+    </div>
+  </section>
+</main>
+<section id="helpModal" class="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="操作説明">
+    <h2>操作説明</h2>
+    <p>記事やADを確認し、そこに残された言葉を検索欄へ入力すると物語が進みます。</p>
+    <p>本編はオートセーブです。途中から再開する場合は「続きから」を選んでください。</p>
+    <p>本編中は画面右端の <strong>☰ボタン</strong>、またはPCの <strong>Tキー</strong> で、検索欄へ戻る・タイトルへ戻る・音量設定をまとめたメニューが開きます。ESCキーはブラウザのフルスクリーン解除と衝突するため使いません。</p>
+    <div class="modal-actions"><button id="closeHelpBtn" class="one" type="button">閉じる</button></div>
+  </div>
+</section>
+<section id="volumeModal" class="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="音量設定">
+    <h2>音量設定</h2>
+    <p>本編中に右上ボタンは出しません。音量はここで調整します。</p>
+    <div id="bgm-mount"></div>
+    <div class="modal-actions"><button id="closeVolumeBtn" class="one" type="button">閉じる</button></div>
+  </div>
+</section>
+<section id="musicModal" class="modal" aria-hidden="true">
+  <div class="modal-card music-card" role="dialog" aria-modal="true" aria-label="Music Player">
+    <h2>MUSIC PLAYER</h2>
+    <p>クリア後に解放される作中BGMプレイヤーです。再生はゲーム内、保存は各曲の「保存」から行えます。</p>
+    <div id="musicList" class="music-list"></div>
+    <div class="modal-actions"><button id="closeMusicBtn" class="one" type="button">閉じる</button></div>
+  </div>
+</section>
+<section id="clearInfoModal" class="modal" aria-hidden="true">
+  <div class="modal-card clear-info-card" role="dialog" aria-modal="true" aria-label="クリア後の変化">
+    <h2>クリア後の変化</h2>
+    <p>ここでは、解放された機能だけを表示します。未発見の隠し要素の答えは表示しません。</p>
+    <ul class="clear-info-list">
+      <li>タイトル画面の背景が、クリア後専用画像に変化します。</li>
+      <li>TRUE ROUTE MOVIE がタイトルから再生できます。</li>
+      <li>MUSIC PLAYER が解放されます。</li>
+      <li>検索欄側に CLEAR AD と裏達成度が表示されます。</li>
+      <li>裏達成度の未発見内容は、見つけるまで秘密のままです。</li>
+    </ul>
+    <div class="modal-actions"><button id="closeClearInfoBtn" class="one" type="button">閉じる</button></div>
+  </div>
+</section>
+<section id="tutorialModal" class="modal tutorial" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="開始前チュートリアル">
+    <div id="tutorialStep" class="tutorial-step">01 / 03</div>
+    <h2 id="tutorialTitle" class="tutorial-card-title">このゲームの進め方</h2>
+    <p id="tutorialText"></p>
+    <p id="tutorialHint" class="tutorial-hint"></p>
+    <div class="modal-actions">
+      <button id="tutorialBackBtn" type="button">戻る</button>
+      <button id="tutorialNextBtn" type="button">次へ</button>
+    </div>
+  </div>
+</section>
+<script src="js/bgm.js"></script>
+<script src="js/title.js"></script>
+</body>
+</html>
