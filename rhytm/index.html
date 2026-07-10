@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RHYTHM FEEL - プレイ実機</title>
+    <style>
+        body {
+            margin: 0; background-color: #111; color: #fff;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            user-select: none; -webkit-user-select: none; touch-action: none;
+        }
+        h1 { font-size: 1.5rem; text-align: center; color: #00ffcc; margin: 20px 0; letter-spacing: 2px; }
+        
+        .btn {
+            background: #00ffcc; color: #000; font-weight: bold; font-size: 1.2rem;
+            padding: 15px; border: none; border-radius: 8px; cursor: pointer; text-align: center;
+            transition: 0.2s; box-shadow: 0 4px 10px rgba(0,255,204,0.2);
+        }
+        .btn:active { background: #00cc99; transform: translateY(2px); box-shadow: none; }
+        .btn-cancel { background: #444; color: #fff; box-shadow: none; }
+        .btn-cancel:active { background: #333; }
+
+        /* ロード画面 */
+        #load-screen {
+            display: flex; flex-direction: column; flex: 1; padding: 20px; justify-content: center;
+            align-items: center; max-width: 600px; margin: 0 auto; width: 100%; text-align: center;
+        }
+        .file-input-wrapper {
+            position: relative; overflow: hidden; display: inline-block; margin-top: 20px;
+        }
+        .file-input-wrapper input[type=file] {
+            font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer;
+        }
+
+        /* 選曲画面 */
+        #select-screen {
+            display: none; flex-direction: column; flex: 1; padding: 20px; box-sizing: border-box;
+            max-width: 600px; margin: 0 auto; width: 100%; align-items: center;
+        }
+        .song-list { width: 100%; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .song-btn {
+            background: #222; border: 1px solid #444; border-radius: 10px; padding: 20px;
+            text-align: left; cursor: pointer; transition: 0.2s;
+        }
+        .song-btn:active { background: #333; border-color: #00ffcc; }
+        .song-title { font-size: 1.3rem; color: #fff; font-weight: bold; margin-bottom: 5px; }
+        .song-bpm { font-size: 0.9rem; color: #00ffcc; }
+
+        /* ポップアップUI */
+        #popup-overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+        }
+        .popup-box {
+            background: #1a1a1a; border: 2px solid #00ffcc; border-radius: 15px;
+            width: 80%; max-width: 400px; padding: 30px; text-align: center;
+            box-shadow: 0 0 20px rgba(0,255,204,0.3);
+        }
+        #popup-title { font-size: 1.5rem; color: #fff; margin-bottom: 10px; font-weight: bold; }
+        #popup-desc { font-size: 1rem; color: #aaa; margin-bottom: 30px; line-height: 1.5; white-space: pre-wrap; }
+        .popup-buttons { display: flex; gap: 10px; }
+        .popup-buttons .btn { flex: 1; }
+
+        /* プレイ画面 */
+        #play-screen {
+            display: none; flex-direction: column; flex: 1; position: relative;
+            justify-content: center; align-items: center; background: #1a1a1a;
+        }
+        #feedback {
+            font-size: 3rem; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: transform 0.1s; position: absolute; z-index: 10;
+        }
+        #combo-display {
+            position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #aaa;
+        }
+        #info-text {
+            position: absolute; bottom: 20px; font-size: 1rem; color: #666; text-align: center;
+        }
+        
+        /* リザルト画面 */
+        #result-screen {
+            display: none; flex-direction: column; flex: 1; padding: 20px;
+            justify-content: center; align-items: center; background: #111;
+        }
+        #result-rank { font-size: 5rem; font-weight: bold; margin: 10px 0 30px 0; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+        #result-eval { font-size: 1.2rem; color: #fff; margin-bottom: 40px; text-align: center; line-height: 1.6; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+    <div id="load-screen">
+        <h1>RHYTHM FEEL</h1>
+        <p style="color:#aaa; line-height:1.5;">
+            プレイする楽曲データ（.json）を<br>選択して読み込んでください。<br>
+            ※複数選択可能です。
+        </p>
+        <div class="file-input-wrapper">
+            <button class="btn">楽曲ファイルを追加</button>
+            <input type="file" id="json-upload" accept=".json" multiple>
+        </div>
+    </div>
+
+    <div id="select-screen">
+        <h1>SELECT STAGE</h1>
+        <div class="song-list" id="song-list-container">
+            </div>
+    </div>
+
+    <div id="popup-overlay">
+        <div class="popup-box">
+            <div id="popup-title">楽曲タイトル</div>
+            <div id="popup-desc">説明</div>
+            <div class="popup-buttons">
+                <div class="btn btn-cancel" id="btn-cancel">キャンセル</div>
+                <div class="btn" id="btn-start">ゲーム開始</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="play-screen">
+        <div id="combo-display">Combo: 0</div>
+        <div id="feedback"></div>
+        <div id="info-text">画面のどこかをタップ！</div>
+    </div>
+
+    <div id="result-screen">
+        <h2 style="color:#00ffcc; margin:0;">RESULT</h2>
+        <div id="result-rank">S</div>
+        <div id="result-eval">評価コメント</div>
+        <div class="btn" id="btn-retry" style="width: 200px;">選曲に戻る</div>
+    </div>
+
+<script>
+let songDatabase = []; // ロードされた楽曲を格納
+
+// グローバル変数
+let audioCtx = null;
+let startTime = 0;
+let isPlaying = false;
+let nodes = [];
+let combo = 0;
+let isPeakFailed = false;
+let currentSong = null;
+let stats = { perfect: 0, great: 0, good: 0, miss: 0 };
+let beatLen = 0, measureLen = 0, PRE_ROLL_SEC = 0;
+
+const loadScreen = document.getElementById('load-screen');
+const selectScreen = document.getElementById('select-screen');
+const popupOverlay = document.getElementById('popup-overlay');
+const playScreen = document.getElementById('play-screen');
+const resultScreen = document.getElementById('result-screen');
+const feedbackEl = document.getElementById('feedback');
+const comboEl = document.getElementById('combo-display');
+
+// --- JSONファイルの読み込み処理 ---
+document.getElementById('json-upload').addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    let loadedCount = 0;
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const songData = JSON.parse(event.target.result);
+                // コメントのデフォルト値を設定（データ不足によるエラー回避）
+                if (!songData.comments) {
+                    songData.comments = {
+                        "S": "Sランククリア！", "A": "Aランククリア！", "B": "Bランククリア！",
+                        "C": "Cランククリア！", "FAILED": "FAILED..."
+                    };
+                }
+                songDatabase.push(songData);
+            } catch(e) {
+                console.error("Failed to parse JSON", file.name, e);
+            }
+            loadedCount++;
+            if (loadedCount === files.length) {
+                initSongList();
+                loadScreen.style.display = 'none';
+                selectScreen.style.display = 'flex';
+            }
+        };
+        reader.readAsText(file);
+    });
+});
+
+// --- UI初期化（選曲リスト生成） ---
+function initSongList() {
+    const container = document.getElementById('song-list-container');
+    container.innerHTML = "";
+    songDatabase.forEach(song => {
+        const btn = document.createElement('div');
+        btn.className = "song-btn";
+        btn.innerHTML = `
+            <div class="song-title">${song.title}</div>
+            <div class="song-bpm">BPM: ${song.bpm}</div>
+        `;
+        btn.addEventListener('click', () => openPopup(song));
+        container.appendChild(btn);
+    });
+}
+
+function openPopup(song) {
+    currentSong = song;
+    document.getElementById('popup-title').innerText = song.title;
+    document.getElementById('popup-desc').innerText = song.desc;
+    popupOverlay.style.display = "flex";
+}
+
+document.getElementById('btn-cancel').addEventListener('click', () => {
+    popupOverlay.style.display = "none";
+    currentSong = null;
+});
+
+// --- 音源生成（シンセサイザー） ---
+function playTone(freq, time, type='sine', vol=0.1, dur=0.1) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = type; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, time);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+    osc.start(time); osc.stop(time + dur);
+}
+function playMetronomeTick(time, isBeatOne) { playTone(isBeatOne ? 1200 : 800, time, 'square', 0.05, 0.05); }
+function playGuideNote(time) { playTone(659.25, time, 'triangle', 0.15, 0.15); }
+function playTargetNote(time) { playTone(523.25, time, 'triangle', 0.2, 0.2); }
+function playHitFeedback() { if(audioCtx) playTone(150, audioCtx.currentTime, 'square', 0.1, 0.05); }
+
+// --- 楽譜のパース ---
+function parseScore(text) {
+    nodes = [];
+    const parts = text.split(',');
+    parts.forEach((str, index) => {
+        let clean = str.trim();
+        if (!clean) return;
+        let isPeak = false;
+        if (clean.startsWith('p')) { isPeak = true; clean = clean.substring(1); }
+        let type = 't';
+        if (clean.startsWith('2t')) { type = '2t'; clean = clean.substring(2); }
+        else if (clean.startsWith('s')) { type = 's'; clean = clean.substring(1); }
+        else if (clean.startsWith('t')) { type = 't'; clean = clean.substring(1); }
+        
+        const nums = clean.split('.').map(Number);
+        if (nums.length === 3) {
+            const timingSec = PRE_ROLL_SEC + (nums[0] - 1) * measureLen + (nums[2] - 1) / nums[1] * measureLen;
+            nodes.push({ index, type, measure: nums[0], division: nums[1], beat: nums[2], isPeak, timingSec, judged: false });
+        }
+    });
+}
+
+// --- ゲーム開始 ---
+document.getElementById('btn-start').addEventListener('click', () => {
+    popupOverlay.style.display = "none";
+    selectScreen.style.display = "none";
+    playScreen.style.display = "flex";
+    
+    beatLen = 60 / currentSong.bpm;
+    measureLen = beatLen * 4;
+    PRE_ROLL_SEC = measureLen * 1;
+    
+    parseScore(currentSong.score);
+    startGame();
+});
+
+function startGame() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    startTime = audioCtx.currentTime;
+    isPlaying = true;
+    isPeakFailed = false;
+    combo = 0;
+    stats = { perfect: 0, great: 0, good: 0, miss: 0 };
+    updateCombo();
+    feedbackEl.innerText = "";
+    
+    const lastNote = nodes.reduce((max, n) => n.timingSec > max ? n.timingSec : max, 0);
+    const gameEndTime = lastNote + 2.0;
+    
+    for (let t = 0; t <= gameEndTime; t += beatLen) {
+        playMetronomeTick(startTime + t, Math.round(t / beatLen) % 4 === 0);
+    }
+    nodes.forEach(node => {
+        const targetTime = startTime + node.timingSec;
+        const guideTime = targetTime - beatLen;
+        if (guideTime >= startTime) playGuideNote(guideTime);
+        playTargetNote(targetTime);
+    });
+
+    const loop = () => {
+        if (!isPlaying) return;
+        const current = audioCtx.currentTime - startTime;
+        nodes.forEach(node => {
+            if (!node.judged && current > node.timingSec + 0.150) {
+                node.judged = true;
+                stats.miss++; combo = 0; updateCombo();
+                showFeedback("MISS", "#555");
+                if (node.isPeak) isPeakFailed = true;
+            }
+        });
+        if (current > gameEndTime) { endGame(); return; }
+        requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+}
+
+// --- 入力判定 ---
+function handleTap() {
+    if (!isPlaying) return;
+    playHitFeedback();
+    const current = audioCtx.currentTime - startTime;
+    let targetNode = null;
+    let minDev = Infinity;
+    
+    nodes.forEach(node => {
+        if (!node.judged) {
+            const dev = Math.abs(current - node.timingSec);
+            if (dev < minDev && dev <= 0.300) { minDev = dev; targetNode = node; }
+        }
+    });
+    
+    if (!targetNode) return;
+    
+    targetNode.judged = true;
+    const absDevMs = minDev * 1000;
+    let rankText = "", color = "", isSuccess = false;
+    
+    if (absDevMs <= 40) { rankText = "PERFECT"; color = "#ffcc00"; stats.perfect++; isSuccess = true; combo++; }
+    else if (absDevMs <= 100) { rankText = "GREAT"; color = "#00ffcc"; stats.great++; isSuccess = true; combo++; }
+    else if (absDevMs <= 150) { rankText = "GOOD"; color = "#00ccff"; stats.good++; combo = 0; }
+    else { rankText = "MISS"; color = "#555"; stats.miss++; combo = 0; }
+    
+    if (targetNode.isPeak) {
+        rankText += " (PEAK)";
+        if (!isSuccess) isPeakFailed = true;
+    }
+    updateCombo(); showFeedback(rankText, color);
+}
+
+playScreen.addEventListener('touchstart', (e) => { e.preventDefault(); handleTap(); });
+playScreen.addEventListener('mousedown', (e) => { handleTap(); });
+
+function showFeedback(text, color) {
+    feedbackEl.innerText = text; feedbackEl.style.color = color;
+    feedbackEl.style.transform = 'scale(1.2)';
+    setTimeout(() => { feedbackEl.style.transform = 'scale(1)'; }, 100);
+}
+function updateCombo() { comboEl.innerText = combo > 1 ? `Combo: ${combo}` : ""; }
+
+// --- リザルト処理（コメント個別化・達成率非表示） ---
+function endGame() {
+    isPlaying = false;
+    if (audioCtx) { try { audioCtx.close(); } catch(e){} }
+    playScreen.style.display = 'none';
+    resultScreen.style.display = 'flex';
+    
+    const totalNotes = nodes.length;
+    const totalScorePoint = (stats.perfect * 100) + (stats.great * 70) + (stats.good * 30);
+    const averageScore = totalNotes > 0 ? Math.floor(totalScorePoint / totalNotes) : 0;
+    
+    const rankEl = document.getElementById('result-rank');
+    const evalEl = document.getElementById('result-eval');
+
+    // 達成率(scoreEl)を削除しました。
+
+    if (isPeakFailed) {
+        rankEl.innerText = "FAILED";
+        rankEl.style.color = "#ff3366";
+        evalEl.innerText = currentSong.comments["FAILED"];
+    } else {
+        if (averageScore >= 95) {
+            rankEl.innerText = "S"; rankEl.style.color = "#ffcc00";
+            evalEl.innerText = currentSong.comments["S"];
+        } else if (averageScore >= 80) {
+            rankEl.innerText = "A"; rankEl.style.color = "#00ffcc";
+            evalEl.innerText = currentSong.comments["A"];
+        } else if (averageScore >= 60) {
+            rankEl.innerText = "B"; rankEl.style.color = "#00ccff";
+            evalEl.innerText = currentSong.comments["B"];
+        } else {
+            rankEl.innerText = "C"; rankEl.style.color = "#aaa";
+            evalEl.innerText = currentSong.comments["C"];
+        }
+    }
+}
+
+document.getElementById('btn-retry').addEventListener('click', () => {
+    resultScreen.style.display = 'none';
+    selectScreen.style.display = 'flex';
+    currentSong = null;
+});
+</script>
+</body>
+</html>
