@@ -22,23 +22,12 @@
         .btn-cancel { background: #444; color: #fff; box-shadow: none; }
         .btn-cancel:active { background: #333; }
 
-        /* ロード画面 */
-        #load-screen {
-            display: flex; flex-direction: column; flex: 1; padding: 20px; justify-content: center;
-            align-items: center; max-width: 600px; margin: 0 auto; width: 100%; text-align: center;
-        }
-        .file-input-wrapper {
-            position: relative; overflow: hidden; display: inline-block; margin-top: 20px;
-        }
-        .file-input-wrapper input[type=file] {
-            font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer;
-        }
-
         /* 選曲画面 */
         #select-screen {
-            display: none; flex-direction: column; flex: 1; padding: 20px; box-sizing: border-box;
+            display: flex; flex-direction: column; flex: 1; padding: 20px; box-sizing: border-box;
             max-width: 600px; margin: 0 auto; width: 100%; align-items: center;
         }
+        #loading-message { color: #aaa; margin-top: 20px; text-align: center; line-height: 1.5; }
         .song-list { width: 100%; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
         .song-btn {
             background: #222; border: 1px solid #444; border-radius: 10px; padding: 20px;
@@ -91,20 +80,9 @@
 </head>
 <body>
 
-    <div id="load-screen">
-        <h1>RHYTHM FEEL</h1>
-        <p style="color:#aaa; line-height:1.5;">
-            プレイする楽曲データ（.json）を<br>選択して読み込んでください。<br>
-            ※複数選択可能です。
-        </p>
-        <div class="file-input-wrapper">
-            <button class="btn">楽曲ファイルを追加</button>
-            <input type="file" id="json-upload" accept=".json" multiple>
-        </div>
-    </div>
-
     <div id="select-screen">
         <h1>SELECT STAGE</h1>
+        <div id="loading-message">楽曲データを読み込み中...</div>
         <div class="song-list" id="song-list-container">
             </div>
     </div>
@@ -134,7 +112,16 @@
     </div>
 
 <script>
-let songDatabase = []; // ロードされた楽曲を格納
+// ==========================================
+// 🎵 読み込むJSONファイルの名前をここに書く
+// 同じフォルダにあるファイル名を追記していけば曲が増えます
+// ==========================================
+const targetJsonFiles = [
+    "tutorial.json",
+    "stage1.json"
+];
+
+let songDatabase = []; 
 
 // グローバル変数
 let audioCtx = null;
@@ -147,7 +134,6 @@ let currentSong = null;
 let stats = { perfect: 0, great: 0, good: 0, miss: 0 };
 let beatLen = 0, measureLen = 0, PRE_ROLL_SEC = 0;
 
-const loadScreen = document.getElementById('load-screen');
 const selectScreen = document.getElementById('select-screen');
 const popupOverlay = document.getElementById('popup-overlay');
 const playScreen = document.getElementById('play-screen');
@@ -155,37 +141,47 @@ const resultScreen = document.getElementById('result-screen');
 const feedbackEl = document.getElementById('feedback');
 const comboEl = document.getElementById('combo-display');
 
-// --- JSONファイルの読み込み処理 ---
-document.getElementById('json-upload').addEventListener('change', (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
+// --- アプリ起動時にJSONを自動取得する ---
+window.addEventListener('DOMContentLoaded', async () => {
+    const loadingMsg = document.getElementById('loading-message');
     let loadedCount = 0;
-    files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const songData = JSON.parse(event.target.result);
-                // コメントのデフォルト値を設定（データ不足によるエラー回避）
-                if (!songData.comments) {
-                    songData.comments = {
-                        "S": "Sランククリア！", "A": "Aランククリア！", "B": "Bランククリア！",
-                        "C": "Cランククリア！", "FAILED": "FAILED..."
-                    };
-                }
-                songDatabase.push(songData);
-            } catch(e) {
-                console.error("Failed to parse JSON", file.name, e);
+
+    for (const file of targetJsonFiles) {
+        try {
+            // fetch を使って同じフォルダのファイルを取得
+            const response = await fetch(file);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const songData = await response.json();
+            
+            // コメントのデフォルト値を設定（データ不足エラー回避）
+            if (!songData.comments) {
+                songData.comments = { "S": "S", "A": "A", "B": "B", "C": "C", "FAILED": "FAILED" };
             }
+            songDatabase.push(songData);
             loadedCount++;
-            if (loadedCount === files.length) {
-                initSongList();
-                loadScreen.style.display = 'none';
-                selectScreen.style.display = 'flex';
-            }
-        };
-        reader.readAsText(file);
-    });
+        } catch (error) {
+            console.warn(`ファイルの読み込みに失敗しました: ${file}`, error);
+        }
+    }
+
+    loadingMsg.style.display = 'none';
+
+    // 読み込み成功・失敗による画面切り替え
+    if (loadedCount > 0) {
+        initSongList();
+    } else {
+        document.getElementById('song-list-container').innerHTML = `
+            <div style="color:#ff3366; text-align:center; padding: 20px; background: #221115; border: 1px solid #ff3366; border-radius: 10px;">
+                <strong>データの読み込みに失敗しました。</strong><br><br>
+                <span style="font-size: 0.9rem; color:#ccc;">
+                【原因】<br>
+                HTMLファイルを直接ダブルクリック（file://...）して開いているため、ブラウザのセキュリティ制限によってJSONファイルがブロックされています。<br><br>
+                【解決策】<br>
+                VS Codeの「Live Server」などのローカルサーバー機能を使用して開いてください。
+                </span>
+            </div>
+        `;
+    }
 });
 
 // --- UI初期化（選曲リスト生成） ---
@@ -352,7 +348,7 @@ function showFeedback(text, color) {
 }
 function updateCombo() { comboEl.innerText = combo > 1 ? `Combo: ${combo}` : ""; }
 
-// --- リザルト処理（コメント個別化・達成率非表示） ---
+// --- リザルト処理 ---
 function endGame() {
     isPlaying = false;
     if (audioCtx) { try { audioCtx.close(); } catch(e){} }
@@ -365,8 +361,6 @@ function endGame() {
     
     const rankEl = document.getElementById('result-rank');
     const evalEl = document.getElementById('result-eval');
-
-    // 達成率(scoreEl)を削除しました。
 
     if (isPeakFailed) {
         rankEl.innerText = "FAILED";
