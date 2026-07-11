@@ -117,8 +117,12 @@ let tutScript=[], tutStepIndex=0;
 let tutNodes=[], tutPerfectRun=0;
 let tutExpected='t';      
 let tutScheduledAt=0;     
+let tutLastT=0;           // ループの終端（小節の区切り）
 let tutLoopId=null;       
 let tutCleared=false;     
+
+// スケジュールされた音源の管理（ダブり防止用）
+let scheduledAudio = [];
 
 // =============================================
 // 起動処理
@@ -151,9 +155,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     else loadMsg.innerText='楽曲データが見つかりません';
 });
 
-// =============================================
-// 選曲とポップアップ
-// =============================================
 function buildSongList(){
     const c=document.getElementById('song-list-container');
     c.innerHTML='';
@@ -174,8 +175,14 @@ function openPopup(song){
 document.getElementById('btn-cancel').onclick=()=>{ popupOverlay.style.display='none'; };
 
 // =============================================
-// 音源生成・メトロノーム
+// 音源生成・メトロノーム・ダブり防止
 // =============================================
+function clearAudio() {
+    // 鳴る予定だった音をすべて強制リセットする（ダブり防止の要）
+    scheduledAudio.forEach(o => { try { o.stop(); o.disconnect(); } catch(e){} });
+    scheduledAudio = [];
+}
+
 function tone(freq,time,type='sine',vol=0.1,dur=0.1){
     if(!audioCtx) return;
     const o=audioCtx.createOscillator(), g=audioCtx.createGain();
@@ -184,16 +191,17 @@ function tone(freq,time,type='sine',vol=0.1,dur=0.1){
     g.gain.setValueAtTime(vol,time);
     g.gain.exponentialRampToValueAtTime(0.001,time+dur);
     o.start(time); o.stop(time+dur);
+    scheduledAudio.push(o); // 生成した音をリストに追加
 }
 const guideNote =(t)=>tone(659.25,t,'triangle',0.15,0.15);
 const targetNote=(t)=>tone(523.25,t,'triangle',0.20,0.20);
 const hitSound  =()=>{ if(audioCtx) tone(150,audioCtx.currentTime,'square',0.1,0.05); };
 
 function scheduleMetronome(toSec, baseTime){
-    for(let t=0; t<=toSec; t+=beatLen){
+    // toSec ギリギリの音を鳴らさない（次のループの頭と被るのを防ぐため -0.01）
+    for(let t=0; t < toSec - 0.01; t+=beatLen){
         const abs=baseTime+t;
         const beat=Math.round(t/beatLen)%4;
-        // メトロノームの音が確実に聞こえるようボリュームを調整
         tone(beat===0?1200:600, abs,'square', beat===0?0.1:0.06, 0.05);
     }
 }
@@ -218,6 +226,7 @@ document.getElementById('btn-start').onclick=(e)=>{
 
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') audioCtx.resume();
+    clearAudio(); // 念のためリセット
 
     if(currentSong.tutorial) {
         skipBtn.style.display = 'block';
@@ -231,6 +240,7 @@ document.getElementById('btn-start').onclick=(e)=>{
 skipBtn.onclick = (e) => {
     e.stopPropagation();
     if(tutLoopId) { cancelAnimationFrame(tutLoopId); tutLoopId=null; }
+    clearAudio(); // スキップ時も先の音を完全カット
     document.getElementById('tut-dialog').style.display='none';
     document.getElementById('tut-action-ui').style.display='none';
     skipBtn.style.display = 'none';
@@ -259,7 +269,7 @@ function startTutorial(){
             const tag = match[1].trim(); 
             if (tag.toLowerCase() === 'a') {
                 flushText();
-            } else if (/^[A-Za-z][0-9]$/.test(tag)) { // A1, K2などなら確実に追加
+            } else if (/^[A-Za-z][0-9]$/.test(tag)) {
                 flushText();
                 tutScript.push({ type: 'action', id: tag.toUpperCase() });
             }
@@ -323,19 +333,26 @@ function launchTutAction(actionId){
 
     document.getElementById('tut-action-inst').innerText=`${typeLabel}の練習`;
     tutPerfectRun = 0; 
-    scheduleTutRound(scoreStr);
+    scheduleTutRound(scoreStr, 0); // 初回は exactStartTime=0 (今の時間から)
 }
 
-function scheduleTutRound(scoreStr){
+function scheduleTutRound(scoreStr, exactStartTime){
     if(tutLoopId){ cancelAnimationFrame(tutLoopId); tutLoopId=null; }
 
     tutNodes=parseTutNodes(scoreStr);
-    tutScheduledAt = audioCtx.currentTime;
-
-    const lastT = tutNodes[tutNodes.length-1].timingSec+2.0;
     
-    // チュートリアルはメトロノーム強制ON
-    scheduleMetronome(lastT, tutScheduledAt);
+    // リズムのズレ（ドリフト）を防ぐため、開始時間を厳密に継承する
+    if (exactStartTime) {
+        tutScheduledAt = exactStartTime;
+    } else {
+        tutScheduledAt = audioCtx.currentTime;
+    }
+
+    // 違和感のないループのため、最後のノーツのさらに「1小節後」をループの区切りとする
+    tutLastT = tutNodes[tutNodes.length-1].timingSec + measureLen;
+    
+    // チュートリアルはメトロノーム強制ON（重ならないように tutLastT ギリギリまで）
+    scheduleMetronome(tutLastT, tutScheduledAt);
 
     tutNodes.forEach(node=>{
         const abs=tutScheduledAt+node.timingSec;
@@ -368,16 +385,19 @@ function tutMissLoop(){
     const done=tutNodes.every(n=>n.judged);
     if(done){
         if(tutPerfectRun<4){
-            setTimeout(()=>{
+            // ★ダブり防止の最重要ポイント★
+            // タイマーを使わず、音楽の「小節の終わり」に到達した瞬間に次のループを組む
+            if(elapsed >= tutLastT){
                 if(gameState===ST_TUT_ACTION && !tutCleared){
                     const prevStep=tutScript[tutStepIndex-1];
                     const sc=tutorialLibrary[prevStep.id]||'t2.4.1,t3.4.1,t4.4.1,t5.4.1';
                     tutNodes.forEach(n=>n.judged=false);
-                    scheduleTutRound(sc);
+                    // 前回の基準時間＋小節の長さ をそのまま渡してリズムを完全維持
+                    scheduleTutRound(sc, tutScheduledAt + tutLastT);
                 }
-            },600);
+                return;
+            }
         }
-        return;
     }
 
     tutLoopId=requestAnimationFrame(tutMissLoop);
@@ -426,9 +446,13 @@ function handleTutAction(inputType){
     if(tutPerfectRun>=4){
         tutCleared = true;
         if(tutLoopId){ cancelAnimationFrame(tutLoopId); tutLoopId=null; }
+        
+        // 成功音
+        tone(1000,audioCtx.currentTime,'sine',0.1,0.2);
+        tone(1500,audioCtx.currentTime+0.2,'sine',0.1,0.4);
+        
         setTimeout(()=>{
-            tone(1000,audioCtx.currentTime,'sine',0.1,0.2);
-            tone(1500,audioCtx.currentTime+0.2,'sine',0.1,0.4);
+            clearAudio(); // 先のメトロノーム等をカット
             feedbackEl.innerText='';
             tutCleared = false; 
             nextTutStep();
@@ -460,6 +484,7 @@ function parseMainNodes(scoreStr){
 
 function startGame(){
     if(tutLoopId){ cancelAnimationFrame(tutLoopId); tutLoopId=null; }
+    clearAudio(); // 前の音を完全に消す
     gameState=ST_PLAY;
 
     playScreen.style.backgroundColor='#1a1a1a';
@@ -476,7 +501,7 @@ function startGame(){
 
     const lastT=nodes.reduce((m,n)=>Math.max(m,n.timingSec),0)+2.0;
 
-    // メトロノームのON/OFF判定を完全強化（大文字小文字・表記揺れ対応）
+    // "Metro": "on" でメトロノームON判定（大文字小文字対応）
     let isMetroOn = false;
     if (currentSong.metronome === true) isMetroOn = true;
     let metroVal = currentSong.Metro || currentSong.metro || currentSong.metronome;
@@ -581,6 +606,7 @@ function endGame(){
 }
 
 document.getElementById('btn-retry').onclick=()=>{
+    clearAudio(); // 戻る時も一応消す
     resultScreen.classList.remove('active');
     selectScreen.classList.add('active');
     currentSong=null;
@@ -614,7 +640,6 @@ function updateCombo(){
 // =============================================
 // 入力検出 (タップ・スワイプ判定)
 // =============================================
-// ※不具合の原因だった重複リスナーを削除し、一元管理化
 let sx=0,sy=0,touchCnt=0,detType='t',isTD=false,mouseDown=false;
 
 playScreen.addEventListener('touchstart',e=>{
@@ -652,7 +677,7 @@ playScreen.addEventListener('mouseup',  e=>{
 });
 
 function processInput(type){
-    if     (gameState===ST_TUT_TEXT)   nextTutStep(); // 重複呼び出しバグを解消
+    if     (gameState===ST_TUT_TEXT)   nextTutStep(); 
     else if(gameState===ST_TUT_ACTION) handleTutAction(type);
     else if(gameState===ST_PLAY)       handlePlayAction(type);
 }
