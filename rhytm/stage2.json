@@ -1,7 +1,7 @@
 {
     "id": "stage_01",
     "title": "Stage 2: オウム返し",
-    "bpm": 115,
+    "bpm": 110,
     "audio":"song1.mp3",
     "Metro":"off",
     "desc": "オウム返しです。\nタップして答えてあげましょう。",
