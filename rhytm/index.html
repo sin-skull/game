@@ -5,17 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RHYTHM FEEL - プレイ実機</title>
     <style>
+        /* レスポンシブ＆キャンバス対応の最適化 */
         body {
             margin: 0; padding: 0; background-color: #111; color: #fff;
             font-family: 'Helvetica Neue', Arial, sans-serif;
             display: flex; flex-direction: column; 
-            height: 100dvh; width: 100vw; overflow: hidden;
+            height: 100dvh; /* スマホのアドレスバー対策 (動的ビューポート) */
+            width: 100vw; overflow: hidden;
             user-select: none; -webkit-user-select: none; touch-action: none;
         }
         
         .screen {
             display: none; flex-direction: column; flex: 1; 
-            width: 100%; max-width: 800px; margin: 0 auto; position: relative;
+            width: 100%; max-width: 800px; /* PC・タブレットでは中央に固定幅で表示 */
+            margin: 0 auto; position: relative;
             justify-content: center; align-items: center; box-sizing: border-box;
         }
 
@@ -131,24 +134,6 @@
 <script src="song.js"></script>
 
 <script>
-// ==============================================================
-// 📚 チュートリアル用 楽譜データベース
-// A=合図型, K=継続型, O=往復型 など、ここでIDと楽譜を紐付けます
-// JSON側で ¥A1¥ と書けば "A1" の楽譜が、¥K1¥ と書けば "K1" が呼び出されます。
-// ==============================================================
-const tutorialScores = {
-    // 【合図型(A)】 シンプルに1拍ごとに4回
-    "A1": "t2.4.1, t3.4.1, t4.4.1, t5.4.1", 
-    "A2": "s2.4.1, s3.4.1, s4.4.1, s5.4.1", 
-    "A3": "2t2.4.1, 2t3.4.1, 2t4.4.1, 2t5.4.1",
-    
-    // 【継続型(K)】 少しテンポが速い8分音符の連続
-    "K1": "t2.4.1, t2.4.3, t3.4.1, t3.4.3, t4.4.1, t4.4.3", 
-    
-    // 【往復型(O)】 タップとスワイプが混ざる応用
-    "O1": "t2.4.1, s3.4.1, t4.4.1, s5.4.1" 
-};
-
 // --- グローバル状態管理 ---
 const ST_MENU = 0, ST_TUT_TEXT = 1, ST_TUT_ACTION = 2, ST_PLAY = 3;
 let gameState = ST_MENU;
@@ -162,8 +147,8 @@ let startTime = 0, isPlaying = false, nodes = [], combo = 0, isPeakFailed = fals
 let stats = { perfect: 0, great: 0, good: 0, miss: 0 };
 
 // チュートリアル用変数
-let tutScript = [], tutStepIndex = 0, tutPerfectCount = 0;
-let isPlayingTut = false, tutStartTime = 0, tutEndTime = 0, tutNodes = [];
+let tutScript = [], tutStepIndex = 0, tutPerfectCount = 0, tutTargetTime = 0;
+let tutNodeJudged = false, tutGuidePlayed = false, tutTargetPlayed = false;
 
 // DOM要素
 const selectScreen = document.getElementById('select-screen');
@@ -175,12 +160,7 @@ const feedbackEl = document.getElementById('feedback');
 // --- 起動・JSON読み込み処理 ---
 window.addEventListener('DOMContentLoaded', async () => {
     const loadingMsg = document.getElementById('loading-message');
-    if (typeof targetJsonFiles === 'undefined') {
-        loadingMsg.innerHTML = `<span style="color:#ff3366;">song.js が見つかりません。</span>`;
-        return;
-    }
-    
-    // 今後は stage1.json など本編ファイルだけを targetJsonFiles に書けばOKです
+    if (typeof targetJsonFiles === 'undefined') return;
     let loadedCount = 0;
     for (const file of targetJsonFiles) {
         try {
@@ -252,12 +232,13 @@ document.getElementById('btn-start').addEventListener('click', () => {
 });
 
 // ==============================================================
-// 📚 チュートリアルシステム (専用楽譜ID読み込み版)
+// 📚 チュートリアルシステム (正規表現の強化版)
 // ==============================================================
 function startTutorial() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     tutScript = [];
     
+    // JSONの「¥」や「\」などの表記揺れを全て半角「¥」に統一してパースを安定化
     let rawText = currentSong.tutorial.replace(/[￥\\]/g, '¥');
     const rawParts = rawText.split('¥a¥');
     
@@ -266,8 +247,7 @@ function startTutorial() {
         if(match) {
             let txt = p.replace(match[0], '').trim();
             if(txt !== '') tutScript.push({ type: 'text', text: txt });
-            // actionId（例 "A1"）を保存する
-            tutScript.push({ type: 'action', actionId: match[1].toUpperCase() + match[2] });
+            tutScript.push({ type: 'action', mode: match[1].toUpperCase(), inputType: match[2] });
         } else {
             if(p.trim() !== '') tutScript.push({ type: 'text', text: p.trim() });
         }
@@ -299,143 +279,41 @@ function nextTutStep() {
         document.getElementById('tut-dialog').style.display = "none";
         document.getElementById('tut-action-ui').style.display = "block";
         
-        // アクションIDに基づいてチュートリアルの楽譜を生成・開始
-        startTutAction(step.actionId);
-    }
-}
-
-// アクションID（例："A1"）に紐づいた楽譜をロードして実践させる
-function startTutAction(actionId) {
-    let scoreStr = tutorialScores[actionId] || tutorialScores["A1"]; // 見つからなければA1を代入
-    
-    // UIの表記を楽譜の先頭ノーツのタイプで適当に合わせる
-    let typeStr = scoreStr.includes("2t") ? "2本指TAP" : (scoreStr.includes("s") ? "SWIPE" : "TAP");
-    document.getElementById('tut-action-inst').innerText = `${typeStr}の練習`;
-
-    tutNodes = [];
-    const parts = scoreStr.split(',');
-    parts.forEach((str, index) => {
-        let clean = str.trim();
-        if (!clean) return;
-        let type = 't';
-        if (clean.startsWith('2t')) { type = '2t'; clean = clean.substring(2); }
-        else if (clean.startsWith('s')) { type = 's'; clean = clean.substring(1); }
-        else if (clean.startsWith('t')) { type = 't'; clean = clean.substring(1); }
+        let typeStr = step.inputType === "2" ? "SWIPE" : (step.inputType === "3" ? "2本指TAP" : "TAP");
+        document.getElementById('tut-action-inst').innerText = `${typeStr}の練習`;
         
-        const nums = clean.split('.').map(Number);
-        if (nums.length === 3) {
-            const timingSec = PRE_ROLL_SEC + (nums[0] - 1) * measureLen + (nums[2] - 1) / nums[1] * measureLen;
-            // 判定結果(hitRank)を保存するプロパティを追加
-            tutNodes.push({ index, type, measure: nums[0], division: nums[1], beat: nums[2], timingSec, judged: false, hitRank: null });
-        }
-    });
-
-    tutStartTime = audioCtx.currentTime;
-    isPlayingTut = true;
-    tutPerfectCount = 0;
-    updateTutBgAndUI(tutNodes.length); // ノーツ数に応じて色を変える
-    
-    const lastNote = tutNodes.reduce((max, n) => n.timingSec > max ? n.timingSec : max, 0);
-    tutEndTime = lastNote + 1.5; // 全ノーツ終了から1.5秒待つ
-    
-    for (let t = 0; t <= tutEndTime; t += beatLen) {
-        if(Math.round(t / beatLen) % 4 === 0) playTone(1200, tutStartTime + t, 'square', 0.05, 0.05);
-        else playTone(800, tutStartTime + t, 'square', 0.05, 0.05);
+        tutPerfectCount = 0;
+        updateTutBgAndUI();
+        tutTargetTime = audioCtx.currentTime + 2.0;
+        tutNodeJudged = false; tutGuidePlayed = false; tutTargetPlayed = false;
+        requestAnimationFrame(tutActionLoop);
     }
-    tutNodes.forEach(node => {
-        const targetTime = tutStartTime + node.timingSec;
-        const guideTime = targetTime - beatLen;
-        if (guideTime >= tutStartTime) playGuideNote(guideTime);
-        playTargetNote(targetTime);
-    });
-
-    requestAnimationFrame(tutActionLoop);
 }
 
-function updateTutBgAndUI(maxCount) {
-    let ratio = tutPerfectCount / maxCount;
-    let color = "#1a1a1a";
-    if (ratio > 0) color = "#888800";
-    if (ratio >= 0.5) color = "#008800";
-    if (ratio >= 0.75) color = "#0044aa";
-    if (ratio === 1) color = "#aa0000";
-    
-    playScreen.style.backgroundColor = color;
-    document.getElementById('tut-action-count').innerText = `連続Perfect: ${tutPerfectCount} / ${maxCount}`;
+function updateTutBgAndUI() {
+    const colors = ["#1a1a1a", "#888800", "#008800", "#0044aa", "#aa0000"];
+    playScreen.style.backgroundColor = colors[tutPerfectCount] || "#1a1a1a";
+    document.getElementById('tut-action-count').innerText = `連続Perfect: ${tutPerfectCount} / 4`;
 }
 
 function tutActionLoop() {
-    if (gameState !== ST_TUT_ACTION || !isPlayingTut) return;
-    let current = audioCtx.currentTime - tutStartTime;
+    if (gameState !== ST_TUT_ACTION) return;
+    let current = audioCtx.currentTime;
+    if (current >= tutTargetTime - beatLen && !tutGuidePlayed) { playGuideNote(tutTargetTime - beatLen); tutGuidePlayed = true; }
+    if (current >= tutTargetTime && !tutTargetPlayed) { playTargetNote(tutTargetTime); tutTargetPlayed = true; }
     
-    // スルー（見逃し）判定
-    tutNodes.forEach(node => {
-        if (!node.judged && current > node.timingSec + 0.150) {
-            node.judged = true;
-            node.hitRank = "MISS";
-            tutPerfectCount = 0;
-            showFeedback("MISS", "#555");
-            updateTutBgAndUI(tutNodes.length);
-        }
-    });
-    
-    // ステップ完了時の評価
-    if (current > tutEndTime) {
-        isPlayingTut = false;
-        // 「全てのノーツがPERFECTか」を判定
-        let allPerfect = tutNodes.every(n => n.hitRank === "PERFECT");
-        
-        if (allPerfect) {
-            // 見事クリア！次へ進む
-            playTone(1000, audioCtx.currentTime, 'sine', 0.1, 0.2);
-            playTone(1500, audioCtx.currentTime + 0.2, 'sine', 0.1, 0.4);
-            feedbackEl.innerText = "";
-            nextTutStep();
-        } else {
-            // やり直し（今のステップのIDをもう一度投げる）
-            showFeedback("もう一度！", "#ff3366");
-            setTimeout(() => {
-                startTutAction(tutScript[tutStepIndex-1].actionId);
-            }, 1500);
-        }
-        return;
+    if (current > tutTargetTime + 0.150 && !tutNodeJudged) {
+        tutNodeJudged = true; tutPerfectCount = 0;
+        showFeedback("MISS", "#555");
+        updateTutBgAndUI();
+        setupNextTutTarget(current);
     }
     requestAnimationFrame(tutActionLoop);
 }
 
-// チュートリアル中の入力ハンドラ
-function handleTutInput(inputType) {
-    if (!isPlayingTut) return;
-    let current = audioCtx.currentTime - tutStartTime;
-    let targetNode = null; let minDev = Infinity;
-    
-    tutNodes.forEach(node => {
-        if (!node.judged) {
-            const dev = Math.abs(current - node.timingSec);
-            if (dev < minDev && dev <= 0.300) { minDev = dev; targetNode = node; }
-        }
-    });
-    if (!targetNode) return;
-    
-    targetNode.judged = true;
-    playHitFeedback();
-    let absDevMs = minDev * 1000;
-    
-    if (inputType !== targetNode.type) {
-        targetNode.hitRank = "MISS";
-        tutPerfectCount = 0; showFeedback("操作ミス！", "#ff3366");
-    } else {
-        if (absDevMs <= 40) { 
-            targetNode.hitRank = "PERFECT"; tutPerfectCount++; showFeedback("PERFECT", "#ffcc00"); 
-        } else {
-            targetNode.hitRank = "MISS"; // チュートリアルではPerfect以外はミス扱いとする
-            tutPerfectCount = 0;
-            if (absDevMs <= 100) showFeedback("GREAT\n(Perfectを狙おう)", "#00ffcc");
-            else if (absDevMs <= 150) showFeedback("GOOD", "#00ccff");
-            else showFeedback("MISS", "#555");
-        }
-    }
-    updateTutBgAndUI(tutNodes.length);
+function setupNextTutTarget(currentTime) {
+    tutTargetTime = currentTime + measureLen;
+    tutNodeJudged = false; tutGuidePlayed = false; tutTargetPlayed = false;
 }
 
 // ==============================================================
@@ -506,7 +384,7 @@ function startGame() {
 // 👆 統合入力検出 (TAP / SWIPE / 2本指 の厳密な判定)
 // ==============================================================
 let inputStartX = 0, inputStartY = 0, touchCount = 0;
-let detectedType = 't'; 
+let detectedType = 't'; // 't', 's', '2t'
 let isTouchDevice = false;
 
 playScreen.addEventListener('touchstart', (e) => {
@@ -521,11 +399,11 @@ playScreen.addEventListener('touchmove', (e) => {
     if(touchCount === 1) {
         let dx = e.touches[0].clientX - inputStartX;
         let dy = e.touches[0].clientY - inputStartY;
-        if(Math.sqrt(dx*dx + dy*dy) > 50) detectedType = 's';
+        if(Math.sqrt(dx*dx + dy*dy) > 50) detectedType = 's'; // 50px以上でスワイプ
     }
 });
 playScreen.addEventListener('touchend', (e) => {
-    if(e.touches.length > 0) return; 
+    if(e.touches.length > 0) return; // 全ての指が離れるまで待つ
     let finalType = (touchCount >= 2) ? '2t' : detectedType;
     processInput(finalType);
     detectedType = 't'; touchCount = 0;
@@ -555,10 +433,43 @@ function processInput(type) {
     if (gameState === ST_TUT_TEXT) {
         nextTutStep();
     } else if (gameState === ST_TUT_ACTION) {
-        handleTutInput(type);
+        handleTutAction(type);
     } else if (gameState === ST_PLAY) {
         handlePlayAction(type);
     }
+}
+
+function handleTutAction(inputType) {
+    if (tutNodeJudged) return;
+    let expectedType = tutScript[tutStepIndex-1].inputType === "2" ? "s" : (tutScript[tutStepIndex-1].inputType === "3" ? "2t" : "t");
+    let current = audioCtx.currentTime;
+    let dev = Math.abs(current - tutTargetTime);
+    if (dev > 0.3) return;
+    
+    tutNodeJudged = true;
+    playHitFeedback();
+    
+    // 入力種別（操作方法）が間違っている場合はMISS
+    if (inputType !== expectedType) {
+        tutPerfectCount = 0; showFeedback("操作ミス！", "#ff3366");
+    } else {
+        if (dev <= 0.040) { tutPerfectCount++; showFeedback("PERFECT", "#ffcc00"); }
+        else {
+            tutPerfectCount = 0;
+            if (dev <= 0.100) showFeedback("GREAT", "#00ffcc");
+            else if (dev <= 0.150) showFeedback("GOOD", "#00ccff");
+            else showFeedback("MISS", "#555");
+        }
+    }
+    
+    updateTutBgAndUI();
+    if (tutPerfectCount >= 4) {
+        setTimeout(() => {
+            playTone(1000, audioCtx.currentTime, 'sine', 0.1, 0.2);
+            playTone(1500, audioCtx.currentTime + 0.2, 'sine', 0.1, 0.4);
+            feedbackEl.innerText = ""; nextTutStep();
+        }, 1000);
+    } else { setupNextTutTarget(current); }
 }
 
 function handlePlayAction(inputType) {
@@ -579,6 +490,7 @@ function handlePlayAction(inputType) {
     let rankText = "", color = "", isSuccess = false;
     const absDevMs = minDev * 1000;
     
+    // 操作ミスチェック
     if (inputType !== targetNode.type) {
         rankText = "操作ミス"; color = "#ff3366"; stats.miss++; combo = 0;
     } else {
