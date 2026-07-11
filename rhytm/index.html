@@ -535,7 +535,32 @@ function endGame() {
 
 document.getElementById('btn-retry').addEventListener('click', () => {
     resultScreen.style.display = 'none'; selectScreen.style.display = 'flex'; currentSong = null;
+    
 });
+// グローバル変数に追加
+let tutorialLibrary = {}; 
+
+// --- 起動処理の冒頭で tutorial1.json を読み込む ---
+window.addEventListener('DOMContentLoaded', async () => {
+    // 1. まずチュートリアルライブラリを読み込む
+    try {
+        const tutRes = await fetch("tutorial1.json");
+        const tutData = await tutRes.json();
+        tutorialLibrary = tutData.scores; // A1, A2 などの楽譜を保持
+    } catch(e) { console.warn("チュートリアルライブラリの読み込み失敗"); }
+
+    // 2. その後、他の楽曲データを読み込む（以前の処理と同じ）
+    // ...以降、既存の songDatabase 読み込み処理...
+});
+
+// --- チュートリアル起動時のパーサー部分を修正 ---
+function startTutAction(actionId) {
+    // tutorialLibrary から ID を使って楽譜を取得する
+    let scoreStr = tutorialLibrary[actionId] || "t2.4.1"; // 見つからなければデフォルト
+    
+    // ...以下、チュートリアルの描画処理は同じ...
+}
+
 </script>
 </body>
 </html>
