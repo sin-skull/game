@@ -198,6 +198,35 @@ const guideNote =(t)=>tone(659.25,t,'triangle',0.15,0.15);
 const targetNote=(t)=>tone(523.25,t,'triangle',0.20,0.20);
 const hitSound  =()=>{ if(audioCtx) tone(150,audioCtx.currentTime,'square',0.1,0.05); };
 
+// メトロノーム：強拍(1拍目)は高め、弱拍は低め
+function scheduleMetronome(toSec, baseTime){
+    for(let t=0; t<=toSec; t+=beatLen){
+        const abs=baseTime+t;
+        const beat=Math.round(t/beatLen)%4;
+        tone(beat===0?1200:600, abs,'square', beat===0?0.08:0.04, 0.04);
+    }
+}
+
+// 音楽ファイル再生（song.audioFile があるとき）
+// PRE_ROLL_SEC 後に曲の先頭が来るよう offset で開始
+let musicSource=null;
+async function loadAndScheduleMusic(filePath, baseTime){
+    try{
+        const res=await fetch(filePath);
+        const buf=await res.arrayBuffer();
+        const decoded=await audioCtx.decodeAudioData(buf);
+        musicSource=audioCtx.createBufferSource();
+        musicSource.buffer=decoded;
+        musicSource.connect(audioCtx.destination);
+        musicSource.start(baseTime+PRE_ROLL_SEC, 0);
+    }catch(e){
+        console.warn('音楽ファイル読み込み失敗、メトロノームのみ:', e);
+    }
+}
+function stopMusic(){
+    if(musicSource){ try{musicSource.stop();}catch(e){} musicSource=null; }
+}
+
 // =============================================
 // 開始ボタン
 // =============================================
@@ -224,25 +253,62 @@ document.getElementById('btn-start').onclick=()=>{
 };
 
 // =============================================
-// チュートリアル：パーサー
+// チュートリアル：パーサー（トークナイザー方式）
 // =============================================
-// 書式: テキスト ¥a¥ テキスト ¥A1¥ ¥a¥ テキスト
-// ¥a¥ … ステップ区切り
-// ¥XX¥ … アクション ID（例: A1, K2）
+// 書式: テキスト¥a¥テキスト¥A1¥¥a¥テキスト
+//
+// ¥で挟まれた文字列はすべて「タグ」として扱う（表示しない）。
+//   ¥a¥   … ステップ区切り
+//   ¥A1¥  … アクション呼び出し（tutorialLibrary のキーと照合）
+//   ¥??¥  … 未定義タグは無視（将来の拡張用）
+//
+// 処理手順:
+//   1. ¥...¥ をすべてトークンとして切り出す
+//   2. 残ったテキスト断片はそのままテキストステップ候補
+//   3. ¥a¥ でステップを区切り、¥XX¥ でアクション挿入
 function parseTutScript(raw){
-    raw=raw.replace(/[￥\\]/g,'¥');
-    const steps=[];
-    raw.split('¥a¥').forEach(part=>{
-        part=part.trim(); if(!part) return;
-        const m=part.match(/¥([A-Za-z]\d)¥/);
-        if(m){
-            const before=part.slice(0,part.indexOf(m[0])).trim();
-            if(before) steps.push({type:'text',text:before});
-            steps.push({type:'action',id:m[1].toUpperCase()});
+    raw = raw.replace(/[￥\\]/g, '¥');
+
+    // ¥...¥ をトークン境界として分割
+    // 結果例: ["テキスト", "¥a¥", "テキスト", "¥A1¥", "¥a¥", "テキスト"]
+    const tokens = raw.split(/(¥[^¥]+¥)/);
+
+    const steps = [];
+    let textBuf = '';   // 現ステップに蓄積中のテキスト
+
+    const flushText = () => {
+        const t = textBuf.trim();
+        if (t) steps.push({ type: 'text', text: t });
+        textBuf = '';
+    };
+
+    tokens.forEach(tok => {
+        if (!tok) return;
+
+        // タグ判定
+        const tagMatch = tok.match(/^¥([^¥]+)¥$/);
+        if (tagMatch) {
+            const inner = tagMatch[1];
+
+            if (inner === 'a') {
+                // ステップ区切り：テキストがあれば先に確定
+                flushText();
+
+            } else if (tutorialLibrary[inner.toUpperCase()] !== undefined) {
+                // tutorialLibrary に存在するキー → アクションステップ
+                flushText();
+                steps.push({ type: 'action', id: inner.toUpperCase() });
+
+            }
+            // それ以外の未知タグは無視（テキストに混入させない）
+
         } else {
-            steps.push({type:'text',text:part});
+            // 通常テキスト → バッファに追記
+            textBuf += tok;
         }
     });
+
+    flushText(); // 末尾の残りを確定
     return steps;
 }
 
@@ -319,10 +385,7 @@ function scheduleTutRound(scoreStr){
 
     // メトロノーム＋ガイド音＋ターゲット音
     const lastT = tutNodes[tutNodes.length-1].timingSec+2.0;
-    for(let t=0;t<=lastT;t+=beatLen){
-        const abs=tutScheduledAt+t;
-        tone(Math.round(t/beatLen)%4===0?1200:800, abs,'square',0.05,0.05);
-    }
+    scheduleMetronome(lastT, tutScheduledAt);
     tutNodes.forEach(node=>{
         const abs=tutScheduledAt+node.timingSec;
         const gAbs=abs-beatLen;
@@ -465,9 +528,11 @@ function startGame(){
 
     const lastT=nodes.reduce((m,n)=>Math.max(m,n.timingSec),0)+2.0;
 
-    for(let t=0;t<=lastT;t+=beatLen){
-        const abs=startTime+t;
-        tone(Math.round(t/beatLen)%4===0?1200:800,abs,'square',0.05,0.05);
+    // 音楽ファイルがあれば再生、なければメトロノームを生成
+    if(currentSong.audioFile){
+        loadAndScheduleMusic(currentSong.audioFile, startTime);
+    } else {
+        scheduleMetronome(lastT, startTime);
     }
     nodes.forEach(node=>{
         const abs=startTime+node.timingSec;
@@ -522,6 +587,7 @@ function handlePlayAction(inputType){
 // =============================================
 function endGame(){
     isPlaying=false; gameState=ST_MENU;
+    stopMusic();
     if(audioCtx){ try{audioCtx.close();}catch(e){} audioCtx=null; }
     playScreen.style.display='none';
     resultScreen.style.display='flex';
