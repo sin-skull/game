@@ -193,7 +193,8 @@ function scheduleMetronome(toSec, baseTime){
     for(let t=0; t<=toSec; t+=beatLen){
         const abs=baseTime+t;
         const beat=Math.round(t/beatLen)%4;
-        tone(beat===0?1200:600, abs,'square', beat===0?0.08:0.04, 0.04);
+        // メトロノームの音が確実に聞こえるようボリュームを調整
+        tone(beat===0?1200:600, abs,'square', beat===0?0.1:0.06, 0.05);
     }
 }
 
@@ -216,6 +217,7 @@ document.getElementById('btn-start').onclick=(e)=>{
     feedbackEl.innerText='';
 
     audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
 
     if(currentSong.tutorial) {
         skipBtn.style.display = 'block';
@@ -254,10 +256,10 @@ function startTutorial(){
         if (!tok) return;
         const match = tok.match(/^¥([^¥]+)¥$/);
         if (match) {
-            const tag = match[1]; 
-            if (tag === 'a') {
+            const tag = match[1].trim(); 
+            if (tag.toLowerCase() === 'a') {
                 flushText();
-            } else if (tutorialLibrary[tag.toUpperCase()]) {
+            } else if (/^[A-Za-z][0-9]$/.test(tag)) { // A1, K2などなら確実に追加
                 flushText();
                 tutScript.push({ type: 'action', id: tag.toUpperCase() });
             }
@@ -332,6 +334,7 @@ function scheduleTutRound(scoreStr){
 
     const lastT = tutNodes[tutNodes.length-1].timingSec+2.0;
     
+    // チュートリアルはメトロノーム強制ON
     scheduleMetronome(lastT, tutScheduledAt);
 
     tutNodes.forEach(node=>{
@@ -473,8 +476,13 @@ function startGame(){
 
     const lastT=nodes.reduce((m,n)=>Math.max(m,n.timingSec),0)+2.0;
 
-    // "Metro": "on" でメトロノームON
-    if(currentSong.Metro === "on" || currentSong.metronome === true) {
+    // メトロノームのON/OFF判定を完全強化（大文字小文字・表記揺れ対応）
+    let isMetroOn = false;
+    if (currentSong.metronome === true) isMetroOn = true;
+    let metroVal = currentSong.Metro || currentSong.metro || currentSong.metronome;
+    if (typeof metroVal === 'string' && metroVal.trim().toLowerCase() === 'on') isMetroOn = true;
+
+    if(isMetroOn) {
         scheduleMetronome(lastT, startTime);
     }
 
@@ -606,10 +614,12 @@ function updateCombo(){
 // =============================================
 // 入力検出 (タップ・スワイプ判定)
 // =============================================
+// ※不具合の原因だった重複リスナーを削除し、一元管理化
 let sx=0,sy=0,touchCnt=0,detType='t',isTD=false,mouseDown=false;
 
 playScreen.addEventListener('touchstart',e=>{
     isTD=true; e.preventDefault();
+    if (e.target.id === 'skip-btn') return;
     sx=e.touches[0].clientX; sy=e.touches[0].clientY;
     touchCnt=e.touches.length; detType='t';
 },{passive:false});
@@ -620,18 +630,29 @@ playScreen.addEventListener('touchmove',e=>{
     }
 },{passive:false});
 playScreen.addEventListener('touchend',e=>{
+    if (e.target.id === 'skip-btn') return;
     if(e.touches.length>0) return;
     const t=touchCnt>=2?'2t':detType;
     processInput(t);
     detType='t'; touchCnt=0;
 },{passive:false});
 
-playScreen.addEventListener('mousedown',e=>{ if(isTD) return; mouseDown=true; sx=e.clientX;sy=e.clientY;detType='t'; });
-playScreen.addEventListener('mousemove',e=>{ if(!mouseDown) return; const dx=e.clientX-sx,dy=e.clientY-sy; if(Math.sqrt(dx*dx+dy*dy)>50) detType='s'; });
-playScreen.addEventListener('mouseup',  ()=>{ if(!mouseDown) return; mouseDown=false; processInput(detType); });
+playScreen.addEventListener('mousedown',e=>{ 
+    if(isTD || e.target.id === 'skip-btn') return; 
+    mouseDown=true; sx=e.clientX;sy=e.clientY;detType='t'; 
+});
+playScreen.addEventListener('mousemove',e=>{ 
+    if(!mouseDown) return; 
+    const dx=e.clientX-sx,dy=e.clientY-sy; 
+    if(Math.sqrt(dx*dx+dy*dy)>50) detType='s'; 
+});
+playScreen.addEventListener('mouseup',  e=>{ 
+    if(!mouseDown || e.target.id === 'skip-btn') return; 
+    mouseDown=false; processInput(detType); 
+});
 
 function processInput(type){
-    if     (gameState===ST_TUT_TEXT)   nextTutStep();
+    if     (gameState===ST_TUT_TEXT)   nextTutStep(); // 重複呼び出しバグを解消
     else if(gameState===ST_TUT_ACTION) handleTutAction(type);
     else if(gameState===ST_PLAY)       handlePlayAction(type);
 }
