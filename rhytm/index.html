@@ -236,12 +236,10 @@ skipBtn.onclick = (e) => {
 };
 
 // =============================================
-// チュートリアル解析＆実行 (高性能パーサー搭載)
+// チュートリアル解析＆実行
 // =============================================
 function startTutorial(){
     let raw = currentSong.tutorial.replace(/[￥\\]/g, '¥');
-    
-    // 「¥」で囲まれた記号をトークンとして抽出し、テキストと分ける賢いパーサー
     const tokens = raw.split(/(¥[^¥]+¥)/);
     tutScript = [];
     let textBuf = '';
@@ -256,22 +254,18 @@ function startTutorial(){
         if (!tok) return;
         const match = tok.match(/^¥([^¥]+)¥$/);
         if (match) {
-            const tag = match[1]; // ¥の中身 (例: "a", "A1")
-            
+            const tag = match[1]; 
             if (tag === 'a') {
-                // a なら改ページ（コメントの区切り）
                 flushText();
             } else if (tutorialLibrary[tag.toUpperCase()]) {
-                // tutorial1.json に登録されている記号(A1, K2など)ならアクション
                 flushText();
                 tutScript.push({ type: 'action', id: tag.toUpperCase() });
             }
-            // 登録されていない記号（過去のmetro:onなど）は安全に無視する
         } else {
-            textBuf += tok; // 記号以外はテキストとして蓄積
+            textBuf += tok; 
         }
     });
-    flushText(); // 残ったテキストを吐き出す
+    flushText(); 
 
     tutStepIndex=0;
     setTimeout(nextTutStep, 100);
@@ -338,7 +332,6 @@ function scheduleTutRound(scoreStr){
 
     const lastT = tutNodes[tutNodes.length-1].timingSec+2.0;
     
-    // チュートリアルはメトロノーム強制ON
     scheduleMetronome(lastT, tutScheduledAt);
 
     tutNodes.forEach(node=>{
@@ -480,8 +473,8 @@ function startGame(){
 
     const lastT=nodes.reduce((m,n)=>Math.max(m,n.timingSec),0)+2.0;
 
-    // 本編のメトロノームは JSON の "metronome": true の場合のみ鳴らす
-    if(currentSong.metronome) {
+    // "Metro": "on" でメトロノームON
+    if(currentSong.Metro === "on" || currentSong.metronome === true) {
         scheduleMetronome(lastT, startTime);
     }
 
@@ -543,9 +536,7 @@ function endGame(){
     resultScreen.classList.add('active');
 
     const total=nodes.length;
-    // ミス回数（GOODとMISSを間違いとしてカウント）
     const mistakes = stats.miss + stats.good;
-    // Sランクの許容ミス回数: 少なくとも3回、全体の5%のほうが多いならそちらを優先
     const allowedMisses = Math.max(3, Math.floor(total * 0.05));
 
     const avg=total>0?Math.floor((stats.perfect*100+stats.great*70+stats.good*30)/total):0;
@@ -555,7 +546,6 @@ function endGame(){
 
     let rank = '';
     
-    // ピークを間違えず、かつミス回数が許容以内ならSランク
     if (!isPeakFailed && mistakes <= allowedMisses) {
         rank = 'S';
     } else {
