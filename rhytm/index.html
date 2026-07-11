@@ -28,7 +28,7 @@
             max-width: 600px; margin: 0 auto; width: 100%; align-items: center;
         }
         #loading-message { color: #aaa; margin-top: 20px; text-align: center; line-height: 1.5; }
-        .song-list { width: 100%; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .song-list { width: 100%; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; margin-top: 10px; }
         .song-btn {
             background: #222; border: 1px solid #444; border-radius: 10px; padding: 20px;
             text-align: left; cursor: pointer; transition: 0.2s;
@@ -112,10 +112,10 @@
     </div>
 
 <script>
-// ==========================================
-// 🎵 読み込むJSONファイルの名前をここに書く
-// 同じフォルダにあるファイル名を追記していけば曲が増えます
-// ==========================================
+// ==============================================================
+// 🎵 読み込むJSONファイル名リスト
+// 新しいJSONを追加したら、ここの配列にファイル名を書き足すだけです。
+// ==============================================================
 const targetJsonFiles = [
     "tutorial.json",
     "stage1.json"
@@ -141,16 +141,18 @@ const resultScreen = document.getElementById('result-screen');
 const feedbackEl = document.getElementById('feedback');
 const comboEl = document.getElementById('combo-display');
 
-// --- アプリ起動時にJSONを自動取得する ---
+// --- 起動時にJSONファイルをfetch（通信）で取得する ---
 window.addEventListener('DOMContentLoaded', async () => {
     const loadingMsg = document.getElementById('loading-message');
     let loadedCount = 0;
 
+    // GitHub Pagesのようなサーバー環境ならfetchが正常に動作します
     for (const file of targetJsonFiles) {
         try {
-            // fetch を使って同じフォルダのファイルを取得
-            const response = await fetch(file);
+            // キャッシュ対策としてクエリパラメータ(?t=時刻)を付与して常に最新のJSONを読むようにする
+            const response = await fetch(`${file}?t=${new Date().getTime()}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
             const songData = await response.json();
             
             // コメントのデフォルト値を設定（データ不足エラー回避）
@@ -166,19 +168,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     loadingMsg.style.display = 'none';
 
-    // 読み込み成功・失敗による画面切り替え
     if (loadedCount > 0) {
         initSongList();
     } else {
         document.getElementById('song-list-container').innerHTML = `
-            <div style="color:#ff3366; text-align:center; padding: 20px; background: #221115; border: 1px solid #ff3366; border-radius: 10px;">
-                <strong>データの読み込みに失敗しました。</strong><br><br>
-                <span style="font-size: 0.9rem; color:#ccc;">
-                【原因】<br>
-                HTMLファイルを直接ダブルクリック（file://...）して開いているため、ブラウザのセキュリティ制限によってJSONファイルがブロックされています。<br><br>
-                【解決策】<br>
-                VS Codeの「Live Server」などのローカルサーバー機能を使用して開いてください。
-                </span>
+            <div style="color:#ff3366; text-align:center; padding: 20px;">
+                楽曲データ（.json）が見つかりません。<br>
+                ファイル名やアップロード先の階層が正しいか確認してください。
             </div>
         `;
     }
