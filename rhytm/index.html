@@ -111,16 +111,9 @@
         <div class="btn" id="btn-retry" style="width: 200px;">選曲に戻る</div>
     </div>
 
-<script>
-// ==============================================================
-// 🎵 読み込むJSONファイル名リスト
-// 新しいJSONを追加したら、ここの配列にファイル名を書き足すだけです。
-// ==============================================================
-const targetJsonFiles = [
-    "tutorial.json",
-    "stage1.json"
-];
+<script src="song.js"></script>
 
+<script>
 let songDatabase = []; 
 
 // グローバル変数
@@ -144,18 +137,23 @@ const comboEl = document.getElementById('combo-display');
 // --- 起動時にJSONファイルをfetch（通信）で取得する ---
 window.addEventListener('DOMContentLoaded', async () => {
     const loadingMsg = document.getElementById('loading-message');
+    
+    // song.js が読み込めていない場合のエラーハンドリング
+    if (typeof targetJsonFiles === 'undefined') {
+        loadingMsg.innerHTML = `<span style="color:#ff3366;">song.js が見つからないか、内容にエラーがあります。</span>`;
+        return;
+    }
+
     let loadedCount = 0;
 
-    // GitHub Pagesのようなサーバー環境ならfetchが正常に動作します
     for (const file of targetJsonFiles) {
         try {
-            // キャッシュ対策としてクエリパラメータ(?t=時刻)を付与して常に最新のJSONを読むようにする
             const response = await fetch(`${file}?t=${new Date().getTime()}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
             const songData = await response.json();
             
-            // コメントのデフォルト値を設定（データ不足エラー回避）
+            // コメントのデフォルト値を設定
             if (!songData.comments) {
                 songData.comments = { "S": "S", "A": "A", "B": "B", "C": "C", "FAILED": "FAILED" };
             }
@@ -174,7 +172,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('song-list-container').innerHTML = `
             <div style="color:#ff3366; text-align:center; padding: 20px;">
                 楽曲データ（.json）が見つかりません。<br>
-                ファイル名やアップロード先の階層が正しいか確認してください。
+                song.js のリストと実際のファイル名が一致しているか確認してください。
             </div>
         `;
     }
