@@ -282,6 +282,8 @@ function parseTutScript(raw){
         textBuf = '';
     };
 
+    let pendingMetro = false; // 次のアクションに引き継ぐ metro フラグ
+
     tokens.forEach(tok => {
         if (!tok) return;
 
@@ -293,11 +295,19 @@ function parseTutScript(raw){
             if (inner === 'a') {
                 // ステップ区切り：テキストがあれば先に確定
                 flushText();
+                pendingMetro = false; // 区切りを跨いだら metro フラグをリセット
+
+            } else if (inner === 'metro:on') {
+                pendingMetro = true;
+
+            } else if (inner === 'metro:off') {
+                pendingMetro = false;
 
             } else if (tutorialLibrary[inner.toUpperCase()] !== undefined) {
                 // tutorialLibrary に存在するキー → アクションステップ
                 flushText();
-                steps.push({ type: 'action', id: inner.toUpperCase() });
+                steps.push({ type: 'action', id: inner.toUpperCase(), metro: pendingMetro });
+                pendingMetro = false;
 
             }
             // それ以外の未知タグは無視（テキストに混入させない）
@@ -336,7 +346,7 @@ function nextTutStep(){
         playScreen.style.backgroundColor='#1a1a1a';
     } else {
         gameState=ST_TUT_ACTION;
-        launchTutAction(step.id);
+        launchTutAction(step.id, step.metro || false);
     }
 }
 
@@ -362,7 +372,7 @@ function parseTutNodes(scoreStr){
     return result;
 }
 
-function launchTutAction(actionId){
+function launchTutAction(actionId, metro=false){
     const scoreStr = tutorialLibrary[actionId] || 't2.4.1,t3.4.1,t4.4.1,t5.4.1';
     const numChar  = actionId.slice(-1);
     tutExpected = numChar==='2'?'s': numChar==='3'?'2t':'t';
@@ -370,12 +380,15 @@ function launchTutAction(actionId){
     const typeLabel = tutExpected==='s'?'SWIPE': tutExpected==='2t'?'2本指TAP':'TAP';
     document.getElementById('tut-action-inst').innerText=`${typeLabel}の練習`;
 
-    scheduleTutRound(scoreStr);
+    scheduleTutRound(scoreStr, metro);
 }
 
-function scheduleTutRound(scoreStr){
+let tutMetro = false; // 現アクションのメトロノーム設定を保持
+
+function scheduleTutRound(scoreStr, metro=false){
     if(tutLoopId){ cancelAnimationFrame(tutLoopId); tutLoopId=null; }
 
+    tutMetro = metro;
     tutNodes=parseTutNodes(scoreStr);
     tutPerfectRun = (gameState===ST_TUT_ACTION && tutPerfectRun>=0) ? tutPerfectRun : 0;
     // ★ リスタート時は tutPerfectRun をリセットしない（ループ内で制御）
@@ -383,9 +396,9 @@ function scheduleTutRound(scoreStr){
     // ノーツを AudioContext の今の時刻を基準にスケジュール
     tutScheduledAt = audioCtx.currentTime;
 
-    // メトロノーム＋ガイド音＋ターゲット音
+    // ガイド音＋ターゲット音（メトロノームは metro:on のときだけ）
     const lastT = tutNodes[tutNodes.length-1].timingSec+2.0;
-    scheduleMetronome(lastT, tutScheduledAt);
+    if(tutMetro) scheduleMetronome(lastT, tutScheduledAt);
     tutNodes.forEach(node=>{
         const abs=tutScheduledAt+node.timingSec;
         const gAbs=abs-beatLen;
@@ -423,7 +436,7 @@ function tutMissLoop(){
                     const prevStep=tutScript[tutStepIndex-1];
                     const sc=tutorialLibrary[prevStep.id]||'t2.4.1,t3.4.1,t4.4.1,t5.4.1';
                     tutNodes.forEach(n=>n.judged=false); // reset judged flags
-                    scheduleTutRound(sc);
+                    scheduleTutRound(sc, tutMetro);
                 }
             },600);
         }
