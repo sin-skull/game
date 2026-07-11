@@ -2,33 +2,37 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RHYTHM FEEL - プレイ実機</title>
     <style>
         body {
-            margin: 0; background-color: #111; color: #fff;
+            margin: 0; padding: 0; background-color: #111; color: #fff;
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column; 
+            height: 100dvh; width: 100vw; overflow: hidden;
             user-select: none; -webkit-user-select: none; touch-action: none;
         }
-        h1 { font-size: 1.5rem; text-align: center; color: #00ffcc; margin: 20px 0; letter-spacing: 2px; }
+        
+        .screen {
+            display: none; flex-direction: column; flex: 1; 
+            width: 100%; max-width: 800px; margin: 0 auto; position: relative;
+            justify-content: center; align-items: center; box-sizing: border-box;
+        }
+
+        h1 { font-size: clamp(1.5rem, 5vw, 2.5rem); text-align: center; color: #00ffcc; margin: 20px 0; letter-spacing: 2px; }
         
         .btn {
-            background: #00ffcc; color: #000; font-weight: bold; font-size: 1.2rem;
-            padding: 15px; border: none; border-radius: 8px; cursor: pointer; text-align: center;
-            transition: 0.2s; box-shadow: 0 4px 10px rgba(0,255,204,0.2);
+            background: #00ffcc; color: #000; font-weight: bold; font-size: clamp(1rem, 4vw, 1.2rem);
+            padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; text-align: center;
+            transition: 0.2s; box-shadow: 0 4px 10px rgba(0,255,204,0.2); width: 80%; max-width: 300px;
         }
         .btn:active { background: #00cc99; transform: translateY(2px); box-shadow: none; }
         .btn-cancel { background: #444; color: #fff; box-shadow: none; }
         .btn-cancel:active { background: #333; }
 
         /* 選曲画面 */
-        #select-screen {
-            display: flex; flex-direction: column; flex: 1; padding: 20px; box-sizing: border-box;
-            max-width: 600px; margin: 0 auto; width: 100%; align-items: center;
-        }
         #loading-message { color: #aaa; margin-top: 20px; text-align: center; line-height: 1.5; }
-        .song-list { width: 100%; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; margin-top: 10px; }
+        .song-list { width: 90%; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; margin-top: 10px; padding-bottom: 20px;}
         .song-btn {
             background: #222; border: 1px solid #444; border-radius: 10px; padding: 20px;
             text-align: left; cursor: pointer; transition: 0.2s;
@@ -39,62 +43,53 @@
 
         /* ポップアップUI */
         #popup-overlay {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100dvh;
             background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center;
             backdrop-filter: blur(5px);
         }
         .popup-box {
             background: #1a1a1a; border: 2px solid #00ffcc; border-radius: 15px;
-            width: 80%; max-width: 400px; padding: 30px; text-align: center;
+            width: 85%; max-width: 400px; padding: 30px; text-align: center;
             box-shadow: 0 0 20px rgba(0,255,204,0.3);
         }
         #popup-title { font-size: 1.5rem; color: #fff; margin-bottom: 10px; font-weight: bold; }
         #popup-desc { font-size: 1rem; color: #aaa; margin-bottom: 30px; line-height: 1.5; white-space: pre-wrap; }
-        .popup-buttons { display: flex; gap: 10px; }
-        .popup-buttons .btn { flex: 1; }
+        .popup-buttons { display: flex; gap: 10px; justify-content: center; }
 
-        /* プレイ画面 (本編＋チュートリアル兼用) */
-        #play-screen {
-            display: none; flex-direction: column; flex: 1; position: relative;
-            justify-content: center; align-items: center; background: #1a1a1a;
-            transition: background-color 0.3s; /* 背景色アニメーション */
-        }
+        /* プレイ画面 */
+        #play-screen { background: #1a1a1a; transition: background-color 0.3s; width: 100vw; max-width: none; }
         #feedback {
-            font-size: 3rem; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.5);
-            transition: transform 0.1s; position: absolute; z-index: 10;
+            font-size: clamp(2.5rem, 8vw, 4rem); font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            transition: transform 0.1s; position: absolute; z-index: 10; pointer-events: none; text-align: center;
         }
-        #combo-display { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; color: #aaa; }
-        #info-text { position: absolute; bottom: 20px; font-size: 1rem; color: #666; text-align: center; }
+        #combo-display { position: absolute; top: 5%; right: 5%; font-size: 1.5rem; color: #aaa; }
+        #info-text { position: absolute; bottom: 5%; font-size: 1rem; color: #666; text-align: center; width: 100%; pointer-events: none; }
 
         /* チュートリアル専用UI */
         #tut-dialog {
-            display: none; position: absolute; bottom: 80px; width: 90%; max-width: 500px;
+            display: none; position: absolute; bottom: 10%; width: 90%; max-width: 500px;
             background: rgba(0,0,0,0.85); border: 2px solid #00ffcc; border-radius: 10px;
-            padding: 20px; box-sizing: border-box; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            padding: 20px; box-sizing: border-box; z-index: 20; box-shadow: 0 4px 15px rgba(0,0,0,0.5); pointer-events: none;
         }
-        #tut-text { font-size: 1.2rem; color: #fff; line-height: 1.6; white-space: pre-wrap; font-weight: bold; }
+        #tut-text { font-size: clamp(1rem, 4vw, 1.2rem); color: #fff; line-height: 1.6; white-space: pre-wrap; font-weight: bold; }
         #tut-next-hint { font-size: 0.9rem; color: #00ffcc; text-align: right; margin-top: 15px; animation: blink 1s infinite; }
         @keyframes blink { 50% { opacity: 0.3; } }
         
         #tut-action-ui {
-            display: none; position: absolute; top: 80px; text-align: center; z-index: 20;
-            background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 10px;
+            display: none; position: absolute; top: 15%; text-align: center; z-index: 20;
+            background: rgba(0,0,0,0.5); padding: 15px 30px; border-radius: 10px; pointer-events: none;
         }
         #tut-action-inst { font-size: 1.5rem; color: #fff; font-weight: bold; margin-bottom: 5px; }
         #tut-action-count { font-size: 1.2rem; color: #ffcc00; font-weight: bold; }
 
         /* リザルト画面 */
-        #result-screen {
-            display: none; flex-direction: column; flex: 1; padding: 20px;
-            justify-content: center; align-items: center; background: #111;
-        }
         #result-rank { font-size: 5rem; font-weight: bold; margin: 10px 0 30px 0; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
-        #result-eval { font-size: 1.2rem; color: #fff; margin-bottom: 40px; text-align: center; line-height: 1.6; white-space: pre-wrap; }
+        #result-eval { font-size: 1.2rem; color: #fff; margin-bottom: 40px; text-align: center; line-height: 1.6; white-space: pre-wrap; padding: 0 20px; }
     </style>
 </head>
 <body>
 
-    <div id="select-screen">
+    <div id="select-screen" class="screen" style="display: flex;">
         <h1>SELECT STAGE</h1>
         <div id="loading-message">楽曲データを読み込み中...</div>
         <div class="song-list" id="song-list-container"></div>
@@ -105,13 +100,13 @@
             <div id="popup-title">楽曲タイトル</div>
             <div id="popup-desc">説明</div>
             <div class="popup-buttons">
-                <div class="btn btn-cancel" id="btn-cancel">キャンセル</div>
-                <div class="btn" id="btn-start">ゲーム開始</div>
+                <div class="btn btn-cancel" id="btn-cancel">戻る</div>
+                <div class="btn" id="btn-start">開始</div>
             </div>
         </div>
     </div>
 
-    <div id="play-screen">
+    <div id="play-screen" class="screen">
         <div id="combo-display">Combo: 0</div>
         <div id="feedback"></div>
         <div id="info-text">画面のどこかをタップ！</div>
@@ -122,45 +117,53 @@
         </div>
         <div id="tut-dialog">
             <div id="tut-text">テキスト</div>
-            <div id="tut-next-hint">▼ タップして次へ</div>
+            <div id="tut-next-hint">▼ 画面をタップして次へ</div>
         </div>
     </div>
 
-    <div id="result-screen">
+    <div id="result-screen" class="screen">
         <h2 style="color:#00ffcc; margin:0;">RESULT</h2>
         <div id="result-rank">S</div>
         <div id="result-eval">評価コメント</div>
-        <div class="btn" id="btn-retry" style="width: 200px;">選曲に戻る</div>
+        <div class="btn" id="btn-retry">選曲に戻る</div>
     </div>
 
 <script src="song.js"></script>
 
 <script>
+// ==============================================================
+// 📚 チュートリアル用 楽譜データベース
+// A=合図型, K=継続型, O=往復型 など、ここでIDと楽譜を紐付けます
+// JSON側で ¥A1¥ と書けば "A1" の楽譜が、¥K1¥ と書けば "K1" が呼び出されます。
+// ==============================================================
+const tutorialScores = {
+    // 【合図型(A)】 シンプルに1拍ごとに4回
+    "A1": "t2.4.1, t3.4.1, t4.4.1, t5.4.1", 
+    "A2": "s2.4.1, s3.4.1, s4.4.1, s5.4.1", 
+    "A3": "2t2.4.1, 2t3.4.1, 2t4.4.1, 2t5.4.1",
+    
+    // 【継続型(K)】 少しテンポが速い8分音符の連続
+    "K1": "t2.4.1, t2.4.3, t3.4.1, t3.4.3, t4.4.1, t4.4.3", 
+    
+    // 【往復型(O)】 タップとスワイプが混ざる応用
+    "O1": "t2.4.1, s3.4.1, t4.4.1, s5.4.1" 
+};
+
 // --- グローバル状態管理 ---
 const ST_MENU = 0, ST_TUT_TEXT = 1, ST_TUT_ACTION = 2, ST_PLAY = 3;
 let gameState = ST_MENU;
-
 let songDatabase = []; 
 let audioCtx = null;
 let currentSong = null;
 let beatLen = 0, measureLen = 0, PRE_ROLL_SEC = 0;
 
 // 本編用変数
-let startTime = 0;
-let isPlaying = false;
-let nodes = [];
-let combo = 0;
-let isPeakFailed = false;
+let startTime = 0, isPlaying = false, nodes = [], combo = 0, isPeakFailed = false;
 let stats = { perfect: 0, great: 0, good: 0, miss: 0 };
 
 // チュートリアル用変数
-let tutScript = [];
-let tutStepIndex = 0;
-let tutPerfectCount = 0;
-let tutTargetTime = 0;
-let tutNodeJudged = false;
-let tutGuidePlayed = false;
-let tutTargetPlayed = false;
+let tutScript = [], tutStepIndex = 0, tutPerfectCount = 0;
+let isPlayingTut = false, tutStartTime = 0, tutEndTime = 0, tutNodes = [];
 
 // DOM要素
 const selectScreen = document.getElementById('select-screen');
@@ -172,7 +175,12 @@ const feedbackEl = document.getElementById('feedback');
 // --- 起動・JSON読み込み処理 ---
 window.addEventListener('DOMContentLoaded', async () => {
     const loadingMsg = document.getElementById('loading-message');
-    if (typeof targetJsonFiles === 'undefined') return;
+    if (typeof targetJsonFiles === 'undefined') {
+        loadingMsg.innerHTML = `<span style="color:#ff3366;">song.js が見つかりません。</span>`;
+        return;
+    }
+    
+    // 今後は stage1.json など本編ファイルだけを targetJsonFiles に書けばOKです
     let loadedCount = 0;
     for (const file of targetJsonFiles) {
         try {
@@ -207,11 +215,9 @@ function openPopup(song) {
     popupOverlay.style.display = "flex";
 }
 
-document.getElementById('btn-cancel').addEventListener('click', () => {
-    popupOverlay.style.display = "none";
-});
+document.getElementById('btn-cancel').addEventListener('click', () => { popupOverlay.style.display = "none"; });
 
-// --- 音源生成（シンセサイザー） ---
+// --- 音源生成 ---
 function playTone(freq, time, type='sine', vol=0.1, dur=0.1) {
     if (!audioCtx) return;
     const osc = audioCtx.createOscillator();
@@ -222,12 +228,11 @@ function playTone(freq, time, type='sine', vol=0.1, dur=0.1) {
     gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
     osc.start(time); osc.stop(time + dur);
 }
-function playMetronomeTick(time, isBeatOne) { playTone(isBeatOne ? 1200 : 800, time, 'square', 0.05, 0.05); }
 function playGuideNote(time) { playTone(659.25, time, 'triangle', 0.15, 0.15); }
 function playTargetNote(time) { playTone(523.25, time, 'triangle', 0.2, 0.2); }
 function playHitFeedback() { if(audioCtx) playTone(150, audioCtx.currentTime, 'square', 0.1, 0.05); }
 
-// --- ゲーム開始の分岐（チュートリアルがあればそちらへ） ---
+// --- ゲーム開始 ---
 document.getElementById('btn-start').addEventListener('click', () => {
     popupOverlay.style.display = "none";
     selectScreen.style.display = "none";
@@ -237,36 +242,34 @@ document.getElementById('btn-start').addEventListener('click', () => {
     measureLen = beatLen * 4;
     PRE_ROLL_SEC = measureLen * 1;
     
-    // UI初期化
     document.getElementById('combo-display').style.display = "none";
     document.getElementById('info-text').style.display = "none";
     playScreen.style.backgroundColor = "#1a1a1a";
     feedbackEl.innerText = "";
     
-    if (currentSong.tutorial) {
-        startTutorial();
-    } else {
-        startGame(); // チュートリアルがなければ即本編
-    }
+    if (currentSong.tutorial) startTutorial();
+    else startGame();
 });
 
 // ==============================================================
-// 📚 チュートリアルシステム
+// 📚 チュートリアルシステム (専用楽譜ID読み込み版)
 // ==============================================================
 function startTutorial() {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // シナリオのパース（¥a¥ で分割し、¥A1¥ などのタグを抽出）
     tutScript = [];
-    const rawParts = currentSong.tutorial.split('¥a¥');
+    
+    let rawText = currentSong.tutorial.replace(/[￥\\]/g, '¥');
+    const rawParts = rawText.split('¥a¥');
+    
     rawParts.forEach(p => {
-        let match = p.match(/¥([KOA])([123])¥/); // 例: ¥A1¥
+        let match = p.match(/¥([A-Za-z])([123])¥/); // 例: ¥A1¥
         if(match) {
-            let txt = p.replace(match[0], '');
-            if(txt.trim() !== '') tutScript.push({ type: 'text', text: txt });
-            tutScript.push({ type: 'action', mode: match[1], inputType: match[2] });
+            let txt = p.replace(match[0], '').trim();
+            if(txt !== '') tutScript.push({ type: 'text', text: txt });
+            // actionId（例 "A1"）を保存する
+            tutScript.push({ type: 'action', actionId: match[1].toUpperCase() + match[2] });
         } else {
-            if(p.trim() !== '') tutScript.push({ type: 'text', text: p });
+            if(p.trim() !== '') tutScript.push({ type: 'text', text: p.trim() });
         }
     });
     
@@ -276,124 +279,163 @@ function startTutorial() {
 
 function nextTutStep() {
     if (tutStepIndex >= tutScript.length) {
-        // 全ステップ完了で本編へ
         document.getElementById('tut-dialog').style.display = "none";
         document.getElementById('tut-action-ui').style.display = "none";
         startGame();
         return;
     }
-    
     const step = tutScript[tutStepIndex];
     tutStepIndex++;
     
     if (step.type === 'text') {
-        // テキスト表示モード
         gameState = ST_TUT_TEXT;
         document.getElementById('tut-dialog').style.display = "block";
         document.getElementById('tut-action-ui').style.display = "none";
         document.getElementById('tut-text').innerText = step.text;
         playScreen.style.backgroundColor = "#1a1a1a";
         feedbackEl.innerText = "";
-        
     } else if (step.type === 'action') {
-        // アクション（実践）モード
         gameState = ST_TUT_ACTION;
         document.getElementById('tut-dialog').style.display = "none";
         document.getElementById('tut-action-ui').style.display = "block";
         
-        let typeStr = step.inputType === "2" ? "スワイプ" : (step.inputType === "3" ? "2本指TAP" : "TAP");
-        document.getElementById('tut-action-inst').innerText = `${typeStr}の練習`;
-        
-        tutPerfectCount = 0;
-        updateTutBgAndUI();
-        
-        // 最初のターゲット時間を2秒後に設定してループ開始
-        tutTargetTime = audioCtx.currentTime + 2.0;
-        tutNodeJudged = false;
-        tutGuidePlayed = false;
-        tutTargetPlayed = false;
-        requestAnimationFrame(tutActionLoop);
+        // アクションIDに基づいてチュートリアルの楽譜を生成・開始
+        startTutAction(step.actionId);
     }
 }
 
-function updateTutBgAndUI() {
-    // パーフェクト回数で背景色を変更（1:黄, 2:緑, 3:青, 4:赤）
-    const colors = ["#1a1a1a", "#888800", "#008800", "#0044aa", "#aa0000"];
-    playScreen.style.backgroundColor = colors[tutPerfectCount] || "#1a1a1a";
-    document.getElementById('tut-action-count').innerText = `連続Perfect: ${tutPerfectCount} / 4`;
-}
+// アクションID（例："A1"）に紐づいた楽譜をロードして実践させる
+function startTutAction(actionId) {
+    let scoreStr = tutorialScores[actionId] || tutorialScores["A1"]; // 見つからなければA1を代入
+    
+    // UIの表記を楽譜の先頭ノーツのタイプで適当に合わせる
+    let typeStr = scoreStr.includes("2t") ? "2本指TAP" : (scoreStr.includes("s") ? "SWIPE" : "TAP");
+    document.getElementById('tut-action-inst').innerText = `${typeStr}の練習`;
 
-// チュートリアルの判定ループ
-function tutActionLoop() {
-    if (gameState !== ST_TUT_ACTION) return;
-    let current = audioCtx.currentTime;
+    tutNodes = [];
+    const parts = scoreStr.split(',');
+    parts.forEach((str, index) => {
+        let clean = str.trim();
+        if (!clean) return;
+        let type = 't';
+        if (clean.startsWith('2t')) { type = '2t'; clean = clean.substring(2); }
+        else if (clean.startsWith('s')) { type = 's'; clean = clean.substring(1); }
+        else if (clean.startsWith('t')) { type = 't'; clean = clean.substring(1); }
+        
+        const nums = clean.split('.').map(Number);
+        if (nums.length === 3) {
+            const timingSec = PRE_ROLL_SEC + (nums[0] - 1) * measureLen + (nums[2] - 1) / nums[1] * measureLen;
+            // 判定結果(hitRank)を保存するプロパティを追加
+            tutNodes.push({ index, type, measure: nums[0], division: nums[1], beat: nums[2], timingSec, judged: false, hitRank: null });
+        }
+    });
+
+    tutStartTime = audioCtx.currentTime;
+    isPlayingTut = true;
+    tutPerfectCount = 0;
+    updateTutBgAndUI(tutNodes.length); // ノーツ数に応じて色を変える
     
-    // ガイド音（1拍前）
-    if (current >= tutTargetTime - beatLen && !tutGuidePlayed) {
-        playGuideNote(tutTargetTime - beatLen);
-        tutGuidePlayed = true;
-    }
-    // ターゲット音
-    if (current >= tutTargetTime && !tutTargetPlayed) {
-        playTargetNote(tutTargetTime);
-        tutTargetPlayed = true;
-    }
+    const lastNote = tutNodes.reduce((max, n) => n.timingSec > max ? n.timingSec : max, 0);
+    tutEndTime = lastNote + 1.5; // 全ノーツ終了から1.5秒待つ
     
-    // 見逃し（判定窓を150ms過ぎた）
-    if (current > tutTargetTime + 0.150 && !tutNodeJudged) {
-        tutNodeJudged = true;
-        tutPerfectCount = 0;
-        showFeedback("MISS", "#555");
-        updateTutBgAndUI();
-        setupNextTutTarget(current);
+    for (let t = 0; t <= tutEndTime; t += beatLen) {
+        if(Math.round(t / beatLen) % 4 === 0) playTone(1200, tutStartTime + t, 'square', 0.05, 0.05);
+        else playTone(800, tutStartTime + t, 'square', 0.05, 0.05);
     }
-    
+    tutNodes.forEach(node => {
+        const targetTime = tutStartTime + node.timingSec;
+        const guideTime = targetTime - beatLen;
+        if (guideTime >= tutStartTime) playGuideNote(guideTime);
+        playTargetNote(targetTime);
+    });
+
     requestAnimationFrame(tutActionLoop);
 }
 
-function setupNextTutTarget(currentTime) {
-    tutTargetTime = currentTime + measureLen; // 1小節後（次の合図）を設定
-    tutNodeJudged = false;
-    tutGuidePlayed = false;
-    tutTargetPlayed = false;
+function updateTutBgAndUI(maxCount) {
+    let ratio = tutPerfectCount / maxCount;
+    let color = "#1a1a1a";
+    if (ratio > 0) color = "#888800";
+    if (ratio >= 0.5) color = "#008800";
+    if (ratio >= 0.75) color = "#0044aa";
+    if (ratio === 1) color = "#aa0000";
+    
+    playScreen.style.backgroundColor = color;
+    document.getElementById('tut-action-count').innerText = `連続Perfect: ${tutPerfectCount} / ${maxCount}`;
 }
 
-// チュートリアル中の入力処理
-function handleTutInput() {
-    if (tutNodeJudged) return; // 判定済みなら空振り無視
+function tutActionLoop() {
+    if (gameState !== ST_TUT_ACTION || !isPlayingTut) return;
+    let current = audioCtx.currentTime - tutStartTime;
     
-    let current = audioCtx.currentTime;
-    let dev = Math.abs(current - tutTargetTime);
+    // スルー（見逃し）判定
+    tutNodes.forEach(node => {
+        if (!node.judged && current > node.timingSec + 0.150) {
+            node.judged = true;
+            node.hitRank = "MISS";
+            tutPerfectCount = 0;
+            showFeedback("MISS", "#555");
+            updateTutBgAndUI(tutNodes.length);
+        }
+    });
     
-    // タイミングが離れすぎている（300ms以上）場合は無視
-    if (dev > 0.3) return;
-    
-    tutNodeJudged = true;
-    playHitFeedback();
-    
-    if (dev <= 0.040) { // PERFECT枠
-        tutPerfectCount++;
-        showFeedback("PERFECT", "#ffcc00");
-    } else { // それ以外はリセット
-        tutPerfectCount = 0;
-        if (dev <= 0.100) showFeedback("GREAT", "#00ffcc");
-        else if (dev <= 0.150) showFeedback("GOOD", "#00ccff");
-        else showFeedback("MISS", "#555");
-    }
-    
-    updateTutBgAndUI();
-    
-    if (tutPerfectCount >= 4) {
-        // 4回連続達成！クリア演出をして次へ
-        setTimeout(() => {
+    // ステップ完了時の評価
+    if (current > tutEndTime) {
+        isPlayingTut = false;
+        // 「全てのノーツがPERFECTか」を判定
+        let allPerfect = tutNodes.every(n => n.hitRank === "PERFECT");
+        
+        if (allPerfect) {
+            // 見事クリア！次へ進む
             playTone(1000, audioCtx.currentTime, 'sine', 0.1, 0.2);
             playTone(1500, audioCtx.currentTime + 0.2, 'sine', 0.1, 0.4);
             feedbackEl.innerText = "";
             nextTutStep();
-        }, 1000);
-    } else {
-        setupNextTutTarget(current);
+        } else {
+            // やり直し（今のステップのIDをもう一度投げる）
+            showFeedback("もう一度！", "#ff3366");
+            setTimeout(() => {
+                startTutAction(tutScript[tutStepIndex-1].actionId);
+            }, 1500);
+        }
+        return;
     }
+    requestAnimationFrame(tutActionLoop);
+}
+
+// チュートリアル中の入力ハンドラ
+function handleTutInput(inputType) {
+    if (!isPlayingTut) return;
+    let current = audioCtx.currentTime - tutStartTime;
+    let targetNode = null; let minDev = Infinity;
+    
+    tutNodes.forEach(node => {
+        if (!node.judged) {
+            const dev = Math.abs(current - node.timingSec);
+            if (dev < minDev && dev <= 0.300) { minDev = dev; targetNode = node; }
+        }
+    });
+    if (!targetNode) return;
+    
+    targetNode.judged = true;
+    playHitFeedback();
+    let absDevMs = minDev * 1000;
+    
+    if (inputType !== targetNode.type) {
+        targetNode.hitRank = "MISS";
+        tutPerfectCount = 0; showFeedback("操作ミス！", "#ff3366");
+    } else {
+        if (absDevMs <= 40) { 
+            targetNode.hitRank = "PERFECT"; tutPerfectCount++; showFeedback("PERFECT", "#ffcc00"); 
+        } else {
+            targetNode.hitRank = "MISS"; // チュートリアルではPerfect以外はミス扱いとする
+            tutPerfectCount = 0;
+            if (absDevMs <= 100) showFeedback("GREAT\n(Perfectを狙おう)", "#00ffcc");
+            else if (absDevMs <= 150) showFeedback("GOOD", "#00ccff");
+            else showFeedback("MISS", "#555");
+        }
+    }
+    updateTutBgAndUI(tutNodes.length);
 }
 
 // ==============================================================
@@ -402,27 +444,40 @@ function handleTutInput() {
 function startGame() {
     gameState = ST_PLAY;
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
     playScreen.style.backgroundColor = "#1a1a1a";
     document.getElementById('combo-display').style.display = "block";
     document.getElementById('info-text').style.display = "block";
     document.getElementById('info-text').innerText = "本番スタート！";
     
-    parseScore(currentSong.score);
+    nodes = [];
+    const parts = currentSong.score.split(',');
+    parts.forEach((str, index) => {
+        let clean = str.trim();
+        if (!clean) return;
+        let isPeak = false;
+        if (clean.startsWith('p')) { isPeak = true; clean = clean.substring(1); }
+        let type = 't';
+        if (clean.startsWith('2t')) { type = '2t'; clean = clean.substring(2); }
+        else if (clean.startsWith('s')) { type = 's'; clean = clean.substring(1); }
+        else if (clean.startsWith('t')) { type = 't'; clean = clean.substring(1); }
+        const nums = clean.split('.').map(Number);
+        if (nums.length === 3) {
+            const timingSec = PRE_ROLL_SEC + (nums[0] - 1) * measureLen + (nums[2] - 1) / nums[1] * measureLen;
+            nodes.push({ index, type, measure: nums[0], division: nums[1], beat: nums[2], isPeak, timingSec, judged: false });
+        }
+    });
     
     startTime = audioCtx.currentTime;
-    isPlaying = true;
-    isPeakFailed = false;
-    combo = 0;
+    isPlaying = true; isPeakFailed = false; combo = 0;
     stats = { perfect: 0, great: 0, good: 0, miss: 0 };
-    updateCombo();
-    feedbackEl.innerText = "";
+    updateCombo(); feedbackEl.innerText = "";
     
     const lastNote = nodes.reduce((max, n) => n.timingSec > max ? n.timingSec : max, 0);
     const gameEndTime = lastNote + 2.0;
     
     for (let t = 0; t <= gameEndTime; t += beatLen) {
-        playMetronomeTick(startTime + t, Math.round(t / beatLen) % 4 === 0);
+        if(Math.round(t / beatLen) % 4 === 0) playTone(1200, startTime + t, 'square', 0.05, 0.05);
+        else playTone(800, startTime + t, 'square', 0.05, 0.05);
     }
     nodes.forEach(node => {
         const targetTime = startTime + node.timingSec;
@@ -436,8 +491,7 @@ function startGame() {
         const current = audioCtx.currentTime - startTime;
         nodes.forEach(node => {
             if (!node.judged && current > node.timingSec + 0.150) {
-                node.judged = true;
-                stats.miss++; combo = 0; updateCombo();
+                node.judged = true; stats.miss++; combo = 0; updateCombo();
                 showFeedback("MISS", "#555");
                 if (node.isPeak) isPeakFailed = true;
             }
@@ -448,33 +502,70 @@ function startGame() {
     requestAnimationFrame(loop);
 }
 
-function parseScore(text) {
-    nodes = [];
-    const parts = text.split(',');
-    parts.forEach((str, index) => {
-        let clean = str.trim();
-        if (!clean) return;
-        let isPeak = false;
-        if (clean.startsWith('p')) { isPeak = true; clean = clean.substring(1); }
-        let type = 't';
-        if (clean.startsWith('2t')) { type = '2t'; clean = clean.substring(2); }
-        else if (clean.startsWith('s')) { type = 's'; clean = clean.substring(1); }
-        else if (clean.startsWith('t')) { type = 't'; clean = clean.substring(1); }
-        
-        const nums = clean.split('.').map(Number);
-        if (nums.length === 3) {
-            const timingSec = PRE_ROLL_SEC + (nums[0] - 1) * measureLen + (nums[2] - 1) / nums[1] * measureLen;
-            nodes.push({ index, type, measure: nums[0], division: nums[1], beat: nums[2], isPeak, timingSec, judged: false });
-        }
-    });
+// ==============================================================
+// 👆 統合入力検出 (TAP / SWIPE / 2本指 の厳密な判定)
+// ==============================================================
+let inputStartX = 0, inputStartY = 0, touchCount = 0;
+let detectedType = 't'; 
+let isTouchDevice = false;
+
+playScreen.addEventListener('touchstart', (e) => {
+    isTouchDevice = true; e.preventDefault();
+    if(e.touches.length > 0) {
+        inputStartX = e.touches[0].clientX;
+        inputStartY = e.touches[0].clientY;
+        touchCount = e.touches.length;
+    }
+});
+playScreen.addEventListener('touchmove', (e) => {
+    if(touchCount === 1) {
+        let dx = e.touches[0].clientX - inputStartX;
+        let dy = e.touches[0].clientY - inputStartY;
+        if(Math.sqrt(dx*dx + dy*dy) > 50) detectedType = 's';
+    }
+});
+playScreen.addEventListener('touchend', (e) => {
+    if(e.touches.length > 0) return; 
+    let finalType = (touchCount >= 2) ? '2t' : detectedType;
+    processInput(finalType);
+    detectedType = 't'; touchCount = 0;
+});
+
+// PC用マウス対応
+let isMouseDown = false;
+playScreen.addEventListener('mousedown', (e) => {
+    if(isTouchDevice) return;
+    isMouseDown = true;
+    inputStartX = e.clientX; inputStartY = e.clientY;
+    detectedType = 't';
+});
+playScreen.addEventListener('mousemove', (e) => {
+    if(!isMouseDown) return;
+    let dx = e.clientX - inputStartX; let dy = e.clientY - inputStartY;
+    if(Math.sqrt(dx*dx + dy*dy) > 50) detectedType = 's';
+});
+playScreen.addEventListener('mouseup', (e) => {
+    if(!isMouseDown) return;
+    isMouseDown = false;
+    processInput(detectedType);
+});
+
+// 入力イベントのルーティング
+function processInput(type) {
+    if (gameState === ST_TUT_TEXT) {
+        nextTutStep();
+    } else if (gameState === ST_TUT_ACTION) {
+        handleTutInput(type);
+    } else if (gameState === ST_PLAY) {
+        handlePlayAction(type);
+    }
 }
 
-function handlePlayInput() {
+function handlePlayAction(inputType) {
     if (!isPlaying) return;
     playHitFeedback();
     const current = audioCtx.currentTime - startTime;
-    let targetNode = null;
-    let minDev = Infinity;
+    let targetNode = null; let minDev = Infinity;
     
     nodes.forEach(node => {
         if (!node.judged) {
@@ -482,41 +573,24 @@ function handlePlayInput() {
             if (dev < minDev && dev <= 0.300) { minDev = dev; targetNode = node; }
         }
     });
-    
     if (!targetNode) return;
-    
     targetNode.judged = true;
-    const absDevMs = minDev * 1000;
+    
     let rankText = "", color = "", isSuccess = false;
+    const absDevMs = minDev * 1000;
     
-    if (absDevMs <= 40) { rankText = "PERFECT"; color = "#ffcc00"; stats.perfect++; isSuccess = true; combo++; }
-    else if (absDevMs <= 100) { rankText = "GREAT"; color = "#00ffcc"; stats.great++; isSuccess = true; combo++; }
-    else if (absDevMs <= 150) { rankText = "GOOD"; color = "#00ccff"; stats.good++; combo = 0; }
-    else { rankText = "MISS"; color = "#555"; stats.miss++; combo = 0; }
-    
-    if (targetNode.isPeak) {
-        rankText += " (PEAK)";
-        if (!isSuccess) isPeakFailed = true;
+    if (inputType !== targetNode.type) {
+        rankText = "操作ミス"; color = "#ff3366"; stats.miss++; combo = 0;
+    } else {
+        if (absDevMs <= 40) { rankText = "PERFECT"; color = "#ffcc00"; stats.perfect++; isSuccess = true; combo++; }
+        else if (absDevMs <= 100) { rankText = "GREAT"; color = "#00ffcc"; stats.great++; isSuccess = true; combo++; }
+        else if (absDevMs <= 150) { rankText = "GOOD"; color = "#00ccff"; stats.good++; combo = 0; }
+        else { rankText = "MISS"; color = "#555"; stats.miss++; combo = 0; }
     }
+    
+    if (targetNode.isPeak) { rankText += " (PEAK)"; if (!isSuccess) isPeakFailed = true; }
     updateCombo(); showFeedback(rankText, color);
 }
-
-// --- 共通の入力ルーター ---
-function onScreenTap(e) {
-    if (e.cancelable) e.preventDefault();
-    if (gameState === ST_TUT_TEXT) {
-        // テキスト送り
-        nextTutStep();
-    } else if (gameState === ST_TUT_ACTION) {
-        // チュートリアルのアクション判定
-        handleTutInput();
-    } else if (gameState === ST_PLAY) {
-        // 本編の判定
-        handlePlayInput();
-    }
-}
-playScreen.addEventListener('touchstart', onScreenTap);
-playScreen.addEventListener('mousedown', onScreenTap);
 
 function showFeedback(text, color) {
     feedbackEl.innerText = text; feedbackEl.style.color = color;
@@ -528,8 +602,7 @@ function updateCombo() { comboEl.innerText = combo > 1 ? `Combo: ${combo}` : "";
 function endGame() {
     isPlaying = false; gameState = ST_MENU;
     if (audioCtx) { try { audioCtx.close(); } catch(e){} }
-    playScreen.style.display = 'none';
-    resultScreen.style.display = 'flex';
+    playScreen.style.display = 'none'; resultScreen.style.display = 'flex';
     
     const totalNotes = nodes.length;
     const totalScorePoint = (stats.perfect * 100) + (stats.great * 70) + (stats.good * 30);
@@ -549,9 +622,7 @@ function endGame() {
 }
 
 document.getElementById('btn-retry').addEventListener('click', () => {
-    resultScreen.style.display = 'none';
-    selectScreen.style.display = 'flex';
-    currentSong = null;
+    resultScreen.style.display = 'none'; selectScreen.style.display = 'flex'; currentSong = null;
 });
 </script>
 </body>
