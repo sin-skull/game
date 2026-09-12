@@ -61,19 +61,34 @@
   }
   canvas{display:block;width:100%;height:auto;}
 
-  .hud{
-    position:absolute;top:0;left:0;right:0;
-    display:flex;justify-content:space-between;align-items:flex-start;
-    padding:9px 11px;
-    font-size:11px;letter-spacing:.04em;
-    pointer-events:none;
-    background:linear-gradient(180deg,rgba(0,0,0,.62),transparent);
+  /* ---------- ノベル ---------- */
+  .novel{
+    position:absolute;inset:0;display:none;
+    flex-direction:column;justify-content:flex-end;
+    padding:clamp(18px,5vw,42px);
+    background:linear-gradient(180deg,rgba(3,5,9,.55) 0%,rgba(3,5,9,.93) 58%);
+    cursor:pointer;
   }
-  .hud .left{line-height:1.65;}
-  .hud .title{color:var(--ink);font-weight:500;font-size:12px;}
-  .hud .hint{color:var(--ink-dim);}
-  .hud .right{text-align:right;line-height:1.65;color:var(--ink-dim);}
-  .hud .right b{color:var(--ink);font-weight:500;}
+  .novel.show{display:flex;}
+  .novel-lines{
+    display:flex;flex-direction:column;gap:.5em;
+    font-size:clamp(13px,2.6vw,17px);
+    line-height:1.95;letter-spacing:.05em;
+    color:#d6dce6;
+    text-shadow:0 1px 12px rgba(0,0,0,.9);
+  }
+  .novel-lines .line{opacity:0;transform:translateY(5px);}
+  .novel-lines .line.in{
+    opacity:1;transform:none;
+    transition:opacity .5s ease,transform .5s ease;
+  }
+  .novel-next{
+    align-self:flex-end;margin-top:14px;
+    font-size:11px;color:var(--exit);opacity:0;
+    animation:blink 1.5s ease-in-out infinite;
+  }
+  .novel-next.on{opacity:.85;}
+  @keyframes blink{0%,100%{transform:translateY(0);}50%{transform:translateY(3px);}}
 
   .overlay{
     position:absolute;inset:0;display:none;
@@ -125,11 +140,6 @@
     touch-action:none;
     display:flex;align-items:center;justify-content:center;
   }
-  .pad-hint{
-    position:absolute;bottom:8px;left:0;right:0;
-    text-align:center;font-size:9.5px;color:#4b5468;letter-spacing:.06em;
-    pointer-events:none;
-  }
   .pad-base{
     position:absolute;width:96px;height:96px;border-radius:50%;
     border:1px solid rgba(255,255,255,.09);
@@ -151,33 +161,35 @@
 
   .readout{
     align-self:stretch;
-    display:flex;flex-direction:column;justify-content:center;gap:7px;
+    display:flex;flex-direction:column;justify-content:center;gap:9px;
     min-width:0;
   }
-  .gait{
-    display:flex;align-items:center;gap:8px;
-    font-size:12px;letter-spacing:.05em;
+  .stagenum{
+    font-size:26px;font-weight:700;letter-spacing:.08em;
+    color:#39435a;line-height:1;
   }
+  .gait{display:flex;gap:5px;align-items:center;}
   .gait .lamp{
-    width:8px;height:8px;border-radius:50%;
-    background:#2b3444;box-shadow:none;transition:.12s;
+    width:7px;height:7px;border-radius:50%;
+    background:#1b2231;transition:.12s;
   }
-  .gait.sneak .lamp{background:var(--exit);box-shadow:0 0 9px var(--exit);}
-  .gait.walk  .lamp{background:var(--lamp);box-shadow:0 0 9px var(--lamp);}
-  .gait .label{color:var(--ink-dim);}
-  .gait.sneak .label{color:var(--exit);}
-  .gait.walk  .label{color:var(--lamp);}
+  .gait.sneak .lamp:nth-child(1){background:var(--exit);box-shadow:0 0 8px var(--exit);}
+  .gait.walk  .lamp{background:var(--lamp);box-shadow:0 0 8px var(--lamp);}
 
   .alertbar{
-    height:5px;border-radius:3px;background:#151b28;overflow:hidden;
-    box-shadow:inset 0 0 0 1px #1e2635;
+    height:4px;border-radius:3px;background:#111724;overflow:hidden;
+    box-shadow:inset 0 0 0 1px #1c2433;
   }
   .alertbar i{
     display:block;height:100%;width:0%;
     background:linear-gradient(90deg,var(--lamp),var(--blood));
-    transition:width .2s;
+    transition:width .25s;
   }
-  .alerttext{font-size:10.5px;color:var(--ink-dim);letter-spacing:.04em;}
+  .stats{
+    display:flex;justify-content:space-between;
+    font-size:10.5px;color:#39435a;letter-spacing:.06em;
+    font-variant-numeric:tabular-nums;
+  }
 
   .buttons{display:flex;flex-direction:column;gap:7px;}
   .btn{
@@ -191,13 +203,6 @@
   .btn:active{background:#0d1320;transform:translateY(1px);}
   .btn.go{border-color:rgba(87,224,184,.5);color:var(--exit);}
   .btn.small{padding:7px 13px;font-size:11.5px;}
-
-  .legend{
-    display:flex;gap:13px;flex-wrap:wrap;justify-content:center;
-    font-size:10.5px;color:#57617a;letter-spacing:.03em;
-  }
-  .legend span{display:flex;align-items:center;gap:5px;}
-  .sw{width:9px;height:9px;border-radius:2px;display:inline-block;}
 </style>
 </head>
 <body>
@@ -207,15 +212,9 @@
   <div class="upper">
     <div class="screen">
       <canvas id="game" width="880" height="560"></canvas>
-      <div class="hud">
-        <div class="left">
-          <div class="title" id="hudTitle">STAGE 1</div>
-          <div class="hint" id="hudHint"></div>
-        </div>
-        <div class="right">
-          <div><b id="hudTime">0.0</b>s</div>
-          <div>失敗 <b id="hudFail">0</b></div>
-        </div>
+      <div class="novel" id="novel">
+        <div class="novel-lines" id="novelLines"></div>
+        <div class="novel-next" id="novelNext">▼</div>
       </div>
       <div class="overlay" id="overlay">
         <div class="ov-title" id="ovTitle"></div>
@@ -234,28 +233,19 @@
         <div class="pad-inner"></div>
       </div>
       <div class="pad-knob" id="padKnob"></div>
-      <div class="pad-hint">どこを触ってもスティックが出る</div>
     </div>
 
     <div class="readout">
-      <div class="gait" id="gait">
-        <i class="lamp"></i><span class="label" id="gaitLabel">停止</span>
-      </div>
+      <div class="stagenum" id="stageNum">1</div>
+      <div class="gait" id="gait"><i class="lamp"></i><i class="lamp"></i><i class="lamp"></i></div>
       <div class="alertbar"><i id="alertFill"></i></div>
-      <div class="alerttext" id="alertText">警戒なし</div>
+      <div class="stats"><span id="statTime">0.0</span><span id="statFail">0</span></div>
     </div>
 
     <div class="buttons">
       <button class="btn small" id="btnRetry">やり直す</button>
-      <button class="btn small" id="btnStages">ステージ選択</button>
+      <button class="btn small" id="btnStages">章を選ぶ</button>
     </div>
-  </div>
-
-  <div class="legend">
-    <span><i class="sw" style="background:#ffc46b"></i>懐中電灯の光＝見られている</span>
-    <span><i class="sw" style="background:#57e0b8"></i>非常口</span>
-    <span><i class="sw" style="background:#d9564c"></i>警備員</span>
-    <span>暗がりは安全</span>
   </div>
 </div>
 
@@ -303,6 +293,34 @@ const PROP_KIND = {
 };
 
 /* ==========================================================
+   ノベル（章と章のあいだの語り）
+   ここだけ差し替えれば物語を入れ替えられる
+   ========================================================== */
+const NOVEL = {
+  0:[ '午前二時十四分。',
+      '警備の交代まで、あと四十六分。',
+      '灯りはひとつも点いていない。点ける気もない。',
+      '見つからずに出る。それだけだ。' ],
+  1:[ '搬入口の鍵は、記憶のままだった。',
+      '三年前ここで働いていた頃と、何ひとつ変わっていない。',
+      '変わったのは、私が入ってはいけない側になったことだけ。' ],
+  2:[ '資料室。',
+      '探していたものは、思ったより薄い紙束だった。',
+      'これだけのために、人がひとり消えている。' ],
+  3:[ '配管通路は狭い。',
+      '肩が触れれば音が鳴る。音が鳴れば、光が来る。' ],
+  4:[ '中央監視室。',
+      'ここさえ抜ければ、あとは階段だけだ。',
+      'モニターに、私が入ってきた扉が映っている。' ],
+  5:[ '最上階。',
+      '非常口の緑が、廊下の奥に見えた。',
+      'あと少し。あと少しだけ、息を殺せ。' ],
+  end:[ '外の空気は、三年前と同じ匂いがした。',
+        '紙束はまだ、上着の内側にある。',
+        '——ここからが本当の話だ。' ],
+};
+
+/* ==========================================================
    ステージ
    ========================================================== */
 function outer(){
@@ -314,13 +332,13 @@ function outer(){
 function P(kind,x,y){ return {kind,x,y,...PROP_KIND[kind]}; }
 
 const STAGES = [
-  { name:'倉庫 B1',   hint:'光の中に入らない',
+  { name:'倉庫 B1',   
     start:{x:52,y:62}, exit:{x:770,y:460,w:82,h:80},
     walls:[...outer(), {x:16,y:206,w:596,h:18}],
     props:[P('crate',290,108), P('barrel',500,330), P('vase',180,420), P('chair',640,300)],
     guards:[ {path:[{x:668,y:118},{x:836,y:118}], speed:60} ],
   },
-  { name:'搬入口',    hint:'倒れた物の音に警備が寄る',
+  { name:'搬入口',    
     start:{x:52,y:504}, exit:{x:770,y:52,w:82,h:78},
     walls:[...outer(),
       {x:222,y:16,w:18,h:368},
@@ -334,7 +352,7 @@ const STAGES = [
       {path:[{x:772,y:192},{x:772,y:500}], speed:58},
     ],
   },
-  { name:'資料室',    hint:'首が向こうを向く一瞬を使う',
+  { name:'資料室',    
     start:{x:52,y:62}, exit:{x:52,y:452,w:82,h:80},
     walls:[...outer(),
       {x:192,y:16,w:18,h:238},
@@ -352,7 +370,7 @@ const STAGES = [
       {path:[{x:288,y:452},{x:540,y:452}], speed:52},
     ],
   },
-  { name:'配管通路',  hint:'狭い。速く歩けば足音が届く',
+  { name:'配管通路',  
     start:{x:52,y:508}, exit:{x:782,y:48,w:78,h:74},
     walls:[...outer(),
       {x:16,y:116,w:500,h:18},
@@ -372,7 +390,7 @@ const STAGES = [
       {path:[{x:800,y:192},{x:800,y:192}], speed:0, sweep:72*DEG, sweepT:5.0, face:180*DEG},
     ],
   },
-  { name:'中央監視室', hint:'音で引き離してから抜ける',
+  { name:'中央監視室', 
     start:{x:52,y:52}, exit:{x:360,y:262,w:78,h:74},
     walls:[...outer(),
       {x:134,y:124,w:18,h:318},
@@ -400,7 +418,7 @@ const STAGES = [
       {path:[{x:824,y:96},{x:824,y:480}], speed:66, sweep:36*DEG, sweepT:3.2},
     ],
   },
-  { name:'最上階',    hint:'逃げ道はひとつ',
+  { name:'最上階',    
     start:{x:52,y:288}, exit:{x:398,y:46,w:80,h:74},
     walls:[...outer(),
       {x:128,y:16,w:18,h:210},
@@ -542,6 +560,46 @@ function blocked(ox,oy,dx,dy,dist){
   return false;
 }
 
+/* ==========================================================
+   ノベル再生
+   ========================================================== */
+const novelEl   = document.getElementById('novel');
+const novelLines= document.getElementById('novelLines');
+const novelNext = document.getElementById('novelNext');
+let novelQueue=[], novelStep=0, novelDone=null;
+
+function playNovel(lines, onDone){
+  if(!lines || !lines.length){ onDone(); return; }
+  mode='novel';
+  novelQueue=lines.slice(); novelStep=0; novelDone=onDone;
+  novelLines.innerHTML=''; novelNext.classList.remove('on');
+  novelEl.classList.add('show');
+  advanceNovel();
+}
+function advanceNovel(){
+  if(novelStep >= novelQueue.length){
+    novelEl.classList.remove('show');
+    const f=novelDone; novelDone=null;
+    if(f) f();
+    return;
+  }
+  const div=document.createElement('div');
+  div.className='line';
+  div.textContent=novelQueue[novelStep];
+  novelLines.appendChild(div);
+  requestAnimationFrame(()=>div.classList.add('in'));
+  novelStep++;
+  novelNext.classList.toggle('on', true);
+}
+novelEl.addEventListener('pointerdown',e=>{ e.preventDefault(); audioOn(); advanceNovel(); });
+
+/* ==========================================================
+   ステージ開始
+   ========================================================== */
+function beginStage(i){
+  playNovel(NOVEL[i], ()=>loadStage(i));
+}
+
 function loadStage(i){
   stageIdx=i; stage=STAGES[i];
   walls = stage.walls.map(w=>({...w}));
@@ -563,8 +621,7 @@ function loadStage(i){
   player.face=-Math.PI/2; player.mag=0; player.step=0;
   elapsed=0; flash=0; mode='playing';
   hideOverlay();
-  document.getElementById('hudTitle').textContent = `STAGE ${i+1} ／ ${stage.name}`;
-  document.getElementById('hudHint').textContent = stage.hint;
+  document.getElementById('stageNum').textContent = String(i+1);
 }
 
 /* ==========================================================
@@ -770,8 +827,11 @@ const ovTitle=document.getElementById('ovTitle');
 const ovNote=document.getElementById('ovNote');
 const ovRow=document.getElementById('ovRow');
 function showOverlay(title,cls,note,btns){
-  ovTitle.textContent=title; ovTitle.className='ov-title '+cls;
-  ovNote.textContent=note||''; ovRow.innerHTML='';
+  ovTitle.textContent=title||''; ovTitle.className='ov-title '+cls;
+  ovTitle.style.display = title ? '' : 'none';
+  ovNote.textContent=note||'';
+  ovNote.style.display = note ? '' : 'none';
+  ovRow.innerHTML='';
   for(const b of btns){
     const el=document.createElement('button');
     el.className='btn '+(b.cls||''); el.textContent=b.label;
@@ -782,16 +842,9 @@ function showOverlay(title,cls,note,btns){
 }
 function hideOverlay(){ overlay.classList.remove('show'); }
 
-const CAUGHT_LINES = [
-  '光の中に入った',
-  '足音が近すぎた',
-  '暗がりまで戻れなかった',
-  '首が振り返るのが早かった',
-];
 function onCaught(){
   mode='caught'; fails++; flash=1; SFX.spot();
-  showOverlay('発見された','caught',
-    CAUGHT_LINES[(Math.random()*CAUGHT_LINES.length)|0],
+  showOverlay('','caught','',
     [{label:'やり直す',cls:'go',fn:()=>loadStage(stageIdx)}]);
 }
 function onClear(){
@@ -799,25 +852,26 @@ function onClear(){
   unlocked=Math.max(unlocked,stageIdx+2);
   const last = stageIdx===STAGES.length-1;
   if(last){
-    showOverlay('全区画 突破','clear',
-      `失敗 ${fails} 回。1画面で確認できるのはここまで。`,
-      [{label:'最初から',cls:'go',fn:()=>{fails=0; loadStage(0);}},
-       {label:'ステージ選択',cls:'',fn:showStageSelect}]);
+    playNovel(NOVEL.end, ()=>{
+      mode='clear';
+      showOverlay('','clear','',
+        [{label:'最初から',cls:'go',fn:()=>{fails=0; beginStage(0);}},
+         {label:'章を選ぶ',cls:'',fn:showStageSelect}]);
+    });
   } else {
-    showOverlay('脱出成功','clear',
-      `${stage.name} ／ ${elapsed.toFixed(1)}秒`,
-      [{label:'次へ',cls:'go',fn:()=>loadStage(stageIdx+1)},
+    showOverlay('','clear','',
+      [{label:'次へ',cls:'go',fn:()=>beginStage(stageIdx+1)},
        {label:'やり直す',cls:'',fn:()=>loadStage(stageIdx)}]);
   }
 }
 function showStageSelect(){
   mode='menu';
   const btns = STAGES.map((s,i)=>({
-    label:`${i+1}. ${s.name}`,
+    label:`${i+1}　${s.name}`,
     cls: i===stageIdx?'go':'',
-    fn:()=>loadStage(i),
+    fn:()=>beginStage(i),
   }));
-  showOverlay('ステージ選択','', '', btns);
+  showOverlay('','', '', btns);
 }
 
 /* ==========================================================
@@ -1043,30 +1097,71 @@ function drawGuard(g,lit){
 function drawPlayer(){
   const sneak = player.mag>.02 && player.mag<=SNEAK_MAX;
   const bob = Math.sin(player.bob)*0.9*(player.mag>.02?1:0);
+  const x=player.x, y=player.y+bob;
+
+  // 足元のうっすらした光（暗闇でも位置を見失わないため）
+  const halo=ctx.createRadialGradient(x,y,2,x,y,30);
+  halo.addColorStop(0,'rgba(186,210,255,.3)');
+  halo.addColorStop(.45,'rgba(150,180,235,.12)');
+  halo.addColorStop(1,'rgba(150,180,235,0)');
+  ctx.fillStyle=halo;
+  ctx.beginPath(); ctx.arc(x,y,30,0,Math.PI*2); ctx.fill();
+
   ctx.save();
-  ctx.translate(player.x,player.y+bob);
-
-  ctx.fillStyle='rgba(0,0,0,.5)';
-  ctx.beginPath(); ctx.ellipse(1,3,9.5,7.5,0,0,Math.PI*2); ctx.fill();
-
+  ctx.translate(x,y);
+  ctx.fillStyle='rgba(0,0,0,.55)';
+  ctx.beginPath(); ctx.ellipse(1.5,3.5,9.5,7,0,0,Math.PI*2); ctx.fill();
   ctx.rotate(player.face);
-  // フードのシルエット
-  ctx.fillStyle = sneak ? '#242c3c' : '#2f3a4e';
+
+  // 外套（明るいグレー。闇の中でもはっきり見える）
+  const body=ctx.createLinearGradient(-8,-8,6,8);
+  body.addColorStop(0,'#d3dcea');
+  body.addColorStop(1,'#8b99b2');
+  ctx.fillStyle=body;
   ctx.beginPath(); ctx.ellipse(-1,0,9,7.5,0,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle = sneak ? 'rgba(87,224,184,.55)' : 'rgba(200,215,235,.5)';
-  ctx.lineWidth=1.3; ctx.stroke();
-  // フードの先
-  ctx.fillStyle = sneak ? '#1b2230' : '#232c3c';
+
+  // フードの先（進行方向）
+  ctx.fillStyle='#6e7c96';
   ctx.beginPath();
-  ctx.moveTo(3,-5.4); ctx.quadraticCurveTo(11,0,3,5.4); ctx.closePath(); ctx.fill();
+  ctx.moveTo(3,-5.2); ctx.quadraticCurveTo(11.5,0,3,5.2); ctx.closePath(); ctx.fill();
+
+  // 背中の折り目
+  ctx.strokeStyle='rgba(60,72,94,.7)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(-6,-3.4); ctx.lineTo(-3,0); ctx.lineTo(-6,3.4); ctx.stroke();
+
+  // 輪郭
+  ctx.strokeStyle = sneak ? 'rgba(87,224,184,.9)' : 'rgba(232,240,252,.95)';
+  ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.ellipse(-1,0,9,7.5,0,0,Math.PI*2); ctx.stroke();
   ctx.restore();
 
+  // 忍び足の印
   if(sneak){
-    ctx.strokeStyle='rgba(87,224,184,.35)'; ctx.lineWidth=1;
-    ctx.setLineDash([3,4]);
-    ctx.beginPath(); ctx.arc(player.x,player.y,PR+6,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle='rgba(87,224,184,.45)'; ctx.lineWidth=1;
+    ctx.setLineDash([3,5]);
+    ctx.beginPath(); ctx.arc(x,y,PR+7,0,Math.PI*2); ctx.stroke();
     ctx.setLineDash([]);
   }
+  // 歩行中は足音の広がりを小さく示す
+  if(player.mag>SNEAK_MAX){
+    const t=(1-player.step/STEP_INT);
+    ctx.strokeStyle=`rgba(255,196,107,${.3*(1-t)})`;
+    ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(x,y,PR+6+t*14,0,Math.PI*2); ctx.stroke();
+  }
+}
+
+/* --- 光に照らされたプレイヤー（露出の強調） --- */
+function drawPlayerLit(){
+  const bob = Math.sin(player.bob)*0.9*(player.mag>.02?1:0);
+  ctx.save();
+  ctx.translate(player.x,player.y+bob);
+  ctx.rotate(player.face);
+  ctx.fillStyle='rgba(255,226,178,.5)';
+  ctx.beginPath(); ctx.ellipse(-1,0,9,7.5,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(255,240,210,.95)'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.ellipse(-1,0,9.5,8,0,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
 }
 
 /* --- メイン描画 --- */
@@ -1130,6 +1225,15 @@ function draw(){
   for(const g of guards) drawGuard(g,false);
   drawPlayer();
 
+  // 4b) 懐中電灯の中にいるなら、照らされて浮かび上がる
+  for(const g of guards){
+    ctx.save();
+    coneShape(g,FOCUS_FOV,FOCUS_RANGE);
+    ctx.clip();
+    drawPlayerLit();
+    ctx.restore();
+  }
+
   // 5) 画面の縁を落として奥行きを出す
   const vig=ctx.createRadialGradient(W/2,H/2,H*.35,W/2,H/2,H*.92);
   vig.addColorStop(0,'rgba(0,0,0,0)');
@@ -1146,29 +1250,17 @@ function draw(){
    下画面の表示更新
    ========================================================== */
 const gaitEl=document.getElementById('gait');
-const gaitLabel=document.getElementById('gaitLabel');
 const alertFill=document.getElementById('alertFill');
-const alertText=document.getElementById('alertText');
-const hudTime=document.getElementById('hudTime');
-const hudFail=document.getElementById('hudFail');
+const statTime=document.getElementById('statTime');
+const statFail=document.getElementById('statFail');
 
 function updatePanel(){
   const m=player.mag;
-  let cls='', label='停止';
-  if(m>SNEAK_MAX){ cls='walk'; label='歩行 — 足音が出ている'; }
-  else if(m>.02){ cls='sneak'; label='忍び足 — 無音'; }
-  gaitEl.className='gait '+cls;
-  gaitLabel.textContent=label;
-
+  gaitEl.className = 'gait ' + (m>SNEAK_MAX ? 'walk' : m>.02 ? 'sneak' : '');
   const alerted=guards.filter(g=>g.state!=='patrol').length;
-  const pct = guards.length ? (alerted/guards.length)*100 : 0;
-  alertFill.style.width=pct+'%';
-  alertText.textContent = alerted===0
-    ? `警戒なし ／ 警備 ${guards.length}`
-    : `${alerted} 人が音を追っている`;
-
-  hudTime.textContent=elapsed.toFixed(1);
-  hudFail.textContent=fails;
+  alertFill.style.width = (guards.length ? (alerted/guards.length)*100 : 0) + '%';
+  statTime.textContent=elapsed.toFixed(1);
+  statFail.textContent=fails;
 }
 
 /* ==========================================================
@@ -1183,7 +1275,7 @@ function loop(now){
   updatePanel();
   requestAnimationFrame(loop);
 }
-loadStage(0);
+beginStage(0);
 requestAnimationFrame(loop);
 </script>
 </body>
