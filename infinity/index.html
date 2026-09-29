@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>無限の次へ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;300;400;500&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="on-play">
+  <header class="top">
+    <div class="top-left">
+      <div class="label">COIN</div>
+      <div class="coins" id="coins">0</div>
+      <div class="rate" id="rate"></div>
+    </div>
+    <div class="top-right">
+      <div class="label" id="dim">DIM 01</div>
+      <div class="count" id="count">0 / 16</div>
+      <div class="label faint">OBJECTS</div>
+    </div>
+  </header>
+
+  <main>
+    <!-- MERGE: 枠のない自由なフィールド -->
+    <section class="panel active" id="panel-play">
+      <div class="field" id="field">
+        <div class="field-hint" id="fieldHint">TAP ANYWHERE</div>
+      </div>
+      <button class="rail" id="rail">
+        <span id="railText">↓ DROP TO SELL</span>
+        <span id="railPrice"></span>
+      </button>
+    </section>
+
+    <!-- UPGRADE -->
+    <section class="panel scroll" id="panel-shop">
+      <h2>UPGRADE</h2>
+      <p class="h-sub">ステータス強化</p>
+      <div id="upgrades"></div>
+    </section>
+
+    <!-- ∞ -->
+    <section class="panel scroll" id="panel-inf">
+      <div class="inf-rings"><span>∞</span></div>
+      <div class="inf-path" id="infPath"></div>
+      <p class="inf-main" id="infMain"></p>
+      <p class="inf-sub" id="infSub"></p>
+      <button class="beyond" id="prestigeBtn">BEYOND ∞ &nbsp;→</button>
+      <p class="inf-note" id="infNote"></p>
+    </section>
+
+    <!-- LOG -->
+    <section class="panel scroll" id="panel-stats">
+      <h2>LOG</h2>
+      <p class="h-sub">記録</p>
+      <dl class="stats" id="stats"></dl>
+      <h3>OBJECTS</h3>
+      <div class="dex" id="dex"></div>
+      <button class="reset" id="resetBtn">データを消去</button>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button class="tab active" data-panel="play">MERGE</button>
+    <button class="tab" data-panel="shop">UPGRADE<i class="dot" id="shopBadge"></i></button>
+    <button class="tab" data-panel="inf">∞<i class="dot" id="infBadge"></i></button>
+    <button class="tab" data-panel="stats">LOG</button>
+  </nav>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-rings" id="modalRings"></div>
+    <div class="modal-inner">
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-buttons" id="modalButtons"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="game.js"></script>
+</body>
+</html>
