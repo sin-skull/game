@@ -5,16 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
   <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="白と黒だけの合成インクリメンタル。2ⁿ を重ねて ∞ へ、そして無限の次へ。">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="無限の次へ">
   <title>無限の次へ — Beyond ∞</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;300;400;500&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="on-play">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <filter id="skglow" x="-60%" y="-60%" width="220%" height="220%">
+        <feGaussianBlur stdDeviation="3" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+  </svg>
+
   <header class="top">
     <div class="top-left">
       <div class="label">COIN</div>
@@ -29,7 +43,7 @@
   </header>
 
   <main id="main">
-    <!-- MERGE: 枠のない自由なフィールド -->
+    <!-- MERGE -->
     <section class="panel active" id="panel-play">
       <div class="field" id="field">
         <div class="field-hint" id="fieldHint">TAP ANYWHERE</div>
@@ -47,7 +61,7 @@
       <div id="upgrades"></div>
     </section>
 
-    <!-- ∞ -->
+    <!-- ∞ / REBIRTH / SOUL / Ω -->
     <section class="panel scroll" id="panel-inf">
       <div class="inf-rings"><span>∞</span></div>
       <div class="inf-path" id="infPath"></div>
@@ -55,22 +69,47 @@
       <p class="inf-sub" id="infSub"></p>
       <button class="beyond" id="prestigeBtn">BEYOND ∞ &nbsp;→</button>
       <p class="inf-note" id="infNote"></p>
+      <div class="omega-bar" id="omegaBar"></div>
+
+      <h3>REBIRTH</h3>
+      <p class="sec-sub" data-i18n="rebirthSub"></p>
+      <div class="rebirth" id="rebirth"></div>
+
+      <h3>SOUL</h3>
+      <p class="sec-sub" data-i18n="soulSub"></p>
+      <div id="skills"></div>
     </section>
 
-    <!-- LOG -->
-    <section class="panel scroll" id="panel-stats">
-      <h2>LOG</h2>
-      <p class="h-sub" data-i18n="logSub"></p>
-      <dl class="stats" id="stats"></dl>
-      <h3>OBJECTS</h3>
-      <div class="dex" id="dex"></div>
+    <!-- VERSUS -->
+    <section class="panel scroll" id="panel-vs">
+      <h2>VERSUS</h2>
+      <p class="h-sub" data-i18n="vsSub"></p>
+      <div class="subnav" id="vsNav">
+        <button data-sub="battle" class="on">BATTLE</button>
+        <button data-sub="rank">RANKING</button>
+      </div>
+      <div class="sub on" id="sub-battle"></div>
+      <div class="sub" id="sub-rank"></div>
     </section>
 
-    <!-- OPTION -->
-    <section class="panel scroll" id="panel-opt">
-      <h2>OPTION</h2>
-      <p class="h-sub" data-i18n="optSub"></p>
-      <div id="options"></div>
+    <!-- MENU -->
+    <section class="panel scroll" id="panel-menu">
+      <h2>MENU</h2>
+      <p class="h-sub" data-i18n="menuSub"></p>
+      <div class="subnav" id="menuNav">
+        <button data-sub="account" class="on">ACCOUNT</button>
+        <button data-sub="skin">SKIN</button>
+        <button data-sub="log">LOG</button>
+        <button data-sub="opt">OPTION</button>
+      </div>
+      <div class="sub on" id="sub-account"></div>
+      <div class="sub" id="sub-skin"></div>
+      <div class="sub" id="sub-log">
+        <dl class="stats" id="stats"></dl>
+        <h3>OBJECTS</h3>
+        <div class="dex" id="dex"></div>
+      </div>
+      <div class="sub" id="sub-opt"><div id="options"></div></div>
     </section>
   </main>
 
@@ -78,17 +117,36 @@
     <button class="tab active" data-panel="play">MERGE</button>
     <button class="tab" data-panel="shop">UPGRADE<i class="dot" id="shopBadge"></i></button>
     <button class="tab" data-panel="inf">∞<i class="dot" id="infBadge"></i></button>
-    <button class="tab" data-panel="stats">LOG</button>
-    <button class="tab" data-panel="opt">OPTION</button>
+    <button class="tab" data-panel="vs">VERSUS<i class="dot" id="vsBadge"></i></button>
+    <button class="tab" data-panel="menu">MENU<i class="dot" id="menuBadge"></i></button>
   </nav>
 
-  <!-- 操作体験チュートリアル -->
+  <!-- 操作体験チュートリアル / ヒント -->
   <div class="tut" id="tut" hidden>
     <div class="tut-head"><span id="tutStep">1 / 5</span><button id="tutSkip">SKIP</button></div>
     <p class="tut-text" id="tutText"></p>
     <button class="tut-next" id="tutNext" hidden>START</button>
   </div>
   <div class="hand" id="hand" hidden></div>
+
+  <!-- バトル会場 -->
+  <div class="arena" id="arena" hidden>
+    <div class="arena-side top-side">
+      <div class="arena-name"><span id="arOppName">—</span><small id="arOppInfo"></small></div>
+      <div class="arena-field" id="arOppField"></div>
+      <div class="arena-score"><span id="arOppScore">0</span></div>
+    </div>
+    <div class="arena-mid">
+      <div class="arena-bar"><i id="arBarOpp"></i><i id="arBarMe"></i></div>
+      <div class="arena-time" id="arTime">45.0</div>
+      <button class="arena-skip" id="arSkip">SKIP ≫</button>
+    </div>
+    <div class="arena-side">
+      <div class="arena-score"><span id="arMeScore">0</span></div>
+      <div class="arena-field" id="arMeField"></div>
+      <div class="arena-name"><span id="arMeName">YOU</span><small id="arMeInfo"></small></div>
+    </div>
+  </div>
 
   <div class="modal" id="modal" hidden>
     <div class="modal-rings" id="modalRings"></div>
@@ -99,6 +157,8 @@
   </div>
   <div class="toast" id="toast"><span id="toastText"></span><button id="toastAction" hidden></button></div>
 
+  <script src="skins.js"></script>
   <script src="game.js"></script>
+  <script src="online.js"></script>
 </body>
 </html>
