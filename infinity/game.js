@@ -4,23 +4,26 @@
 //  無限の次へ / Beyond ∞ — モノクロ合成インクリメンタル
 // =====================================================
 
-const VERSION = '0.3.0';
-const SAVE_KEY = 'infinity-merge-v2';
+const VERSION = '1.0.0';
+const SLOT_KEYS = ['infinity-merge-v2', 'infinity-merge-v2-s1', 'infinity-merge-v2-s2'];
 const OLD_SAVE_KEY = 'infinity-merge-v1';
 const BACKUP_KEY = 'infinity-merge-backup';
 const SETTINGS_KEY = 'infinity-settings';
+const PROFILE_KEY = 'infinity-profile';
 const MAX_TIER = 20;             // 2^20 が「∞」
-const OFFLINE_CAP_SEC = 8 * 3600;
+const OMEGA_DIM = 10;            // 次元10で ∞ を作ると Ω（ゴール）
 const SPACE_CAPS = [16, 20, 24, 30, 36];   // 画面に置ける上限（ごちゃつかせない）
 const SIZE_MULT = { S: 0.85, M: 1, L: 1.15 };
 const CONFIRM_SELL_TIER = 10;
-const PANELS = ['play', 'shop', 'inf', 'stats', 'opt'];
+const PANELS = ['play', 'shop', 'inf', 'vs', 'menu'];
 const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 
 // ---------- 言語 ----------
 const I18N = {
   ja: {
-    shopSub: 'ステータス強化', logSub: '記録', optSub: '設定',
+    shopSub: 'ステータス強化', menuSub: 'アカウント・スキン・記録・設定', vsSub: 'バトルとランキング',
+    rebirthSub: '今の周回を終えて「魂」を得る。次元とスキルは残る。',
+    soulSub: '魂で買う永続スキル。転生しても消えない。',
     railDrop: '↓ ドロップで売却', railTap: 'タップで売却',
     tapAnywhere: 'どこでもタップ',
     full: '空間がいっぱい。合成するか売却しよう',
@@ -35,28 +38,27 @@ const I18N = {
     infDim: (d, m) => `次元 ${d} ／ 収入 ×${m}`,
     infCurious: '無限の次、気にならない？',
     infLocked: 'LOCKED — ∞ を作ると解放',
-    stats: ['プレイ時間', 'タップ', '生成', '合成', '売却', '累計コイン', '最高ランク', '∞ を作った回数', '次元'],
+    omegaLeft: (d, g) => `GOAL Ω — 次元 ${g} で ∞ を作る（いま次元 ${d}）`,
+    omegaDone: t => `Ω CLEAR — ${t}`,
+    stats: ['プレイ時間', 'タップ', '生成', '合成', '売却', '累計コイン', '最高ランク', '∞ を作った回数', '次元', '転生', 'Ω クリアタイム'],
     time: (h, m, s) => (h ? `${h}時間${m}分` : m ? `${m}分${s}秒` : `${s}秒`),
     reachedTitle: '無限に到達した。', reachedText: '…でも、無限の次って<br>気にならない？', keepPlaying: 'まだ続ける',
-    beyondTitle: '無限の次へ進む？', beyondText: (n, m) => `コイン・オブジェクト・強化はリセット。<br>次元 +${n} ／ 収入 ×${m}`, cancel: 'やめる',
+    beyondTitle: '無限の次へ進む？', beyondText: (n, m, s) => `コイン・オブジェクト・強化はリセット。<br>次元 +${n} ／ 収入 ×${m}${s ? ` ／ 魂 +${s}` : ''}`, cancel: 'やめる',
     dimTitle: d => `次元 ${d}`, dimText: m => `すべての収入が ×${m} になった。<br>無限の、さらに次へ。`,
+    omegaTitle: 'Ω に到達した。', omegaText: t => `クリアタイム ${t}。<br>無限の次の、そのまた先。<br>ここからは、終わりのない旅。`, omegaReward: 'スキン「墨」を解放した',
     offlineText: t => `留守の間（${t}）も、生成は続いていた。`,
     sellConfirmTitle: '本当に売る？', sellConfirmText: (r, p) => `${r} を ${p} コインで売却します。`, sell: 'SELL',
-    resetTitle: 'すべてのデータを消去する？', resetText: '元には戻せません。',
+    resetTitle: 'このスロットのデータを消去する？', resetText: '元には戻せません（ひとつ前のデータに戻すことはできる）。',
     otherTab: '別のタブで起動したので、ここは停止した。', resumeHere: 'ここで再開',
-    opt: {
-      general: 'GENERAL', control: 'CONTROL', data: 'DATA',
-      lang: ['言語', ''], sound: ['効果音', ''], vibe: ['振動', '対応端末のみ'],
-      size: ['オブジェクトの大きさ', ''], confirm: ['高ランク売却の確認', `${pow2(CONFIRM_SELL_TIER)} 以上を売るとき確認する`],
-      tutorial: ['チュートリアル', '操作をもう一度体験する'], play: 'PLAY',
-      save: ['今すぐセーブ', '自動でも5秒ごとに保存'], saved: 'セーブした',
-      export: ['データを書き出す', '機種変更・バックアップ用のコード'], import: ['データを読み込む', '書き出したコードを貼り付け'],
-      restore: ['ひとつ前のデータに戻す', '読み込み・消去の直前の状態へ'], restored: 'ひとつ前のデータに戻した', noBackup: 'バックアップがない',
-      reset: ['データを消去', ''], on: 'ON', off: 'OFF',
-      exportTitle: '書き出しコード', exportText: 'このコードを保存しておけば、別の端末でも続きから遊べる。', copy: 'COPY', copied: 'コピーした', close: '閉じる',
-      importTitle: 'データを読み込む', importText: '書き出しコードを貼り付けてください。今のデータは上書きされます。', load: 'LOAD',
-      imported: '読み込んだ', importFail: 'コードが正しくない',
+    rebirth: {
+      inherit: ['継承転生', '強化をひとつ選んで残す。魂は少なめ。'],
+      clear: ['清算転生', 'すべて 0 に戻る。魂をたんまり得る。'],
+      gain: n => `魂 +${n}`, locked: n => `あと ${n} コイン稼ぐと転生できる`,
+      pickTitle: '残す強化を選ぶ', confirmTitle: '転生する？',
+      confirmText: (n, keep) => `コイン・オブジェクト・強化は 0 に戻る${keep ? `（${keep} は残る）` : ''}。<br>次元とスキルはそのまま。魂 +${n}`,
+      done: n => `転生した。魂 +${n}`,
     },
+    soul: n => `魂 ${n}`,
     tut: [
       'どこでもタップ。オブジェクトが生まれる。<br>2つ作ってみよう。',
       '同じものをドラッグして重ねると合成。<br>1 + 1 = 2。',
@@ -66,9 +68,49 @@ const I18N = {
       '合成を重ねて ∞ を目指そう。<br>…そして、無限の次へ。',
     ],
     tutBonus: 'チュートリアルボーナス',
+    tips: {
+      rebirth: '転生できるようになった。<br>∞ タブで「継承」か「清算」を選んで、魂を得よう。',
+      soul: '魂で永続スキルを買える。<br>転生しても消えない。',
+      versus: 'VERSUS：相手のセーブデータの「分身」と全自動で戦う。<br>魂を賭けて、勝てば BP でスキンを解放。',
+    },
+    whatsNewTitle: 'アップデート v1.0',
+    whatsNew: [
+      'Googleログインとクラウド保存',
+      'セーブスロット 3つ',
+      'ランキング（次元・Ωタイム・勝利数）',
+      'バトル：分身と全自動で対戦、魂を賭ける',
+      '転生（継承／清算）と魂の永続スキル',
+      'ゴール Ω（次元 10）',
+      'スキン 8種',
+      'ホーム画面アプリ（アイコン付き）',
+    ],
+    slot: {
+      title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
+      info: (d, r, t) => `次元 ${d} ・ ${r} ・ ${t}`, switched: n => `スロット ${n} に切り替えた`,
+    },
+    skin: {
+      equip: 'EQUIP', equipped: 'EQUIPPED', omegaOnly: 'Ω で解放', bp: n => `BP ${n}`,
+      unlocked: n => `スキン「${n}」を解放した`, needBp: 'BP が足りない',
+    },
+    opt: {
+      general: 'GENERAL', control: 'CONTROL', data: 'DATA',
+      lang: ['言語', ''], sound: ['効果音', ''], vibe: ['振動', '対応端末のみ'],
+      size: ['オブジェクトの大きさ', ''], confirm: ['高ランク売却の確認', `${pow2(CONFIRM_SELL_TIER)} 以上を売るとき確認する`],
+      tutorial: ['チュートリアル', '操作をもう一度体験する'], play: 'PLAY',
+      install: ['ホーム画面に追加', 'アイコンから全画面で遊べる'], installIos: 'Safari の共有ボタン →「ホーム画面に追加」',
+      save: ['今すぐセーブ', '自動でも5秒ごとに保存'], saved: 'セーブした',
+      export: ['データを書き出す', '機種変更・バックアップ用のコード'], import: ['データを読み込む', '書き出したコードを貼り付け'],
+      restore: ['ひとつ前のデータに戻す', '読み込み・消去の直前の状態へ'], restored: 'ひとつ前のデータに戻した', noBackup: 'バックアップがない',
+      reset: ['このスロットを消去', ''], on: 'ON', off: 'OFF',
+      exportTitle: '書き出しコード', exportText: 'このコードを保存しておけば、別の端末でも続きから遊べる。', copy: 'COPY', copied: 'コピーした', close: '閉じる',
+      importTitle: 'データを読み込む', importText: '書き出しコードを貼り付けてください。今のスロットは上書きされます。', load: 'LOAD',
+      imported: '読み込んだ', importFail: 'コードが正しくない',
+    },
   },
   en: {
-    shopSub: 'Status upgrades', logSub: 'Records', optSub: 'Settings',
+    shopSub: 'Status upgrades', menuSub: 'Account, skins, records and settings', vsSub: 'Battle & ranking',
+    rebirthSub: 'End this run to earn Souls. Dimension and skills stay.',
+    soulSub: 'Permanent skills bought with Souls. They survive rebirth.',
     railDrop: '↓ DROP TO SELL', railTap: 'TAP TO SELL',
     tapAnywhere: 'TAP ANYWHERE',
     full: 'No space. Merge or sell something.',
@@ -83,28 +125,27 @@ const I18N = {
     infDim: (d, m) => `Dimension ${d} / Income ×${m}`,
     infCurious: 'Aren’t you curious what lies beyond?',
     infLocked: 'LOCKED — make ∞ to unlock',
-    stats: ['Play time', 'Taps', 'Spawned', 'Merged', 'Sold', 'Total coins', 'Highest rank', '∞ made', 'Dimension'],
+    omegaLeft: (d, g) => `GOAL Ω — make ∞ in dimension ${g} (now ${d})`,
+    omegaDone: t => `Ω CLEAR — ${t}`,
+    stats: ['Play time', 'Taps', 'Spawned', 'Merged', 'Sold', 'Total coins', 'Highest rank', '∞ made', 'Dimension', 'Rebirths', 'Ω clear time'],
     time: (h, m, s) => (h ? `${h}h ${m}m` : m ? `${m}m ${s}s` : `${s}s`),
     reachedTitle: 'You reached infinity.', reachedText: '…but aren’t you curious<br>what lies beyond?', keepPlaying: 'Keep playing',
-    beyondTitle: 'Go beyond infinity?', beyondText: (n, m) => `Coins, objects and upgrades reset.<br>Dimension +${n} / Income ×${m}`, cancel: 'Cancel',
+    beyondTitle: 'Go beyond infinity?', beyondText: (n, m, s) => `Coins, objects and upgrades reset.<br>Dimension +${n} / Income ×${m}${s ? ` / Souls +${s}` : ''}`, cancel: 'Cancel',
     dimTitle: d => `Dimension ${d}`, dimText: m => `All income is now ×${m}.<br>Beyond infinity, and further.`,
+    omegaTitle: 'You reached Ω.', omegaText: t => `Clear time ${t}.<br>Beyond the beyond.<br>From here, the journey never ends.`, omegaReward: 'Skin “Sumi” unlocked',
     offlineText: t => `While you were away (${t}), spawning continued.`,
     sellConfirmTitle: 'Sell this?', sellConfirmText: (r, p) => `Sell ${r} for ${p} coins.`, sell: 'SELL',
-    resetTitle: 'Erase all data?', resetText: 'This cannot be undone.',
+    resetTitle: 'Erase this slot?', resetText: 'This cannot be undone (you can restore the previous data once).',
     otherTab: 'The game was opened in another tab, so it paused here.', resumeHere: 'Resume here',
-    opt: {
-      general: 'GENERAL', control: 'CONTROL', data: 'DATA',
-      lang: ['Language', ''], sound: ['Sound', ''], vibe: ['Vibration', 'Supported devices only'],
-      size: ['Object size', ''], confirm: ['Confirm high-rank sales', `Ask before selling ${pow2(CONFIRM_SELL_TIER)} or higher`],
-      tutorial: ['Tutorial', 'Try the controls again'], play: 'PLAY',
-      save: ['Save now', 'Also saves every 5 seconds'], saved: 'Saved',
-      export: ['Export data', 'A code for backups or moving devices'], import: ['Import data', 'Paste an exported code'],
-      restore: ['Restore previous data', 'State right before the last import/erase'], restored: 'Previous data restored', noBackup: 'No backup found',
-      reset: ['Erase data', ''], on: 'ON', off: 'OFF',
-      exportTitle: 'Export code', exportText: 'Keep this code to continue on another device.', copy: 'COPY', copied: 'Copied', close: 'Close',
-      importTitle: 'Import data', importText: 'Paste an export code. Current data will be overwritten.', load: 'LOAD',
-      imported: 'Imported', importFail: 'Invalid code',
+    rebirth: {
+      inherit: ['Inherit', 'Keep one upgrade. Fewer Souls.'],
+      clear: ['Liquidate', 'Everything back to 0. Lots of Souls.'],
+      gain: n => `Souls +${n}`, locked: n => `Earn ${n} more coins to rebirth`,
+      pickTitle: 'Choose an upgrade to keep', confirmTitle: 'Rebirth?',
+      confirmText: (n, keep) => `Coins, objects and upgrades reset${keep ? ` (${keep} stays)` : ''}.<br>Dimension and skills stay. Souls +${n}`,
+      done: n => `Reborn. Souls +${n}`,
     },
+    soul: n => `Souls ${n}`,
     tut: [
       'Tap anywhere. An object appears.<br>Make two of them.',
       'Drag one onto its twin to merge.<br>1 + 1 = 2.',
@@ -114,20 +155,85 @@ const I18N = {
       'Keep merging toward ∞.<br>…and then, beyond.',
     ],
     tutBonus: 'Tutorial bonus',
+    tips: {
+      rebirth: 'You can rebirth now.<br>Pick Inherit or Liquidate in the ∞ tab to earn Souls.',
+      soul: 'Spend Souls on permanent skills.<br>They survive every rebirth.',
+      versus: 'VERSUS: an automatic battle against a copy of another player’s save.<br>Bet Souls, win BP, unlock skins.',
+    },
+    whatsNewTitle: 'Update v1.0',
+    whatsNew: [
+      'Google login and cloud save',
+      'Three save slots',
+      'Rankings (dimension, Ω time, wins)',
+      'Battles against copies of other saves, with Soul bets',
+      'Rebirth (Inherit / Liquidate) and permanent Soul skills',
+      'A goal: Ω (dimension 10)',
+      'Eight skins',
+      'Home-screen app with an icon',
+    ],
+    slot: {
+      title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
+      info: (d, r, t) => `Dim ${d} · ${r} · ${t}`, switched: n => `Switched to slot ${n}`,
+    },
+    skin: {
+      equip: 'EQUIP', equipped: 'EQUIPPED', omegaOnly: 'Reach Ω', bp: n => `BP ${n}`,
+      unlocked: n => `Skin “${n}” unlocked`, needBp: 'Not enough BP',
+    },
+    opt: {
+      general: 'GENERAL', control: 'CONTROL', data: 'DATA',
+      lang: ['Language', ''], sound: ['Sound', ''], vibe: ['Vibration', 'Supported devices only'],
+      size: ['Object size', ''], confirm: ['Confirm high-rank sales', `Ask before selling ${pow2(CONFIRM_SELL_TIER)} or higher`],
+      tutorial: ['Tutorial', 'Try the controls again'], play: 'PLAY',
+      install: ['Add to home screen', 'Play full-screen from an icon'], installIos: 'In Safari: Share → “Add to Home Screen”',
+      save: ['Save now', 'Also saves every 5 seconds'], saved: 'Saved',
+      export: ['Export data', 'A code for backups or moving devices'], import: ['Import data', 'Paste an exported code'],
+      restore: ['Restore previous data', 'State right before the last import/erase'], restored: 'Previous data restored', noBackup: 'No backup found',
+      reset: ['Erase this slot', ''], on: 'ON', off: 'OFF',
+      exportTitle: 'Export code', exportText: 'Keep this code to continue on another device.', copy: 'COPY', copied: 'Copied', close: 'Close',
+      importTitle: 'Import data', importText: 'Paste an export code. The current slot will be overwritten.', load: 'LOAD',
+      imported: 'Imported', importFail: 'Invalid code',
+    },
   },
 };
 
-// ---------- 設定 ----------
+// ---------- 設定（端末ごと） ----------
 function loadSettings() {
   const def = {
     lang: /^ja/i.test(navigator.language || '') ? 'ja' : 'en',
     sound: true, vibe: true, size: 'M', confirmSell: true, tutorialDone: false,
+    slot: 0, tips: {}, seenVersion: '',
   };
-  try { return { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch (e) { return def; }
+  try {
+    const o = { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
+    if (!(o.slot >= 0 && o.slot < SLOT_KEYS.length)) o.slot = 0;
+    if (!o.tips || typeof o.tips !== 'object') o.tips = {};
+    return o;
+  } catch (e) { return def; }
 }
 const OPT = loadSettings();
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(OPT)); } catch (e) { /* 保存不可 */ } }
 const L = () => I18N[OPT.lang] || I18N.ja;
+
+// ---------- プロフィール（アカウント共通：BP・スキン・戦績） ----------
+function normalizeProfile(p) {
+  const def = { bp: 0, skins: ['CIRCLE'], skin: 'CIRCLE', wins: 0, losses: 0, name: '', updated: 0, history: [] };
+  p = { ...def, ...(p || {}) };
+  if (!Array.isArray(p.skins)) p.skins = ['CIRCLE'];
+  p.skins = [...new Set(['CIRCLE', ...p.skins.filter(id => SKIN_LIST.some(s => s.id === id))])];
+  if (!p.skins.includes(p.skin)) p.skin = 'CIRCLE';
+  if (!Array.isArray(p.history)) p.history = [];
+  ['bp', 'wins', 'losses', 'updated'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  return p;
+}
+function loadProfile() {
+  try { return normalizeProfile(JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}')); } catch (e) { return normalizeProfile({}); }
+}
+let PROFILE = loadProfile();
+function saveProfile(touch = true) {
+  if (touch) PROFILE.updated = Date.now();
+  try { localStorage.setItem(PROFILE_KEY, JSON.stringify(PROFILE)); } catch (e) { /* 保存不可 */ }
+  if (window.Online) Online.markDirty();
+}
 
 // ---------- ステータス強化 ----------
 const UPGRADES = [
@@ -178,66 +284,132 @@ const UPGRADES = [
   },
 ];
 
-// ---------- 状態 ----------
+// ---------- 魂の永続スキル ----------
+const SKILLS = [
+  {
+    id: 'startAuto', jp: '自動化の記憶', en: 'Automation Memory', max: 5,
+    cost: lv => Math.ceil(3 * Math.pow(2, lv)),
+    desc: lv => ({ ja: `開始時 自動生成 Lv${lv * 2}・自動合成 Lv${lv} → Lv${(lv + 1) * 2}・Lv${lv + 1}`, en: `Start with Auto Spawn Lv${lv * 2} / Merge Lv${lv} → Lv${(lv + 1) * 2} / Lv${lv + 1}` }),
+  },
+  {
+    id: 'startSpace', jp: '広い宇宙', en: 'Wide Universe', max: 2,
+    cost: lv => Math.ceil(10 * Math.pow(4, lv)),
+    desc: lv => ({ ja: `開始時の空間 ${SPACE_CAPS[lv]} → ${SPACE_CAPS[lv + 1]}`, en: `Starting space ${SPACE_CAPS[lv]} → ${SPACE_CAPS[lv + 1]}` }),
+  },
+  {
+    id: 'dupMerge', jp: '二重合成', en: 'Double Merge', max: 5,
+    cost: lv => Math.ceil(5 * Math.pow(2.2, lv)),
+    desc: lv => ({ ja: `合成で2段階上がる確率 ${lv * 4}% → ${(lv + 1) * 4}%`, en: `Chance a merge jumps two ranks ${lv * 4}% → ${(lv + 1) * 4}%` }),
+  },
+  {
+    id: 'golden', jp: '黄金律', en: 'Golden Ratio', max: 10,
+    cost: lv => Math.ceil(4 * Math.pow(1.8, lv)),
+    desc: lv => ({ ja: `すべてのコイン ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}`, en: `All coins ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}` }),
+  },
+  {
+    id: 'idle', jp: '放置の達人', en: 'Idle Master', max: 5,
+    cost: lv => Math.ceil(6 * Math.pow(2, lv)),
+    desc: lv => ({ ja: `留守報酬 ${8 + lv * 4}時間・${50 + lv * 10}% → ${12 + lv * 4}時間・${60 + lv * 10}%`, en: `Offline ${8 + lv * 4}h at ${50 + lv * 10}% → ${12 + lv * 4}h at ${60 + lv * 10}%` }),
+  },
+  {
+    id: 'resonance', jp: '魂の共鳴', en: 'Soul Resonance', max: 5,
+    cost: lv => Math.ceil(8 * Math.pow(2, lv)),
+    desc: lv => ({ ja: `得られる魂 +${lv * 20}% → +${(lv + 1) * 20}%`, en: `Souls earned +${lv * 20}% → +${(lv + 1) * 20}%` }),
+  },
+];
+
+// ---------- 状態（スロットごと） ----------
 function freshState(keep) {
   const up = {};
   UPGRADES.forEach(u => (up[u.id] = 0));
-  return {
+  const skills = {};
+  SKILLS.forEach(k => (skills[k.id] = 0));
+  const s = {
     coins: 0,
     objs: [],          // { id, t, x, y }  x,y はフィールド比率 0..1
     nextId: 1,
     up,
-    shards: keep ? keep.shards : 0,
-    stats: keep ? keep.stats : {
+    shards: 0,
+    soul: 0,
+    skills,
+    runEarned: 0,
+    clearTime: 0,
+    stats: {
       spawned: 0, merged: 0, sold: 0, earned: 0, maxTier: 0,
-      infinities: 0, playTime: 0, taps: 0, bought: 0,
+      infinities: 0, playTime: 0, taps: 0, bought: 0, rebirths: 0,
     },
     seenInf: false,
+    created: Date.now(),
     last: Date.now(),
   };
+  if (keep) {
+    Object.assign(s, {
+      shards: keep.shards, soul: keep.soul, skills: { ...skills, ...keep.skills },
+      stats: keep.stats, clearTime: keep.clearTime, created: keep.created, seenInf: keep.seenInf,
+    });
+  }
+  applySkillStarts(s);
+  return s;
 }
 
-function normalize(d) {
-  const base = freshState();
-  const s = { ...base, ...d, up: { ...base.up, ...d.up }, stats: { ...base.stats, ...d.stats } };
-  if (!Array.isArray(s.objs)) s.objs = [];
-  s.objs = s.objs.filter(o => o && Number.isFinite(o.t) && o.t >= 0 && o.t <= MAX_TIER)
-    .map(o => ({ id: o.id, t: o.t, x: clamp01(o.x), y: clamp01(o.y) }));
-  if (!Number.isFinite(s.coins) || s.coins < 0) s.coins = 0;
-  s.nextId = Math.max(s.nextId || 1, ...s.objs.map(o => (o.id || 0) + 1), 1);
-  s.objs.forEach(o => { if (!o.id) o.id = s.nextId++; });
-  UPGRADES.forEach(u => { s.up[u.id] = Math.min(u.max, Math.max(0, Math.floor(s.up[u.id] || 0))); });
-  return s;
+function applySkillStarts(s) {
+  const k = s.skills || {};
+  s.up.autoGen = Math.max(s.up.autoGen, (k.startAuto || 0) * 2);
+  s.up.autoMerge = Math.max(s.up.autoMerge, k.startAuto || 0);
+  s.up.space = Math.max(s.up.space, k.startSpace || 0);
 }
 
 function clamp01(v) { return Number.isFinite(v) ? Math.min(0.97, Math.max(0.03, v)) : 0.5; }
 
-function load() {
+function normalize(d) {
+  const base = freshState();
+  const s = {
+    ...base, ...d,
+    up: { ...base.up, ...(d.up || {}) },
+    skills: { ...base.skills, ...(d.skills || {}) },
+    stats: { ...base.stats, ...(d.stats || {}) },
+  };
+  if (!Array.isArray(s.objs)) s.objs = [];
+  s.objs = s.objs.filter(o => o && Number.isFinite(o.t) && o.t >= 0 && o.t <= MAX_TIER)
+    .map(o => ({ id: o.id, t: o.t, x: clamp01(o.x), y: clamp01(o.y) }));
+  ['coins', 'soul', 'shards', 'runEarned', 'clearTime'].forEach(k => { if (!Number.isFinite(s[k]) || s[k] < 0) s[k] = 0; });
+  s.nextId = Math.max(s.nextId || 1, ...s.objs.map(o => (o.id || 0) + 1), 1);
+  s.objs.forEach(o => { if (!o.id) o.id = s.nextId++; });
+  UPGRADES.forEach(u => { s.up[u.id] = Math.min(u.max, Math.max(0, Math.floor(s.up[u.id] || 0))); });
+  SKILLS.forEach(k => { s.skills[k.id] = Math.min(k.max, Math.max(0, Math.floor(s.skills[k.id] || 0))); });
+  delete s.up.board;
+  return s;
+}
+
+function readSlot(i) {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = localStorage.getItem(SLOT_KEYS[i]);
     if (raw) return normalize(JSON.parse(raw));
-    // v1（グリッド版）からの引き継ぎ
-    const old = localStorage.getItem(OLD_SAVE_KEY);
-    if (old) {
-      const d = JSON.parse(old);
-      const up = { ...(d.up || {}), space: (d.up && d.up.board) || 0 };
-      const s = normalize({ coins: d.coins, shards: d.shards, seenInf: d.seenInf, up, stats: d.stats });
-      (d.board || []).filter(t => t >= 0).slice(0, SPACE_CAPS[s.up.space]).forEach(t => {
-        s.objs.push({ id: s.nextId++, t, x: 0.1 + Math.random() * 0.8, y: 0.1 + Math.random() * 0.8 });
-      });
-      return s;
+    if (i === 0) {
+      // v1（グリッド版）からの引き継ぎ
+      const old = localStorage.getItem(OLD_SAVE_KEY);
+      if (old) {
+        const d = JSON.parse(old);
+        const up = { ...(d.up || {}), space: (d.up && d.up.board) || 0 };
+        const s = normalize({ coins: d.coins, shards: d.shards, seenInf: d.seenInf, up, stats: d.stats });
+        (d.board || []).filter(t => t >= 0).slice(0, SPACE_CAPS[s.up.space]).forEach(t => {
+          s.objs.push({ id: s.nextId++, t, x: 0.1 + Math.random() * 0.8, y: 0.1 + Math.random() * 0.8 });
+        });
+        return s;
+      }
     }
   } catch (e) { /* 破損データは無視 */ }
   return null;
 }
 
-let S = load() || freshState();
+let S = readSlot(OPT.slot) || freshState();
 let paused = false;   // 別タブで起動したとき
 
 function save() {
   if (paused) return;
   S.last = Date.now();
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { /* 保存不可 */ }
+  try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(S)); } catch (e) { /* 保存不可 */ }
+  if (window.Online) Online.markDirty();
 }
 
 function backup() {
@@ -248,14 +420,31 @@ function backup() {
 const genInterval = lv => Math.max(0.15, 3 * Math.pow(0.86, lv - 1));
 const mergeInterval = lv => Math.max(0.1, 2.5 * Math.pow(0.86, lv - 1));
 const prestigeMult = () => Math.pow(2, S.shards);
-const sellMult = () => (1 + 0.25 * S.up.sellMult) * prestigeMult();
+const goldenMult = () => 1 + 0.5 * (S.skills.golden || 0);
+const incomeMult = () => prestigeMult() * goldenMult();
+const sellMult = () => (1 + 0.25 * S.up.sellMult) * incomeMult();
 const sellPrice = t => Math.pow(2, t) * sellMult();
-const spawnCoin = () => 0.1 * S.up.spawnCoin * prestigeMult();
+const spawnCoin = () => 0.1 * S.up.spawnCoin * incomeMult();
 const cap = () => SPACE_CAPS[S.up.space];
 const upCost = u => Math.ceil(u.cost(S.up[u.id]));
+const skillCost = k => k.cost(S.skills[k.id]);
 function pow2(t) { return '2' + String(t).split('').map(c => SUP[c]).join(''); }
 const rankName = t => (t >= MAX_TIER ? '∞' : pow2(t));
-const dimStr = () => String(S.shards + 1).padStart(2, '0');
+const dimStr = (s = S) => String(s.shards + 1).padStart(2, '0');
+const offlineCapSec = () => (8 + 4 * (S.skills.idle || 0)) * 3600;
+const offlineRate = () => 0.5 + 0.1 * (S.skills.idle || 0);
+
+// 転生で得られる魂
+const soulMult = () => (1 + 0.2 * (S.skills.resonance || 0)) * (1 + 0.1 * S.shards);
+function soulBase() {
+  return Math.floor(Math.floor(Math.sqrt(S.runEarned / 500)) * soulMult());
+}
+function soulToNext() {
+  // 魂が1以上になるのに必要な今回の稼ぎ
+  let need = 500;
+  while (Math.floor(Math.floor(Math.sqrt(need / 500)) * soulMult()) < 1) need *= 1.2;
+  return Math.max(0, Math.ceil(need - S.runEarned));
+}
 
 function fmt(n) {
   if (n < 1000) {
@@ -280,17 +469,22 @@ function fmtTime(sec) {
   return L().time(Math.floor(sec / 3600), Math.floor((sec % 3600) / 60), sec % 60);
 }
 
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
 // ---------- 画面参照 ----------
 const $ = id => document.getElementById(id);
 const els = {
   coins: $('coins'), rate: $('rate'), dim: $('dim'), count: $('count'), main: $('main'),
   field: $('field'), fieldHint: $('fieldHint'), rail: $('rail'), railText: $('railText'), railPrice: $('railPrice'),
   upgrades: $('upgrades'), infPath: $('infPath'), infMain: $('infMain'), infSub: $('infSub'), infNote: $('infNote'),
+  omegaBar: $('omegaBar'), rebirth: $('rebirth'), skills: $('skills'),
   prestigeBtn: $('prestigeBtn'), stats: $('stats'), dex: $('dex'), options: $('options'),
-  shopBadge: $('shopBadge'), infBadge: $('infBadge'),
+  account: $('sub-account'), skinList: $('sub-skin'),
+  shopBadge: $('shopBadge'), infBadge: $('infBadge'), vsBadge: $('vsBadge'), menuBadge: $('menuBadge'),
   modal: $('modal'), modalRings: $('modalRings'), modalBody: $('modalBody'), modalButtons: $('modalButtons'),
   toast: $('toast'), toastText: $('toastText'), toastAction: $('toastAction'),
   tut: $('tut'), tutStep: $('tutStep'), tutText: $('tutText'), tutSkip: $('tutSkip'), tutNext: $('tutNext'), hand: $('hand'),
+  arena: $('arena'),
 };
 
 // ---------- 効果音・振動 ----------
@@ -316,8 +510,11 @@ const sfx = {
   merge: t => tone(220 * Math.pow(2, Math.min(t, 24) / 6), 0.12, 0.06, 'triangle'),
   sell: () => { tone(660, 0.05, 0.04); tone(990, 0.08, 0.04, 'sine', 0.05); },
   inf: () => [0, 4, 7, 12].forEach((s, i) => tone(262 * Math.pow(2, s / 12), 0.9, 0.04, 'sine', i * 0.08)),
+  omega: () => [0, 7, 12, 16, 19, 24].forEach((s, i) => tone(196 * Math.pow(2, s / 12), 1.6, 0.035, 'sine', i * 0.12)),
   buy: () => tone(520, 0.08, 0.04, 'square'),
   deny: () => tone(140, 0.1, 0.04, 'square'),
+  win: () => [0, 4, 7].forEach((s, i) => tone(440 * Math.pow(2, s / 12), 0.25, 0.05, 'triangle', i * 0.1)),
+  lose: () => [7, 3, 0].forEach((s, i) => tone(220 * Math.pow(2, s / 12), 0.3, 0.05, 'triangle', i * 0.12)),
 };
 function vibe(ms) { if (OPT.vibe && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* 非対応 */ } } }
 
@@ -339,9 +536,8 @@ function clampPos(t, x, y) {
 function findSpot(t) {
   const r = fieldRect();
   const d = diameter(t);
+  const y0 = tut ? 0.35 : 0, yr = tut ? 0.5 : 1;   // チュートリアル中は説明カードに隠れないよう中央寄り
   let best = null, bestGap = -Infinity;
-  // チュートリアル中は説明カードに隠れないよう中央寄りに出す
-  const y0 = tut ? 0.35 : 0, yr = tut ? 0.5 : 1;
   for (let i = 0; i < 30; i++) {
     const p = clampPos(t, Math.random(), y0 + Math.random() * yr);
     let minGap = Infinity;
@@ -371,9 +567,8 @@ function separate(o) {
       if (dist >= min) continue;
       if (dist < 0.01) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
       const len = Math.hypot(dx, dy);
-      const push = min - dist;
-      p.x += (dx / len) * push;
-      p.y += (dy / len) * push;
+      p.x += (dx / len) * (min - dist);
+      p.y += (dy / len) * (min - dist);
       moved = true;
     }
     Object.assign(o, clampPos(o.t, p.x / r.width, p.y / r.height));
@@ -394,6 +589,7 @@ function rollTier() {
 
 function addCoins(n) {
   S.coins += n;
+  S.runEarned += n;
   S.stats.earned += n;
 }
 
@@ -431,18 +627,19 @@ function merge(a, b) {
     return false;
   }
   S.objs = S.objs.filter(o => o !== a);
+  const from = b.t;
   b.t++;
+  if (b.t < MAX_TIER && Math.random() < (S.skills.dupMerge || 0) * 0.04) b.t++;   // 二重合成
   Object.assign(b, clampPos(b.t, b.x, b.y));
   S.stats.merged++;
   fx.pop.add(b.id);
   rippleAt(b, diameter(b.t) * 1.8);
-  floatAt(b, `${pow2(b.t - 1)} + ${pow2(b.t - 1)} = ${rankName(b.t)}`, 'formula');
+  floatAt(b, b.t - from > 1 ? `${pow2(from)} ×4 = ${rankName(b.t)}` : `${pow2(from)} + ${pow2(from)} = ${rankName(b.t)}`, 'formula');
   if (selected === a.id || selected === b.id) selected = null;
   sfx.merge(b.t);
   vibe(b.t >= MAX_TIER ? [30, 40, 60] : 8);
   noteTier(b.t);
   dirty = true;
-  // 大きくなって周りと重なったら押し出す
   S.objs.forEach(o => { if (o !== b && !busy.has(o.id)) separate(o); });
   return true;
 }
@@ -482,6 +679,7 @@ function undoSale() {
   if (!lastSale || Date.now() - lastSale.at > 3500) return;
   if (S.objs.length >= cap() || S.coins < lastSale.price) return;
   S.coins -= lastSale.price;
+  S.runEarned = Math.max(0, S.runEarned - lastSale.price);
   S.stats.earned -= lastSale.price;
   S.stats.sold--;
   const o = { ...lastSale.obj, id: S.nextId++ };
@@ -494,16 +692,15 @@ function undoSale() {
 }
 
 // 売却（高ランクは確認）
-function requestSell(o, onCancel) {
+function requestSell(o) {
   if (OPT.confirmSell && o.t >= CONFIRM_SELL_TIER) {
     const l = L();
     showModal({
-      rings: '',
       title: l.sellConfirmTitle,
       text: l.sellConfirmText(rankName(o.t), fmt(sellPrice(o.t))),
       buttons: [
         { label: l.sell, primary: true, onClick: () => { if (byId(o.id)) sell(o, true); refresh(); } },
-        { label: l.cancel, onClick: () => { onCancel && onCancel(); refresh(); } },
+        { label: l.cancel, onClick: refresh },
       ],
     });
     return;
@@ -537,6 +734,12 @@ function noteTier(t) {
   if (t > S.stats.maxTier) S.stats.maxTier = t;
   if (t === MAX_TIER) {
     S.stats.infinities++;
+    if (S.shards + 1 >= OMEGA_DIM && !S.clearTime) {
+      S.clearTime = Math.max(1, Math.floor(S.stats.playTime));
+      save();
+      setTimeout(showOmega, 600);
+      return;
+    }
     sfx.inf();
     if (!S.seenInf) {
       S.seenInf = true;
@@ -558,6 +761,19 @@ function buy(u) {
   save();
 }
 
+function buySkill(k) {
+  const cost = skillCost(k);
+  if (S.skills[k.id] >= k.max || S.soul < cost) { sfx.deny(); return; }
+  S.soul -= cost;
+  S.skills[k.id]++;
+  applySkillStarts(S);
+  sfx.buy();
+  vibe(6);
+  dirty = true;
+  renderInf();
+  save();
+}
+
 const infCount = () => S.objs.filter(o => o.t >= MAX_TIER).length;
 
 function clearField() {
@@ -569,10 +785,18 @@ function clearField() {
   dirty = true;
 }
 
+function keepFrom(s, extra = {}) {
+  return {
+    shards: s.shards, soul: s.soul, skills: s.skills, stats: s.stats,
+    clearTime: s.clearTime, created: s.created, seenInf: s.seenInf, ...extra,
+  };
+}
+
 function prestige() {
   const gain = infCount();
   if (!gain) return;
-  S = freshState({ shards: S.shards + gain, stats: S.stats });
+  const souls = soulBase();
+  S = freshState(keepFrom(S, { shards: S.shards + gain, soul: S.soul + souls }));
   clearField();
   save();
   renderAll();
@@ -581,9 +805,28 @@ function prestige() {
   showModal({
     rings: 'DIM',
     title: l.dimTitle(dimStr()),
-    text: l.dimText(fmt(prestigeMult())),
+    text: l.dimText(fmt(prestigeMult())) + (souls ? `<br>${l.soul('+' + fmt(souls))}` : ''),
     buttons: [{ label: 'START', primary: true }],
   });
+  if (window.Online) Online.syncSoon();
+}
+
+function rebirth(keepId) {
+  const base = soulBase();
+  if (base < 1) return;
+  const gain = keepId ? Math.max(1, Math.floor(base * 0.35)) : base;
+  const kept = keepId ? S.up[keepId] : 0;
+  S.stats.rebirths = (S.stats.rebirths || 0) + 1;
+  S = freshState(keepFrom(S, { soul: S.soul + gain }));
+  if (keepId) S.up[keepId] = Math.max(S.up[keepId], kept);
+  clearField();
+  save();
+  renderAll();
+  switchPanel('play');
+  sfx.inf();
+  toast(L().rebirth.done(fmt(gain)));
+  showTip('soul');
+  if (window.Online) Online.syncSoon();
 }
 
 // ---------- 描画 ----------
@@ -592,7 +835,10 @@ let currentPanel = 'play';
 const fx = { pop: new Set(), spawn: new Set() };
 const nodes = new Map();   // id -> element
 
-function bodyHTML(t) {
+function bodyHTML(t, skin = PROFILE.skin, d) {
+  if (skin && skin !== 'CIRCLE') {
+    return `<div class="body sk">${skinSVG(skin, t, d || diameter(t))}</div>`;
+  }
   if (t >= MAX_TIER) return '<div class="body inf"><span class="v">∞</span></div>';
   const fs = Math.min(15, 9 + t * 0.45) * SIZE_MULT[OPT.size];
   const label = `<span class="v" style="font-size:${fs.toFixed(1)}px">${fmt(Math.pow(2, t))}</span>`;
@@ -621,8 +867,9 @@ function renderField() {
     alive.add(o.id);
     let el = nodes.get(o.id);
     if (!el) { el = makeNode(o); nodes.set(o.id, el); }
-    if (el.dataset.t !== String(o.t)) {
-      el.dataset.t = o.t;
+    const key = `${o.t}|${PROFILE.skin}`;
+    if (el.dataset.k !== key) {
+      el.dataset.k = key;
       el.firstChild.innerHTML = bodyHTML(o.t);
       el.style.width = el.style.height = diameter(o.t) + 'px';
     }
@@ -652,31 +899,38 @@ function renderHeader() {
   els.coins.textContent = fmtCoins(S.coins);
   const rate = S.up.autoGen ? spawnCoin() / genInterval(S.up.autoGen) : 0;
   els.rate.textContent = rate > 0 ? `+${fmt(Math.round(rate * 10) / 10)} / s` : '';
-  els.dim.textContent = `DIM ${dimStr()}`;
+  els.dim.textContent = `DIM ${dimStr()}${S.clearTime ? ' · Ω' : ''}`;
   els.count.textContent = `${S.objs.length} / ${cap()}`;
   const affordable = UPGRADES.some(u => S.up[u.id] < u.max && S.coins >= upCost(u));
   els.shopBadge.classList.toggle('on', affordable);
-  els.infBadge.classList.toggle('on', infCount() > 0);
+  const skillAffordable = SKILLS.some(k => S.skills[k.id] < k.max && S.soul >= skillCost(k));
+  els.infBadge.classList.toggle('on', infCount() > 0 || skillAffordable || (soulBase() >= 1 && S.stats.rebirths === 0));
+  const skinAffordable = SKIN_LIST.some(s => s.cost > 0 && !PROFILE.skins.includes(s.id) && PROFILE.bp >= s.cost);
+  els.menuBadge.classList.toggle('on', skinAffordable);
+  if (soulBase() >= 1) showTip('rebirth');
+}
+
+function upgradeRow(i, name, sub, desc, lv, max, costLabel, can, maxed, attr) {
+  const n = Math.min(max, 20);
+  const on = Math.ceil((lv / max) * n);
+  const ticks = Array.from({ length: n }, (_, k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('');
+  return `<div class="up ${!maxed && !can ? 'locked' : ''}">
+    <div class="up-no">${String(i + 1).padStart(2, '0')}</div>
+    <div>
+      <div class="up-jp">${name}</div>
+      <div class="up-en">${sub}</div>
+      <div class="up-desc"><span>${maxed ? 'MAX' : desc}</span><span class="ticks">${ticks}</span></div>
+    </div>
+    <button class="pill ${maxed ? 'max' : ''}" ${attr} ${maxed || !can ? 'disabled' : ''}>${maxed ? 'MAX' : costLabel}</button>
+  </div>`;
 }
 
 function renderShop() {
   const ja = OPT.lang === 'ja';
   els.upgrades.innerHTML = UPGRADES.map((u, i) => {
-    const lv = S.up[u.id];
-    const maxed = lv >= u.max;
-    const cost = upCost(u);
-    const n = Math.min(u.max, 20);
-    const on = Math.ceil((lv / u.max) * n);
-    const ticks = Array.from({ length: n }, (_, k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('');
-    return `<div class="up ${!maxed && S.coins < cost ? 'locked' : ''}">
-      <div class="up-no">${String(i + 1).padStart(2, '0')}</div>
-      <div>
-        <div class="up-jp">${ja ? u.jp : u.en}</div>
-        <div class="up-en">${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv}</div>
-        <div class="up-desc"><span>${maxed ? 'MAX' : u.desc(lv)}</span><span class="ticks">${ticks}</span></div>
-      </div>
-      <button class="pill ${maxed ? 'max' : ''}" data-id="${u.id}" ${maxed || S.coins < cost ? 'disabled' : ''}>${maxed ? 'MAX' : fmt(cost)}</button>
-    </div>`;
+    const lv = S.up[u.id], cost = upCost(u);
+    return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv}`, u.desc(lv),
+      lv, u.max, fmt(cost), S.coins >= cost, lv >= u.max, `data-id="${u.id}"`);
   }).join('');
 }
 
@@ -699,7 +953,7 @@ function renderInf() {
   const count = infCount();
   if (count) {
     els.infMain.innerHTML = l.infHave(count);
-    els.infSub.innerHTML = l.infHaveSub(count, fmt(Math.pow(2, S.shards + count)));
+    els.infSub.innerHTML = l.infHaveSub(count, fmt(Math.pow(2, S.shards + count) * goldenMult()));
     els.infNote.textContent = '';
   } else {
     els.infMain.innerHTML = mt >= MAX_TIER ? l.infGone : l.infLeft(MAX_TIER - mt);
@@ -707,20 +961,83 @@ function renderInf() {
     els.infNote.textContent = l.infLocked;
   }
   els.prestigeBtn.disabled = !count;
+
+  // Ω までの道のり
+  const dimNow = S.shards + 1;
+  els.omegaBar.innerHTML = `<div class="omega-text">${S.clearTime ? l.omegaDone(fmtTime(S.clearTime)) : l.omegaLeft(dimNow, OMEGA_DIM)}</div>
+    <div class="omega-steps">${Array.from({ length: OMEGA_DIM }, (_, i) => `<i class="${i < dimNow ? 'on' : ''}"></i>`).join('')}<b class="${S.clearTime ? 'on' : ''}">Ω</b></div>`;
+
+  // 転生
+  const r = l.rebirth, base = soulBase();
+  els.rebirth.innerHTML = `
+    <div class="soul-now">◇ ${l.soul(fmt(S.soul))}</div>
+    <div class="rb-row">
+      <button class="rb" data-rb="inherit" ${base < 1 ? 'disabled' : ''}><b>${r.inherit[0]}</b><small>${r.inherit[1]}</small><em>${r.gain(fmt(base ? Math.max(1, Math.floor(base * 0.35)) : 0))}</em></button>
+      <button class="rb" data-rb="clear" ${base < 1 ? 'disabled' : ''}><b>${r.clear[0]}</b><small>${r.clear[1]}</small><em>${r.gain(fmt(base))}</em></button>
+    </div>
+    ${base < 1 ? `<p class="inf-note">${r.locked(fmt(soulToNext()))}</p>` : ''}`;
+
+  // 魂スキル
+  const ja = OPT.lang === 'ja';
+  els.skills.innerHTML = SKILLS.map((k, i) => {
+    const lv = S.skills[k.id], cost = skillCost(k), dsc = k.desc(lv);
+    return upgradeRow(i, ja ? k.jp : k.en, `${ja ? k.en.toUpperCase() + ' · ' : ''}LV ${lv}`, ja ? dsc.ja : dsc.en,
+      lv, k.max, `◇ ${fmt(cost)}`, S.soul >= cost, lv >= k.max, `data-skill="${k.id}"`);
+  }).join('');
 }
 
 function renderStats() {
   const st = S.stats;
   const vals = [
     fmtTime(st.playTime), fmt(st.taps), fmt(st.spawned), fmt(st.merged), fmt(st.sold),
-    fmt(Math.floor(st.earned)), rankName(st.maxTier), fmt(st.infinities), dimStr(),
+    fmt(Math.floor(st.earned)), rankName(st.maxTier), fmt(st.infinities), dimStr(), fmt(st.rebirths || 0),
+    S.clearTime ? fmtTime(S.clearTime) : '—',
   ];
   els.stats.innerHTML = L().stats.map((k, i) => `<dt>${k}</dt><dd>${vals[i]}</dd>`).join('');
   els.dex.innerHTML = Array.from({ length: MAX_TIER + 1 }, (_, t) => {
     const known = t <= st.maxTier;
-    const s = t >= MAX_TIER ? 34 : Math.min(34, 12 + t * 1.2);
-    return `<div class="dex-cell ${known ? '' : 'unknown'}"><div class="mini" style="--s:${s}px">${bodyHTML(t).replace(/font-size:[\d.]+px/, 'font-size:0')}</div>${rankName(t)}</div>`;
+    return `<div class="dex-cell ${known ? '' : 'unknown'}"><div class="mini">${known ? skinSVG(PROFILE.skin, t, t >= MAX_TIER ? 34 : Math.min(34, 14 + t)) : '<i class="q"></i>'}</div>${rankName(t)}</div>`;
   }).join('');
+}
+
+function slotSummary(i) {
+  const s = i === OPT.slot ? S : readSlot(i);
+  if (!s || (!s.stats.spawned && !s.shards)) return null;
+  return s;
+}
+
+function renderAccount() {
+  const sl = L().slot;
+  const slots = [0, 1, 2].map(i => {
+    const s = slotSummary(i);
+    const on = i === OPT.slot;
+    const info = s ? sl.info(dimStr(s), s.clearTime ? 'Ω' : rankName(s.stats.maxTier), fmtTime(s.stats.playTime)) : sl.empty;
+    return `<div class="slot ${on ? 'on' : ''}">
+      <div class="slot-no">${String(i + 1).padStart(2, '0')}</div>
+      <div class="slot-info">${info}</div>
+      <button class="opt-btn" data-slot="${i}" ${on ? 'disabled' : ''}>${on ? sl.playing : s ? sl.use : sl.start}</button>
+    </div>`;
+  }).join('');
+  const online = window.Online ? Online.accountHTML() : '';
+  els.account.innerHTML = `${online}<div class="opt-group">${sl.title}</div>${slots}`;
+}
+
+function renderSkins() {
+  const sk = L().skin, ja = OPT.lang === 'ja';
+  els.skinList.innerHTML = `<div class="bp-now">BP ${fmt(PROFILE.bp)}</div><div class="skin-grid">${SKIN_LIST.map(s => {
+    const owned = PROFILE.skins.includes(s.id), on = PROFILE.skin === s.id;
+    const btn = on ? `<button class="opt-btn" disabled>${sk.equipped}</button>`
+      : owned ? `<button class="opt-btn" data-equip="${s.id}">${sk.equip}</button>`
+        : s.cost < 0 ? `<button class="opt-btn" disabled>${sk.omegaOnly}</button>`
+          : `<button class="pill" data-unlock="${s.id}" ${PROFILE.bp < s.cost ? 'disabled' : ''}>${sk.bp(s.cost)}</button>`;
+    const prev = [0, 5, 11, MAX_TIER].map(t => `<span>${skinSVG(s.id, t, t >= MAX_TIER ? 40 : 18 + t * 1.6)}</span>`).join('');
+    return `<div class="skin-card ${on ? 'on' : ''} ${owned ? '' : 'lock'}">
+      <div class="skin-prev">${prev}</div>
+      <div class="skin-name">${s.id}<small>${ja ? s.jp : s.en}</small></div>
+      <div class="skin-desc">${SKIN_DESC[s.id][ja ? 0 : 1]}</div>
+      ${btn}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function segHTML(key, choices) {
@@ -728,17 +1045,23 @@ function segHTML(key, choices) {
     `<button data-opt="${key}" data-val="${v}" class="${String(OPT[key]) === String(v) ? 'on' : ''}">${label}</button>`).join('')}</div>`;
 }
 
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; if (currentPanel === 'menu') renderOptions(); });
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
 function renderOptions() {
   const o = L().opt;
   const onoff = [[true, o.on], [false, o.off]];
   const row = ([name, desc], control) =>
     `<div class="opt"><div><div class="opt-name">${name}</div>${desc ? `<div class="opt-desc">${desc}</div>` : ''}</div>${control}</div>`;
   const btn = (action, label, cls = '') => `<button class="opt-btn ${cls}" data-action="${action}">${label}</button>`;
+  const install = isStandalone() ? '' : row([o.install[0], installPrompt ? o.install[1] : o.installIos], installPrompt ? btn('install', 'INSTALL') : '');
   els.options.innerHTML = `
     <div class="opt-group">${o.general}</div>
     ${row(o.lang, segHTML('lang', [['ja', '日本語'], ['en', 'English']]))}
     ${row(o.sound, segHTML('sound', onoff))}
     ${row(o.vibe, segHTML('vibe', onoff))}
+    ${install}
     <div class="opt-group">${o.control}</div>
     ${row(o.size, segHTML('size', [['S', 'S'], ['M', 'M'], ['L', 'L']]))}
     ${row(o.confirm, segHTML('confirmSell', onoff))}
@@ -752,6 +1075,13 @@ function renderOptions() {
     <div class="version">BEYOND ∞ · v${VERSION}</div>`;
 }
 
+function renderMenu() {
+  renderAccount();
+  renderSkins();
+  renderStats();
+  renderOptions();
+}
+
 function applyLanguage() {
   document.documentElement.lang = OPT.lang;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = L()[el.dataset.i18n]; });
@@ -759,12 +1089,13 @@ function applyLanguage() {
 
 function renderAll() {
   applyLanguage();
+  nodes.forEach(el => (el.dataset.k = ''));
   renderField();
   renderHeader();
   renderShop();
   renderInf();
-  renderStats();
-  renderOptions();
+  renderMenu();
+  if (window.Online) Online.render();
 }
 
 function refresh() {
@@ -788,9 +1119,9 @@ function switchPanel(name) {
   selected = null;
   if (name === 'play') { fieldBox = null; dirty = true; }
   if (name === 'shop') renderShop();
-  if (name === 'inf') renderInf();
-  if (name === 'stats') renderStats();
-  if (name === 'opt') renderOptions();
+  if (name === 'inf') { renderInf(); if (S.soul > 0) showTip('soul'); }
+  if (name === 'menu') renderMenu();
+  if (name === 'vs') { if (window.Online) Online.render(); showTip('versus'); }
   tutUpdate(true);
 }
 
@@ -798,6 +1129,20 @@ function stepPanel(delta) {
   const i = PANELS.indexOf(currentPanel) + delta;
   if (i >= 0 && i < PANELS.length) switchPanel(PANELS[i]);
 }
+
+// サブタブ（VERSUS / MENU）
+function wireSubnav(navId, onChange) {
+  const nav = $(navId);
+  nav.addEventListener('click', e => {
+    const b = e.target.closest('[data-sub]');
+    if (!b) return;
+    nav.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    nav.parentElement.querySelectorAll('.sub').forEach(s => s.classList.toggle('on', s.id === 'sub-' + b.dataset.sub));
+    onChange && onChange(b.dataset.sub);
+  });
+}
+wireSubnav('menuNav', () => renderMenu());
+wireSubnav('vsNav', sub => { if (window.Online) Online.render(sub); });
 
 // ---------- エフェクト ----------
 function rippleAt(o, size) {
@@ -834,7 +1179,7 @@ function floatRail(text) {
 }
 
 let toastTimer;
-function toast(msg, action, ms = 1600) {
+function toast(msg, action, ms = 1800) {
   els.toastText.textContent = msg;
   els.toastAction.hidden = !action;
   els.toast.classList.toggle('actionable', !!action);
@@ -848,12 +1193,15 @@ function toast(msg, action, ms = 1600) {
   toastTimer = setTimeout(() => els.toast.classList.remove('show', 'actionable'), ms);
 }
 
-function showModal({ rings = '', title = '', text = '', html = '', buttons }) {
+const modalQueue = [];
+function showModal(opts) {
+  if (!els.modal.hidden) { modalQueue.push(opts); return; }
+  const { rings = '', title = '', text = '', html = '', buttons } = opts;
   endDrag(null, true);
   els.modalRings.textContent = rings;
   els.modalRings.style.fontSize = rings.length > 1 ? '40px' : '';
   els.modalRings.style.letterSpacing = rings.length > 1 ? '0.3em' : '';
-  els.modalBody.innerHTML = `<p class="m-title">${title}</p><p class="m-text">${text}</p>${html}`;
+  els.modalBody.innerHTML = `<p class="m-title">${title}</p>${text ? `<p class="m-text">${text}</p>` : ''}${html}`;
   els.modalButtons.innerHTML = '';
   buttons.forEach(b => {
     const btn = document.createElement('button');
@@ -861,12 +1209,16 @@ function showModal({ rings = '', title = '', text = '', html = '', buttons }) {
     if (!b.primary) btn.className = 'sub';
     btn.onclick = () => {
       if (b.keepOpen) { b.onClick(); return; }
-      els.modal.hidden = true;
+      closeModal();
       b.onClick && b.onClick();
     };
     els.modalButtons.appendChild(btn);
   });
   els.modal.hidden = false;
+}
+function closeModal() {
+  els.modal.hidden = true;
+  if (modalQueue.length) setTimeout(() => showModal(modalQueue.shift()), 120);
 }
 
 function showInfinityReached() {
@@ -882,6 +1234,43 @@ function showInfinityReached() {
   });
 }
 
+function showOmega() {
+  const l = L();
+  sfx.omega();
+  vibe([40, 60, 40, 60, 120]);
+  if (!PROFILE.skins.includes('SUMI')) { PROFILE.skins.push('SUMI'); saveProfile(); }
+  showModal({
+    rings: 'Ω',
+    title: l.omegaTitle,
+    text: `${l.omegaText(fmtTime(S.clearTime))}<br><br>${l.omegaReward}`,
+    buttons: [{ label: 'CONTINUE', primary: true, onClick: () => { renderAll(); if (window.Online) Online.syncSoon(); } }],
+  });
+}
+
+// 新機能の説明（一度だけ）
+function showTip(id) {
+  if (OPT.tips[id] || tut || !els.modal.hidden || !els.tut.hidden) return;
+  OPT.tips[id] = true;
+  saveSettings();
+  els.tut.hidden = false;
+  els.tut.classList.add('tip');
+  els.tutStep.textContent = 'TIP';
+  els.tutText.innerHTML = L().tips[id];
+  els.tutSkip.hidden = true;
+  els.tutNext.hidden = false;
+  els.tutNext.textContent = 'OK';
+}
+
+function showWhatsNew() {
+  const l = L();
+  showModal({
+    rings: 'NEW',
+    title: l.whatsNewTitle,
+    html: `<ul class="m-list">${l.whatsNew.map(x => `<li>${x}</li>`).join('')}</ul>`,
+    buttons: [{ label: 'OK', primary: true }],
+  });
+}
+
 // ---------- 入力：どこでもタップ / 自由にドラッグ / スワイプでタブ ----------
 let drag = null;
 const SWIPE_MIN = 60;
@@ -892,7 +1281,6 @@ function overRail(y) {
 }
 
 function findTarget(o, px, py) {
-  // ドロップ先：同ランクで十分に近いもの（小さいものは判定を広めに）
   let best = null, bestDist = Infinity;
   const reach = Math.max(diameter(o.t) * 0.95, 40);
   for (const other of S.objs) {
@@ -922,7 +1310,7 @@ els.field.addEventListener('pointerdown', e => {
     ox = e.clientX - r.left - q.x;
     oy = e.clientY - r.top - q.y;
   }
-  drag = { id, pid: e.pointerId, x: e.clientX, y: e.clientY, ox, oy, moving: false, t0: performance.now() };
+  drag = { id, pid: e.pointerId, x: e.clientX, y: e.clientY, ox, oy, moving: false };
   if (id) {
     const o = byId(id);
     drag.from = { x: o.x, y: o.y };
@@ -979,7 +1367,7 @@ function endDrag(e, cancelled) {
     const target = findTarget(o, px, py);
     if (overRail(e.clientY)) {
       Object.assign(o, d.from);   // キャンセル時は元の位置へ
-      requestSell(o, () => {});
+      requestSell(o);
     } else if (target) {
       o.x = target.x; o.y = target.y;
       merge(o, target);
@@ -1022,11 +1410,11 @@ els.rail.addEventListener('click', () => {
   refresh();
 });
 
-// UPGRADE / ∞ / LOG / OPTION 画面でのスワイプ
+// UPGRADE / ∞ / VERSUS / MENU 画面でのスワイプ
 (() => {
   let s = null;
   els.main.addEventListener('pointerdown', e => {
-    if (currentPanel === 'play') return;
+    if (currentPanel === 'play' || e.target.closest('input, textarea, .no-swipe')) return;
     s = { x: e.clientX, y: e.clientY, id: e.pointerId };
   });
   els.main.addEventListener('pointerup', e => {
@@ -1045,6 +1433,39 @@ els.upgrades.addEventListener('click', e => {
   if (b) buy(UPGRADES.find(u => u.id === b.dataset.id));
 });
 
+els.skills.addEventListener('click', e => {
+  const b = e.target.closest('[data-skill]');
+  if (b) buySkill(SKILLS.find(k => k.id === b.dataset.skill));
+});
+
+els.rebirth.addEventListener('click', e => {
+  const b = e.target.closest('[data-rb]');
+  if (!b || b.disabled) return;
+  const l = L(), r = l.rebirth, ja = OPT.lang === 'ja';
+  const base = soulBase();
+  const confirm = keepId => {
+    const gain = keepId ? Math.max(1, Math.floor(base * 0.35)) : base;
+    const u = keepId && UPGRADES.find(x => x.id === keepId);
+    showModal({
+      rings: '◇',
+      title: r.confirmTitle,
+      text: r.confirmText(fmt(gain), u ? `${ja ? u.jp : u.en} Lv${S.up[keepId]}` : ''),
+      buttons: [{ label: 'REBIRTH', primary: true, onClick: () => rebirth(keepId) }, { label: l.cancel }],
+    });
+  };
+  if (b.dataset.rb === 'clear') { confirm(null); return; }
+  const opts = UPGRADES.filter(u => S.up[u.id] > 0);
+  if (!opts.length) { confirm(null); return; }
+  showModal({
+    title: r.pickTitle,
+    html: `<div class="pick">${opts.map(u => `<button data-keep="${u.id}">${ja ? u.jp : u.en}<span>Lv ${S.up[u.id]}</span></button>`).join('')}</div>`,
+    buttons: [{ label: l.cancel }],
+  });
+  els.modalBody.querySelectorAll('[data-keep]').forEach(k => {
+    k.onclick = () => { closeModal(); setTimeout(() => confirm(k.dataset.keep), 150); };
+  });
+});
+
 els.prestigeBtn.addEventListener('click', () => {
   const gain = infCount();
   if (!gain) return;
@@ -1052,14 +1473,52 @@ els.prestigeBtn.addEventListener('click', () => {
   showModal({
     rings: '∞',
     title: l.beyondTitle,
-    text: l.beyondText(gain, fmt(Math.pow(2, S.shards + gain))),
+    text: l.beyondText(gain, fmt(Math.pow(2, S.shards + gain) * goldenMult()), soulBase() ? fmt(soulBase()) : 0),
     buttons: [{ label: 'BEYOND ∞ &nbsp;→', primary: true, onClick: prestige }, { label: l.cancel }],
   });
 });
 
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchPanel(t.dataset.panel)));
 
-// ---------- オプション ----------
+// ---------- MENU：スロット・スキン・オプション ----------
+function switchSlot(i) {
+  if (i === OPT.slot) return;
+  save();
+  OPT.slot = i;
+  saveSettings();
+  S = readSlot(i) || freshState();
+  clearField();
+  renderAll();
+  toast(L().slot.switched(i + 1));
+}
+
+els.account.addEventListener('click', e => {
+  const b = e.target.closest('[data-slot]');
+  if (b) switchSlot(Number(b.dataset.slot));
+});
+
+els.skinList.addEventListener('click', e => {
+  const eq = e.target.closest('[data-equip]');
+  if (eq) {
+    PROFILE.skin = eq.dataset.equip;
+    saveProfile();
+    renderAll();
+    return;
+  }
+  const un = e.target.closest('[data-unlock]');
+  if (un) {
+    const s = SKIN_LIST.find(x => x.id === un.dataset.unlock);
+    if (PROFILE.bp < s.cost) { toast(L().skin.needBp); sfx.deny(); return; }
+    PROFILE.bp -= s.cost;
+    PROFILE.skins.push(s.id);
+    PROFILE.skin = s.id;
+    saveProfile();
+    sfx.win();
+    toast(L().skin.unlocked(OPT.lang === 'ja' ? s.jp : s.id));
+    renderAll();
+  }
+});
+
 els.options.addEventListener('click', e => {
   const seg = e.target.closest('[data-opt]');
   if (seg) {
@@ -1068,7 +1527,7 @@ els.options.addEventListener('click', e => {
     if (v === 'true') v = true; else if (v === 'false') v = false;
     OPT[key] = v;
     saveSettings();
-    if (key === 'size') { nodes.forEach(el => (el.dataset.t = '')); S.objs.forEach(o => Object.assign(o, clampPos(o.t, o.x, o.y))); }
+    if (key === 'size') S.objs.forEach(o => Object.assign(o, clampPos(o.t, o.x, o.y)));
     if (key === 'sound' && v) tone(660, 0.08, 0.05);
     if (key === 'vibe' && v) vibe(20);
     renderAll();
@@ -1082,10 +1541,22 @@ function encodeSave() {
   return btoa(unescape(encodeURIComponent(JSON.stringify(S))));
 }
 
+function replaceState(next) {
+  backup();
+  S = normalize(next);
+  clearField();
+  save();
+  renderAll();
+}
+
 function optionAction(action) {
   const l = L(), o = l.opt;
   if (action === 'tutorial') { switchPanel('play'); tutStart(); }
-  if (action === 'save') { save(); toast(o.saved); }
+  if (action === 'install' && installPrompt) {
+    installPrompt.prompt();
+    installPrompt.userChoice.finally(() => { installPrompt = null; renderOptions(); });
+  }
+  if (action === 'save') { save(); if (window.Online) Online.syncSoon(); toast(o.saved); }
   if (action === 'export') {
     save();
     showModal({
@@ -1115,12 +1586,8 @@ function optionAction(action) {
             try {
               const d = JSON.parse(decodeURIComponent(escape(atob($('importBox').value.trim()))));
               if (!d || typeof d !== 'object' || !d.up) throw new Error('bad');
-              backup();
-              S = normalize(d);
-              clearField();
-              save();
-              els.modal.hidden = true;
-              renderAll();
+              closeModal();
+              replaceState(d);
               toast(o.imported);
             } catch (err) {
               toast(o.importFail);
@@ -1148,16 +1615,7 @@ function optionAction(action) {
     showModal({
       title: l.resetTitle, text: l.resetText,
       buttons: [
-        {
-          label: 'ERASE', primary: true, onClick: () => {
-            backup();
-            S = freshState();
-            clearField();
-            save();
-            renderAll();
-            switchPanel('play');
-          },
-        },
+        { label: 'ERASE', primary: true, onClick: () => { replaceState(freshState()); switchPanel('play'); } },
         { label: l.cancel },
       ],
     });
@@ -1171,6 +1629,7 @@ let tut = null;
 function tutStart() {
   tut = { step: 0, base: { ...S.stats }, handKey: '' };
   els.tut.hidden = false;
+  els.tut.classList.remove('tip');
   tutUpdate(true);
 }
 
@@ -1221,7 +1680,6 @@ function tutUpdate(force) {
   if (tut.step === 2 && st.sold > b.sold) tut.step = 3;
   if (tut.step === 3 && currentPanel === 'shop') tut.step = 4;
   if (tut.step === 4 && st.bought > b.bought) tut.step = 5;
-  // 売るものがない／コインが足りないときの救済
   if (tut.step === 2 && S.objs.length === 0) spawnOne(false);
   if (tut.step === 4 && prev !== 4) {
     const cheapest = Math.min(...UPGRADES.filter(u => S.up[u.id] < u.max).map(upCost));
@@ -1234,17 +1692,19 @@ function tutUpdate(force) {
   els.tutStep.textContent = `${Math.min(tut.step + 1, 5)} / 5`;
   els.tutText.innerHTML = l.tut[tut.step];
   els.tutNext.hidden = tut.step !== 5;
+  els.tutNext.textContent = 'START';
   els.tutSkip.hidden = tut.step === 5;
   document.querySelectorAll('.pulse').forEach(e => e.classList.remove('pulse'));
 
   const onPlay = currentPanel === 'play';
+  const r = fieldRect();
+  const center = { x: r.left + r.width / 2, y: r.top + r.height * 0.62 };
   if (tut.step === 0 && onPlay) {
-    const r = fieldRect();
-    setHand('tap', { x: r.left + r.width / 2, y: r.top + r.height * 0.62 });
+    setHand('tap', center);
   } else if (tut.step === 1 && onPlay) {
     const pair = findPair();
     if (pair) setHand('move', screenPos(pair[0]), screenPos(pair[1]));
-    else setHand('tap', { x: fieldRect().left + fieldRect().width / 2, y: fieldRect().top + fieldRect().height * 0.62 });
+    else setHand('tap', center);
   } else if (tut.step === 2 && onPlay) {
     const o = S.objs.find(x => !busy.has(x.id));
     const rr = els.rail.getBoundingClientRect();
@@ -1263,34 +1723,35 @@ function tutUpdate(force) {
 }
 
 els.tutSkip.addEventListener('click', tutEnd);
-els.tutNext.addEventListener('click', () => { tutEnd(); switchPanel('play'); });
+els.tutNext.addEventListener('click', () => {
+  if (els.tut.classList.contains('tip')) { els.tut.hidden = true; els.tut.classList.remove('tip'); return; }
+  tutEnd();
+  switchPanel('play');
+});
 
 // ---------- ウェブ特有のトラブル対策 ----------
-// ダブルタップ拡大・ピンチ拡大・長押しメニュー・ドラッグ選択を無効化
 document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-document.addEventListener('contextmenu', e => { if (!e.target.closest('textarea')) e.preventDefault(); });
-document.addEventListener('selectstart', e => { if (!e.target.closest('textarea')) e.preventDefault(); });
+document.addEventListener('contextmenu', e => { if (!e.target.closest('textarea, input')) e.preventDefault(); });
+document.addEventListener('selectstart', e => { if (!e.target.closest('textarea, input')) e.preventDefault(); });
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 let lastTouchEnd = 0;
 document.addEventListener('touchend', e => {
   const now = Date.now();
-  if (now - lastTouchEnd < 300 && !e.target.closest('textarea, button')) e.preventDefault();
+  if (now - lastTouchEnd < 300 && !e.target.closest('textarea, input, button')) e.preventDefault();
   lastTouchEnd = now;
 }, { passive: false });
 
-// 画面サイズ変更・回転：はみ出したオブジェクトを戻す
 window.addEventListener('resize', () => {
   fieldBox = null;
-  nodes.forEach(el => (el.dataset.t = ''));
+  nodes.forEach(el => (el.dataset.k = ''));
   S.objs.forEach(o => Object.assign(o, clampPos(o.t, o.x, o.y)));
   dirty = true;
 });
 
-// キーボード（PC）
 document.addEventListener('keydown', e => {
-  if (e.target.closest && e.target.closest('textarea')) return;
-  if (!els.modal.hidden) return;
+  if (e.target.closest && e.target.closest('textarea, input')) return;
+  if (!els.modal.hidden || !els.arena.hidden) return;
   if ((e.code === 'Space' || e.code === 'Enter') && currentPanel === 'play') {
     e.preventDefault();
     if (!e.repeat) { S.stats.taps++; if (!spawnByTap()) toast(L().full); refresh(); }
@@ -1310,7 +1771,6 @@ try {
       save();
       paused = true;
       showModal({
-        rings: '',
         title: 'PAUSED',
         text: L().otherTab,
         buttons: [{ label: L().resumeHere, primary: true, onClick: resumeHere }],
@@ -1320,7 +1780,9 @@ try {
 } catch (e) { /* 非対応ブラウザ */ }
 function announce() { if (channel) channel.postMessage({ type: 'hello', id: TAB_ID }); }
 function resumeHere() {
-  S = load() || S;
+  Object.assign(OPT, loadSettings());
+  PROFILE = loadProfile();
+  S = readSlot(OPT.slot) || S;
   paused = false;
   clearField();
   renderAll();
@@ -1362,14 +1824,13 @@ function tick() {
 }
 
 function offlineReward(away) {
-  away = Math.min(OFFLINE_CAP_SEC, away);
+  away = Math.min(offlineCapSec(), away);
   if (away < 30 || !S.up.autoGen || paused) return;
   const spawns = away / genInterval(S.up.autoGen);
-  const coins = spawns * (spawnCoin() + sellPrice(S.up.baseTier) * 0.5);
+  const coins = spawns * (spawnCoin() + sellPrice(S.up.baseTier) * offlineRate());
   if (coins < 1) return;
   addCoins(coins);
   showModal({
-    rings: '',
     title: `+${fmt(Math.floor(coins))} COIN`,
     text: L().offlineText(fmtTime(away)),
     buttons: [{ label: 'RECEIVE', primary: true }],
@@ -1383,6 +1844,7 @@ document.addEventListener('visibilitychange', () => {
     endDrag(null, true);
     hiddenAt = Date.now();
     save();
+    if (window.Online) Online.syncNow();
   } else {
     lastTick = performance.now();
     fieldBox = null;
@@ -1393,9 +1855,17 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', save);
 window.addEventListener('beforeunload', save);
 
+// ホーム画面アプリ（オフラインでも起動できるように）
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
 // ---------- 起動 ----------
 announce();
 renderAll();
 offlineReward((Date.now() - (S.last || Date.now())) / 1000);
 if (!OPT.tutorialDone && S.stats.spawned === 0) tutStart();
+else if (OPT.seenVersion !== VERSION) showWhatsNew();
+OPT.seenVersion = VERSION;
+saveSettings();
 setInterval(tick, 100);
