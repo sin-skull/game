@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
-  <title>無限の次へ</title>
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>無限の次へ — Beyond ∞</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@100;300;400;500&family=Noto+Sans+JP:wght@300;400&display=swap" rel="stylesheet">
@@ -24,14 +28,14 @@
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <!-- MERGE: 枠のない自由なフィールド -->
     <section class="panel active" id="panel-play">
       <div class="field" id="field">
         <div class="field-hint" id="fieldHint">TAP ANYWHERE</div>
       </div>
       <button class="rail" id="rail">
-        <span id="railText">↓ DROP TO SELL</span>
+        <span id="railText"></span>
         <span id="railPrice"></span>
       </button>
     </section>
@@ -39,7 +43,7 @@
     <!-- UPGRADE -->
     <section class="panel scroll" id="panel-shop">
       <h2>UPGRADE</h2>
-      <p class="h-sub">ステータス強化</p>
+      <p class="h-sub" data-i18n="shopSub"></p>
       <div id="upgrades"></div>
     </section>
 
@@ -56,20 +60,35 @@
     <!-- LOG -->
     <section class="panel scroll" id="panel-stats">
       <h2>LOG</h2>
-      <p class="h-sub">記録</p>
+      <p class="h-sub" data-i18n="logSub"></p>
       <dl class="stats" id="stats"></dl>
       <h3>OBJECTS</h3>
       <div class="dex" id="dex"></div>
-      <button class="reset" id="resetBtn">データを消去</button>
+    </section>
+
+    <!-- OPTION -->
+    <section class="panel scroll" id="panel-opt">
+      <h2>OPTION</h2>
+      <p class="h-sub" data-i18n="optSub"></p>
+      <div id="options"></div>
     </section>
   </main>
 
-  <nav class="tabs">
+  <nav class="tabs" id="tabs">
     <button class="tab active" data-panel="play">MERGE</button>
     <button class="tab" data-panel="shop">UPGRADE<i class="dot" id="shopBadge"></i></button>
     <button class="tab" data-panel="inf">∞<i class="dot" id="infBadge"></i></button>
     <button class="tab" data-panel="stats">LOG</button>
+    <button class="tab" data-panel="opt">OPTION</button>
   </nav>
+
+  <!-- 操作体験チュートリアル -->
+  <div class="tut" id="tut" hidden>
+    <div class="tut-head"><span id="tutStep">1 / 5</span><button id="tutSkip">SKIP</button></div>
+    <p class="tut-text" id="tutText"></p>
+    <button class="tut-next" id="tutNext" hidden>START</button>
+  </div>
+  <div class="hand" id="hand" hidden></div>
 
   <div class="modal" id="modal" hidden>
     <div class="modal-rings" id="modalRings"></div>
@@ -78,7 +97,7 @@
       <div class="modal-buttons" id="modalButtons"></div>
     </div>
   </div>
-  <div class="toast" id="toast"></div>
+  <div class="toast" id="toast"><span id="toastText"></span><button id="toastAction" hidden></button></div>
 
   <script src="game.js"></script>
 </body>
