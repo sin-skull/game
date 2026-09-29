@@ -324,6 +324,10 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   animation: invert 0.4s ease-out;
 }
 .modal[hidden] { display: none; }
@@ -349,13 +353,18 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
   position: relative;
   max-width: 520px;
   width: 100%;
-  margin: 0 auto;
-  padding: 0 24px calc(28px + env(safe-area-inset-bottom));
+  margin: auto auto 0;
+  padding: 24px 24px calc(28px + env(safe-area-inset-bottom));
 }
+/* 入力欄のあるモーダルは上寄せ（スマホのキーボードに隠れないように） */
+.modal.form { justify-content: flex-start; }
+.modal.form .modal-rings { display: none; }
+.modal.form .modal-inner { margin: 0 auto; padding-top: calc(48px + env(safe-area-inset-top)); }
 .modal-body { font-family: var(--jp); }
 .modal-body .m-title { font-size: 20px; font-weight: 400; margin: 0 0 12px; }
 .modal-body .m-text { font-size: 15px; font-weight: 300; color: rgba(0, 0, 0, 0.6); line-height: 1.7; margin: 0; }
-.modal-buttons { display: flex; flex-direction: column; gap: 14px; margin-top: 56px; }
+.modal-buttons { display: flex; flex-direction: column; gap: 14px; margin-top: 40px; }
+.modal.form .modal-buttons { margin-top: 24px; }
 .modal-buttons button {
   height: 52px;
   font-family: var(--mono);
@@ -383,7 +392,10 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: calc(100% - 32px);
+  width: max-content;
+  line-height: 1.5;
   z-index: 90;
 }
 .toast.show { opacity: 1; }
@@ -474,8 +486,8 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .subnav { display: flex; gap: 18px; border-bottom: 1px solid var(--line); margin: -4px 0 18px; }
 .subnav button { font-size: 10px; letter-spacing: 0.2em; color: rgba(255, 255, 255, 0.4); padding: 8px 0; border-bottom: 1px solid transparent; margin-bottom: -1px; }
 .subnav button.on { color: var(--fg); border-bottom-color: var(--fg); font-weight: 500; }
-.sub { display: none; }
-.sub.on { display: block; }
+.subpanel { display: none; }
+.subpanel.on { display: block; }
 
 /* スキン適用オブジェクト */
 .body.sk { background: none; border: none; overflow: visible; }
@@ -646,6 +658,5 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .pick { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .pick button { display: flex; justify-content: space-between; height: 48px; align-items: center; padding: 0 16px; border: 1px solid rgba(0, 0, 0, 0.3); font-family: var(--jp); font-size: 14px; color: var(--bg); }
 .pick button span { font-family: var(--mono); font-size: 11px; color: rgba(0, 0, 0, 0.5); }
-.modal-inner { max-height: 100dvh; overflow-y: auto; }
 .tabs .tab { font-size: 9.5px; letter-spacing: 0.12em; }
 .tut.tip { top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); pointer-events: auto; }

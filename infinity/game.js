@@ -1137,7 +1137,7 @@ function wireSubnav(navId, onChange) {
     const b = e.target.closest('[data-sub]');
     if (!b) return;
     nav.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-    nav.parentElement.querySelectorAll('.sub').forEach(s => s.classList.toggle('on', s.id === 'sub-' + b.dataset.sub));
+    nav.parentElement.querySelectorAll('.subpanel').forEach(s => s.classList.toggle('on', s.id === 'sub-' + b.dataset.sub));
     onChange && onChange(b.dataset.sub);
   });
 }
@@ -1180,6 +1180,7 @@ function floatRail(text) {
 
 let toastTimer;
 function toast(msg, action, ms = 1800) {
+  ms = Math.max(ms, String(msg).length * 70);   // 長い文は長めに表示
   els.toastText.textContent = msg;
   els.toastAction.hidden = !action;
   els.toast.classList.toggle('actionable', !!action);
@@ -1202,6 +1203,8 @@ function showModal(opts) {
   els.modalRings.style.fontSize = rings.length > 1 ? '40px' : '';
   els.modalRings.style.letterSpacing = rings.length > 1 ? '0.3em' : '';
   els.modalBody.innerHTML = `<p class="m-title">${title}</p>${text ? `<p class="m-text">${text}</p>` : ''}${html}`;
+  els.modal.classList.toggle('form', /<(input|textarea)/.test(html));
+  els.modal.scrollTop = 0;
   els.modalButtons.innerHTML = '';
   buttons.forEach(b => {
     const btn = document.createElement('button');
@@ -1732,13 +1735,16 @@ els.tutNext.addEventListener('click', () => {
 // ---------- ウェブ特有のトラブル対策 ----------
 document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', e => e.preventDefault(), { passive: false });
-document.addEventListener('contextmenu', e => { if (!e.target.closest('textarea, input')) e.preventDefault(); });
-document.addEventListener('selectstart', e => { if (!e.target.closest('textarea, input')) e.preventDefault(); });
+// 入力欄の中かどうか（テキストノードが来ることもある）
+const inEditable = e => { const n = e.target && (e.target.closest ? e.target : e.target.parentElement); return !!(n && n.closest('textarea, input')); };
+document.addEventListener('contextmenu', e => { if (!inEditable(e)) e.preventDefault(); });
+document.addEventListener('selectstart', e => { if (!inEditable(e)) e.preventDefault(); });
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 let lastTouchEnd = 0;
 document.addEventListener('touchend', e => {
   const now = Date.now();
-  if (now - lastTouchEnd < 300 && !e.target.closest('textarea, input, button')) e.preventDefault();
+  const n = e.target && (e.target.closest ? e.target : e.target.parentElement);
+  if (now - lastTouchEnd < 300 && !(n && n.closest('textarea, input, button, select, label'))) e.preventDefault();
   lastTouchEnd = now;
 }, { passive: false });
 
@@ -1750,7 +1756,7 @@ window.addEventListener('resize', () => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.target.closest && e.target.closest('textarea, input')) return;
+  if (inEditable(e)) return;
   if (!els.modal.hidden || !els.arena.hidden) return;
   if ((e.code === 'Space' || e.code === 'Enter') && currentPanel === 'play') {
     e.preventDefault();

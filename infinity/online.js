@@ -29,6 +29,7 @@ const Online = (() => {
       login: 'Google でログイン', logout: 'ログアウト', syncNow: '今すぐ同期', changeName: '名前を変更',
       synced: t => `クラウドに保存済み ${t}`, syncing: '同期中…', syncErr: '同期できなかった。通信を確認してください',
       permErr: 'クラウドの準備中（データベースのルール設定が必要）', noName: '名前が未設定',
+      permToast: 'サーバーの設定がまだ終わっていない（管理者の作業待ち）。ゲームはこのまま遊べる',
       nameTitle: 'ユーザー名を決める', nameText: 'ランキングとバトルで表示される名前。2〜12文字（英数字・かな・漢字・_）。',
       nameBad: '使えない名前', nameTaken: 'その名前はもう使われている', nameOk: n => `「${n}」で登録した`, ok: 'OK',
       loggedIn: 'ログインした', loggedOut: 'ログアウトした', cloudLoaded: 'クラウドのデータを読み込んだ',
@@ -53,6 +54,7 @@ const Online = (() => {
       login: 'Log in with Google', logout: 'Log out', syncNow: 'Sync now', changeName: 'Change name',
       synced: t => `Saved to cloud ${t}`, syncing: 'Syncing…', syncErr: 'Could not sync. Check your connection',
       permErr: 'Cloud not ready yet (database rules need to be set)', noName: 'No name yet',
+      permToast: 'The server isn\u2019t set up yet (waiting on the admin). You can keep playing',
       nameTitle: 'Choose a username', nameText: 'Shown in rankings and battles. 2–12 characters (letters, digits, kana, kanji, _).',
       nameBad: 'That name can’t be used', nameTaken: 'That name is taken', nameOk: n => `Registered as “${n}”`, ok: 'OK',
       loggedIn: 'Logged in', loggedOut: 'Logged out', cloudLoaded: 'Loaded your cloud data',
@@ -150,6 +152,7 @@ const Online = (() => {
       if (!PROFILE.name) askName();
     } catch (e) {
       setError(e);
+      toast(status === 'perm' ? t().permToast : t().syncErr);
     }
     renderAll();
   }
@@ -263,7 +266,7 @@ const Online = (() => {
               renderAll();
             } catch (e) {
               if (e && e.message === 'taken') toast(l.nameTaken);
-              else { setError(e); toast(l.syncErr); }
+              else { setError(e); toast(status === 'perm' ? l.permToast : l.syncErr); }
             }
           },
         },
