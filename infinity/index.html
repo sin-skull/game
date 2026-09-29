@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d0b1e">
+  <title>無限の次へ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="coins"><span class="coin-icon">🪙</span><span id="coins">0</span></div>
+    <div class="dim" id="dim">次元 1</div>
+  </header>
+
+  <main>
+    <!-- ゲーム画面 -->
+    <section class="panel active" id="panel-play">
+      <div class="goal" id="goal"></div>
+      <div class="grid" id="grid"></div>
+      <div class="actions">
+        <button class="sell" id="sellZone">
+          <span class="sell-title">💰 売却</span>
+          <span class="sell-price" id="sellPrice">選択 or ドラッグ</span>
+        </button>
+        <button class="core" id="core">
+          <span class="core-emoji" id="coreEmoji">🫧</span>
+          <span class="core-label">生成</span>
+        </button>
+        <div class="autos" id="autos"></div>
+      </div>
+      <p class="hint">同じアイテムを重ねると合成。タップで選択→同じものをタップでも合成できます。</p>
+    </section>
+
+    <!-- 強化画面 -->
+    <section class="panel" id="panel-shop">
+      <h2>ステータス強化</h2>
+      <div class="upgrades" id="upgrades"></div>
+    </section>
+
+    <!-- 無限画面 -->
+    <section class="panel" id="panel-inf">
+      <h2>♾️ 無限の次へ</h2>
+      <div class="inf-box">
+        <div class="inf-path" id="infPath"></div>
+        <p id="infText"></p>
+        <button class="prestige" id="prestigeBtn">無限の次へ進む</button>
+      </div>
+    </section>
+
+    <!-- 記録画面 -->
+    <section class="panel" id="panel-stats">
+      <h2>記録</h2>
+      <dl class="stats" id="stats"></dl>
+      <h3>図鑑</h3>
+      <div class="dex" id="dex"></div>
+      <button class="danger" id="resetBtn">データを消去</button>
+    </section>
+  </main>
+
+  <nav class="tabs">
+    <button class="tab active" data-panel="play">🎮<span>ゲーム</span></button>
+    <button class="tab" data-panel="shop">⚡<span>強化</span><i class="badge" id="shopBadge"></i></button>
+    <button class="tab" data-panel="inf">♾️<span>無限</span><i class="badge" id="infBadge"></i></button>
+    <button class="tab" data-panel="stats">📜<span>記録</span></button>
+  </nav>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card">
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-buttons" id="modalButtons"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="game.js"></script>
+</body>
+</html>
