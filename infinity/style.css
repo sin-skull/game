@@ -645,12 +645,13 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .arena-field svg { overflow: visible; }
 .arena-field text { font-family: var(--mono); }
 .arena-score { font-weight: 100; font-size: 34px; letter-spacing: -0.04em; padding: 4px 0; font-variant-numeric: tabular-nums; }
-.arena-mid { padding: 10px 0; display: flex; align-items: center; gap: 14px; }
-.arena-bar { flex: 1; display: flex; height: 6px; background: rgba(255, 255, 255, 0.1); }
-.arena-bar i { display: block; height: 100%; transition: width 0.2s; }
-.arena-bar i:first-child { background: rgba(255, 255, 255, 0.35); }
-.arena-bar i:last-child { background: var(--fg); margin-left: auto; }
-.arena-time { font-size: 20px; font-weight: 300; min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; }
+.arena-mid { padding: 8px 0; display: flex; flex-direction: column; gap: 8px; }
+.arena-track { height: 3px; background: rgba(255, 255, 255, 0.12); }
+.arena-track i { display: block; height: 100%; width: 0; background: var(--fg); transition: width 0.15s; }
+.arena-goal { display: flex; align-items: baseline; gap: 12px; }
+.arena-goal #arGoal { flex: 1; font-size: 10px; letter-spacing: 0.3em; color: var(--dim); }
+.arena-time { font-size: 22px; font-weight: 300; min-width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
+.arena-score.done { font-weight: 300; font-size: 24px; letter-spacing: 0.05em; }
 .arena-skip { font-size: 10px; letter-spacing: 0.2em; color: var(--dim); padding: 8px 0 8px 4px; }
 
 /* モーダル補助 */
@@ -660,3 +661,42 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .pick button span { font-family: var(--mono); font-size: 11px; color: rgba(0, 0, 0, 0.5); }
 .tabs .tab { font-size: 9.5px; letter-spacing: 0.12em; }
 .tut.tip { top: auto; bottom: calc(96px + env(safe-area-inset-bottom)); pointer-events: auto; }
+
+/* ---------- v1.1：説明・魂の内訳・ランキング上位 ---------- */
+.up { grid-template-columns: 28px 1fr auto; }
+.up-main { cursor: pointer; }
+.up-q {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; margin-left: 8px; vertical-align: 2px;
+  border: 1px solid var(--faint); border-radius: 50%;
+  font-family: var(--mono); font-style: normal; font-size: 9px; color: var(--dim);
+}
+.up.open .up-q { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.up-help {
+  grid-column: 2 / -1;
+  display: none;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 1px solid var(--fg);
+  font-family: var(--jp); font-weight: 300; font-size: 12px; line-height: 1.8;
+  color: rgba(255, 255, 255, 0.8);
+}
+.up.open .up-help { display: block; animation: from-left 0.18s ease-out; }
+.up.locked.open .up-help { opacity: 1; }
+
+.soul-calc { border: 1px solid var(--line); padding: 10px 12px; margin-bottom: 12px; font-size: 11px; }
+.soul-calc div { display: flex; justify-content: space-between; padding: 3px 0; color: var(--dim); }
+.soul-calc b { color: var(--fg); font-weight: 400; font-variant-numeric: tabular-nums; }
+.soul-calc .sum { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; }
+.soul-calc .sum b { font-size: 16px; font-weight: 300; }
+
+.rk-help { margin: -6px 0 10px; }
+.rk.top { padding: 14px 0; }
+.rk.top .rk-no { font-size: 16px; font-weight: 300; }
+.rk.top .rk-name { font-size: 15px; }
+.rk.top .rk-val { font-size: 14px; }
+.rk.top1 .rk-val { font-size: 18px; font-weight: 300; }
+.rk.top .rk-skin { width: 30px; height: 30px; }
+.rk { grid-template-columns: 30px 32px 1fr auto; }
+.rk.pinned { margin-top: 12px; border-top: 1px dashed var(--faint); }
+.rk-val sup { font-size: 0.62em; margin-left: 1px; letter-spacing: 0; vertical-align: 0.7em; line-height: 0; }

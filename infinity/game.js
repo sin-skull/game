@@ -4,7 +4,7 @@
 //  無限の次へ / Beyond ∞ — モノクロ合成インクリメンタル
 // =====================================================
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const SLOT_KEYS = ['infinity-merge-v2', 'infinity-merge-v2-s1', 'infinity-merge-v2-s2'];
 const OLD_SAVE_KEY = 'infinity-merge-v1';
 const BACKUP_KEY = 'infinity-merge-backup';
@@ -51,9 +51,11 @@ const I18N = {
     resetTitle: 'このスロットのデータを消去する？', resetText: '元には戻せません（ひとつ前のデータに戻すことはできる）。',
     otherTab: '別のタブで起動したので、ここは停止した。', resumeHere: 'ここで再開',
     rebirth: {
-      inherit: ['継承転生', '強化をひとつ選んで残す。魂は少なめ。'],
-      clear: ['清算転生', 'すべて 0 に戻る。魂をたんまり得る。'],
+      inherit: ['継承転生', '強化をひとつ選んで残す。魂は半分。'],
+      clear: ['清算転生', 'すべて 0 に戻る。魂をまるごと得る。'],
       gain: n => `魂 +${n}`, locked: n => `あと ${n} コイン稼ぐと転生できる`,
+      how: '魂の量は、この周回で稼いだコインと、どこまで到達したかで決まる。',
+      rows: ['稼ぎ', '到達ランク', '次元', '共鳴'],
       pickTitle: '残す強化を選ぶ', confirmTitle: '転生する？',
       confirmText: (n, keep) => `コイン・オブジェクト・強化は 0 に戻る${keep ? `（${keep} は残る）` : ''}。<br>次元とスキルはそのまま。魂 +${n}`,
       done: n => `転生した。魂 +${n}`,
@@ -73,16 +75,13 @@ const I18N = {
       soul: '魂で永続スキルを買える。<br>転生しても消えない。',
       versus: 'VERSUS：相手のセーブデータの「分身」と全自動で戦う。<br>魂を賭けて、勝てば BP でスキンを解放。',
     },
-    whatsNewTitle: 'アップデート v1.0',
+    whatsNewTitle: 'アップデート v1.1',
     whatsNew: [
-      'Googleログインとクラウド保存',
-      'セーブスロット 3つ',
-      'ランキング（次元・Ωタイム・勝利数）',
-      'バトル：分身と全自動で対戦、魂を賭ける',
-      '転生（継承／清算）と魂の永続スキル',
-      'ゴール Ω（次元 10）',
-      'スキン 8種',
-      'ホーム画面アプリ（アイコン付き）',
+      '強化・スキルの名前をタップすると、何が起こるかの説明が出る',
+      '転生の魂を大幅に増量。到達ランクと次元に応じて倍率がかかる（内訳も表示）',
+      'バトルがタイムアタックに。先に GOAL に届いた方の勝ち',
+      'ランキングを REACH（到達した数）／BP／Ω TIME に',
+      'ポップアップの「あとで」「やめる」ボタンが消えていた不具合を修正',
     ],
     slot: {
       title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
@@ -138,9 +137,11 @@ const I18N = {
     resetTitle: 'Erase this slot?', resetText: 'This cannot be undone (you can restore the previous data once).',
     otherTab: 'The game was opened in another tab, so it paused here.', resumeHere: 'Resume here',
     rebirth: {
-      inherit: ['Inherit', 'Keep one upgrade. Fewer Souls.'],
-      clear: ['Liquidate', 'Everything back to 0. Lots of Souls.'],
+      inherit: ['Inherit', 'Keep one upgrade. Half the Souls.'],
+      clear: ['Liquidate', 'Everything back to 0. All the Souls.'],
       gain: n => `Souls +${n}`, locked: n => `Earn ${n} more coins to rebirth`,
+      how: 'Souls depend on the coins earned this run and how far you reached.',
+      rows: ['Earnings', 'Rank reached', 'Dimension', 'Resonance'],
       pickTitle: 'Choose an upgrade to keep', confirmTitle: 'Rebirth?',
       confirmText: (n, keep) => `Coins, objects and upgrades reset${keep ? ` (${keep} stays)` : ''}.<br>Dimension and skills stay. Souls +${n}`,
       done: n => `Reborn. Souls +${n}`,
@@ -160,16 +161,13 @@ const I18N = {
       soul: 'Spend Souls on permanent skills.<br>They survive every rebirth.',
       versus: 'VERSUS: an automatic battle against a copy of another player’s save.<br>Bet Souls, win BP, unlock skins.',
     },
-    whatsNewTitle: 'Update v1.0',
+    whatsNewTitle: 'Update v1.1',
     whatsNew: [
-      'Google login and cloud save',
-      'Three save slots',
-      'Rankings (dimension, Ω time, wins)',
-      'Battles against copies of other saves, with Soul bets',
-      'Rebirth (Inherit / Liquidate) and permanent Soul skills',
-      'A goal: Ω (dimension 10)',
-      'Eight skins',
-      'Home-screen app with an icon',
+      'Tap any upgrade or skill name to see what it does',
+      'Far more Souls from rebirth, scaled by the rank and dimension you reached (with a breakdown)',
+      'Battles are now a time attack: first to the GOAL wins',
+      'Rankings are now REACH (largest number), BP and Ω TIME',
+      'Fixed popups hiding their Later / Cancel buttons',
     ],
     slot: {
       title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
@@ -216,24 +214,66 @@ const L = () => I18N[OPT.lang] || I18N.ja;
 
 // ---------- プロフィール（アカウント共通：BP・スキン・戦績） ----------
 function normalizeProfile(p) {
-  const def = { bp: 0, skins: ['CIRCLE'], skin: 'CIRCLE', wins: 0, losses: 0, name: '', updated: 0, history: [] };
+  const def = { bp: 0, bpTotal: 0, skins: ['CIRCLE'], skin: 'CIRCLE', wins: 0, losses: 0, name: '', updated: 0, history: [] };
   p = { ...def, ...(p || {}) };
   if (!Array.isArray(p.skins)) p.skins = ['CIRCLE'];
   p.skins = [...new Set(['CIRCLE', ...p.skins.filter(id => SKIN_LIST.some(s => s.id === id))])];
   if (!p.skins.includes(p.skin)) p.skin = 'CIRCLE';
   if (!Array.isArray(p.history)) p.history = [];
-  ['bp', 'wins', 'losses', 'updated'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  ['bp', 'bpTotal', 'wins', 'losses', 'updated'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  p.bpTotal = Math.max(p.bpTotal, p.bp);   // 以前のデータは今の BP から
   return p;
 }
 function loadProfile() {
   try { return normalizeProfile(JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}')); } catch (e) { return normalizeProfile({}); }
 }
 let PROFILE = loadProfile();
+// BP を得る（ランキング用に累計も数える）
+function addBP(n) {
+  PROFILE.bp += n;
+  PROFILE.bpTotal += n;
+}
+
 function saveProfile(touch = true) {
   if (touch) PROFILE.updated = Date.now();
   try { localStorage.setItem(PROFILE_KEY, JSON.stringify(PROFILE)); } catch (e) { /* 保存不可 */ }
   if (window.Online) Online.markDirty();
 }
+
+// ---------- 強化の説明（名前をタップで開く） ----------
+const HELP = {
+  autoGen: ['何もしなくても、一定時間ごとにオブジェクトが1つ自動で生まれる。レベルを上げるほど間隔が短くなる。アプリを閉じている間の報酬もこれで決まる。',
+    'Spawns one object automatically at a fixed interval, even while you do nothing. Higher levels shorten the interval. It also decides your offline earnings.'],
+  autoMerge: ['同じランクのペアを自動で見つけて合成する。小さいペアから順番に。レベルを上げるほど速くなる。',
+    'Finds matching pairs and merges them for you, smallest first. Higher levels merge faster.'],
+  spawnCoin: ['オブジェクトが生まれるたびに（タップでも自動でも）コインがもらえる。自動生成と組み合わせると、放置でも稼げる。',
+    'Gives coins every time an object is born, by tap or automatically. Pairs well with Auto Spawn for idle income.'],
+  sellMult: ['オブジェクトを売ったときのコインが増える。Lv1 ごとに +25%。',
+    'Increases the coins you get when selling. +25% per level.'],
+  tapPower: ['画面を1回タップしたときに生まれるオブジェクトの数が増える。',
+    'More objects are born from a single tap.'],
+  luck: ['オブジェクトが生まれるとき、この確率で「ひとつ上のランク（2倍の価値）」で生まれる。例：5% なら 20回に1回くらい、1 ではなく 2 が出る。',
+    'Each new object has this chance to be born one rank higher (double value). At 5%, about 1 in 20 spawns is a 2 instead of a 1.'],
+  space: ['フィールドに置けるオブジェクトの上限が増える。高いランクを作るには、途中のランクを置いておく場所が必要になる。',
+    'Raises how many objects fit on the field. Building high ranks needs room to hold the ranks in between.'],
+  baseTier: ['生まれるオブジェクトの最低ランクが上がる。Lv1 なら 1 ではなく 2 から、Lv3 なら 8 から生まれる。∞ への一番の近道。',
+    'Raises the rank objects are born at. Lv1 starts at 2 instead of 1, Lv3 at 8. The fastest road to ∞.'],
+  autoSell: ['フィールドが満杯のとき、一番小さいオブジェクトを自動で売って、自動生成を止めない。',
+    'When the field is full, sells the smallest object so Auto Spawn never stops.'],
+  startAuto: ['転生や「無限の次へ」のあと、自動生成と自動合成のレベルが上がった状態から始まる。',
+    'After a rebirth or going beyond ∞, you start with Auto Spawn and Auto Merge already levelled.'],
+  startSpace: ['転生や「無限の次へ」のあと、最初から空間が広い状態で始まる。',
+    'After a rebirth or going beyond ∞, you start with a larger field.'],
+  dupMerge: ['合成したとき、この確率でランクが1つではなく2つ上がる（価値が4倍）。',
+    'Each merge has this chance to jump two ranks instead of one (four times the value).'],
+  golden: ['売却・生成ボーナスなど、すべてのコイン収入が増える。',
+    'Multiplies every coin you earn: sales, spawn bonus, everything.'],
+  idle: ['アプリを閉じていた間の報酬が、より長い時間分・より多くもらえる。',
+    'Offline earnings cover more hours and pay out more.'],
+  resonance: ['転生や「無限の次へ」で得られる魂が増える。',
+    'Increases the Souls you get from rebirth and going beyond ∞.'],
+};
+const helpOpen = new Set();
 
 // ---------- ステータス強化 ----------
 const UPGRADES = [
@@ -333,6 +373,7 @@ function freshState(keep) {
     soul: 0,
     skills,
     runEarned: 0,
+    runMaxTier: 0,
     clearTime: 0,
     stats: {
       spawned: 0, merged: 0, sold: 0, earned: 0, maxTier: 0,
@@ -372,7 +413,8 @@ function normalize(d) {
   if (!Array.isArray(s.objs)) s.objs = [];
   s.objs = s.objs.filter(o => o && Number.isFinite(o.t) && o.t >= 0 && o.t <= MAX_TIER)
     .map(o => ({ id: o.id, t: o.t, x: clamp01(o.x), y: clamp01(o.y) }));
-  ['coins', 'soul', 'shards', 'runEarned', 'clearTime'].forEach(k => { if (!Number.isFinite(s[k]) || s[k] < 0) s[k] = 0; });
+  if (!Number.isFinite(d.runMaxTier)) s.runMaxTier = s.objs.reduce((m, o) => Math.max(m, o.t), 0);
+  ['coins', 'soul', 'shards', 'runEarned', 'runMaxTier', 'clearTime'].forEach(k => { if (!Number.isFinite(s[k]) || s[k] < 0) s[k] = 0; });
   s.nextId = Math.max(s.nextId || 1, ...s.objs.map(o => (o.id || 0) + 1), 1);
   s.objs.forEach(o => { if (!o.id) o.id = s.nextId++; });
   UPGRADES.forEach(u => { s.up[u.id] = Math.min(u.max, Math.max(0, Math.floor(s.up[u.id] || 0))); });
@@ -434,17 +476,18 @@ const dimStr = (s = S) => String(s.shards + 1).padStart(2, '0');
 const offlineCapSec = () => (8 + 4 * (S.skills.idle || 0)) * 3600;
 const offlineRate = () => 0.5 + 0.1 * (S.skills.idle || 0);
 
-// 転生で得られる魂
-const soulMult = () => (1 + 0.2 * (S.skills.resonance || 0)) * (1 + 0.1 * S.shards);
-function soulBase() {
-  return Math.floor(Math.floor(Math.sqrt(S.runEarned / 500)) * soulMult());
+// 転生で得られる魂：今回の稼ぎ × 到達ランク × 次元 × 共鳴
+const REBIRTH_MIN = 1000;   // 今回これだけ稼ぐと転生できる
+function soulParts() {
+  const earn = Math.floor(Math.sqrt(S.runEarned / 50));
+  const rank = 1 + 0.2 * Math.min(S.runMaxTier, MAX_TIER);   // 2¹⁰で×3、∞で×5
+  const dim = 1 + 0.25 * S.shards;
+  const res = 1 + 0.2 * (S.skills.resonance || 0);
+  return { earn, rank, dim, res, total: S.runEarned >= REBIRTH_MIN ? Math.floor(earn * rank * dim * res) : 0 };
 }
-function soulToNext() {
-  // 魂が1以上になるのに必要な今回の稼ぎ
-  let need = 500;
-  while (Math.floor(Math.floor(Math.sqrt(need / 500)) * soulMult()) < 1) need *= 1.2;
-  return Math.max(0, Math.ceil(need - S.runEarned));
-}
+const soulBase = () => soulParts().total;
+const soulInherit = () => Math.max(1, Math.floor(soulBase() * 0.5));
+const soulToNext = () => Math.max(0, Math.ceil(REBIRTH_MIN - S.runEarned));
 
 function fmt(n) {
   if (n < 1000) {
@@ -732,6 +775,7 @@ function autoMergeStep() {
 
 function noteTier(t) {
   if (t > S.stats.maxTier) S.stats.maxTier = t;
+  if (t > S.runMaxTier) S.runMaxTier = t;
   if (t === MAX_TIER) {
     S.stats.infinities++;
     if (S.shards + 1 >= OMEGA_DIM && !S.clearTime) {
@@ -814,7 +858,7 @@ function prestige() {
 function rebirth(keepId) {
   const base = soulBase();
   if (base < 1) return;
-  const gain = keepId ? Math.max(1, Math.floor(base * 0.35)) : base;
+  const gain = keepId ? soulInherit() : base;
   const kept = keepId ? S.up[keepId] : 0;
   S.stats.rebirths = (S.stats.rebirths || 0) + 1;
   S = freshState(keepFrom(S, { soul: S.soul + gain }));
@@ -910,19 +954,31 @@ function renderHeader() {
   if (soulBase() >= 1) showTip('rebirth');
 }
 
-function upgradeRow(i, name, sub, desc, lv, max, costLabel, can, maxed, attr) {
+function upgradeRow(i, name, sub, desc, lv, max, costLabel, can, maxed, attr, id) {
   const n = Math.min(max, 20);
   const on = Math.ceil((lv / max) * n);
   const ticks = Array.from({ length: n }, (_, k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('');
-  return `<div class="up ${!maxed && !can ? 'locked' : ''}">
+  const help = HELP[id] ? HELP[id][OPT.lang === 'ja' ? 0 : 1] : '';
+  return `<div class="up ${!maxed && !can ? 'locked' : ''} ${helpOpen.has(id) ? 'open' : ''}">
     <div class="up-no">${String(i + 1).padStart(2, '0')}</div>
-    <div>
-      <div class="up-jp">${name}</div>
+    <div class="up-main" data-help="${id}">
+      <div class="up-jp">${name}<i class="up-q">?</i></div>
       <div class="up-en">${sub}</div>
       <div class="up-desc"><span>${maxed ? 'MAX' : desc}</span><span class="ticks">${ticks}</span></div>
     </div>
     <button class="pill ${maxed ? 'max' : ''}" ${attr} ${maxed || !can ? 'disabled' : ''}>${maxed ? 'MAX' : costLabel}</button>
+    <p class="up-help">${help}</p>
   </div>`;
+}
+
+// 名前をタップすると説明が開く
+function toggleHelp(e) {
+  const m = e.target.closest('[data-help]');
+  if (!m) return false;
+  const id = m.dataset.help;
+  if (helpOpen.has(id)) helpOpen.delete(id); else helpOpen.add(id);
+  m.closest('.up').classList.toggle('open', helpOpen.has(id));
+  return true;
 }
 
 function renderShop() {
@@ -930,7 +986,7 @@ function renderShop() {
   els.upgrades.innerHTML = UPGRADES.map((u, i) => {
     const lv = S.up[u.id], cost = upCost(u);
     return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv}`, u.desc(lv),
-      lv, u.max, fmt(cost), S.coins >= cost, lv >= u.max, `data-id="${u.id}"`);
+      lv, u.max, fmt(cost), S.coins >= cost, lv >= u.max, `data-id="${u.id}"`, u.id);
   }).join('');
 }
 
@@ -968,11 +1024,20 @@ function renderInf() {
     <div class="omega-steps">${Array.from({ length: OMEGA_DIM }, (_, i) => `<i class="${i < dimNow ? 'on' : ''}"></i>`).join('')}<b class="${S.clearTime ? 'on' : ''}">Ω</b></div>`;
 
   // 転生
-  const r = l.rebirth, base = soulBase();
+  const r = l.rebirth, base = soulBase(), sp = soulParts();
+  const x = v => '×' + v.toFixed(2).replace(/\.?0+$/, '');
   els.rebirth.innerHTML = `
     <div class="soul-now">◇ ${l.soul(fmt(S.soul))}</div>
+    <p class="sec-sub">${r.how}</p>
+    <div class="soul-calc">
+      <div><span>${r.rows[0]}</span><b>${fmt(sp.earn)}</b></div>
+      <div><span>${r.rows[1]} ${rankName(S.runMaxTier)}</span><b>${x(sp.rank)}</b></div>
+      <div><span>${r.rows[2]} ${dimStr()}</span><b>${x(sp.dim)}</b></div>
+      ${sp.res > 1 ? `<div><span>${r.rows[3]}</span><b>${x(sp.res)}</b></div>` : ''}
+      <div class="sum"><span>=</span><b>◇ ${fmt(base)}</b></div>
+    </div>
     <div class="rb-row">
-      <button class="rb" data-rb="inherit" ${base < 1 ? 'disabled' : ''}><b>${r.inherit[0]}</b><small>${r.inherit[1]}</small><em>${r.gain(fmt(base ? Math.max(1, Math.floor(base * 0.35)) : 0))}</em></button>
+      <button class="rb" data-rb="inherit" ${base < 1 ? 'disabled' : ''}><b>${r.inherit[0]}</b><small>${r.inherit[1]}</small><em>${r.gain(fmt(base ? soulInherit() : 0))}</em></button>
       <button class="rb" data-rb="clear" ${base < 1 ? 'disabled' : ''}><b>${r.clear[0]}</b><small>${r.clear[1]}</small><em>${r.gain(fmt(base))}</em></button>
     </div>
     ${base < 1 ? `<p class="inf-note">${r.locked(fmt(soulToNext()))}</p>` : ''}`;
@@ -982,7 +1047,7 @@ function renderInf() {
   els.skills.innerHTML = SKILLS.map((k, i) => {
     const lv = S.skills[k.id], cost = skillCost(k), dsc = k.desc(lv);
     return upgradeRow(i, ja ? k.jp : k.en, `${ja ? k.en.toUpperCase() + ' · ' : ''}LV ${lv}`, ja ? dsc.ja : dsc.en,
-      lv, k.max, `◇ ${fmt(cost)}`, S.soul >= cost, lv >= k.max, `data-skill="${k.id}"`);
+      lv, k.max, `◇ ${fmt(cost)}`, S.soul >= cost, lv >= k.max, `data-skill="${k.id}"`, k.id);
   }).join('');
 }
 
@@ -1432,12 +1497,14 @@ els.rail.addEventListener('click', () => {
 })();
 
 els.upgrades.addEventListener('click', e => {
+  if (toggleHelp(e)) return;
   const b = e.target.closest('.pill');
   if (b) buy(UPGRADES.find(u => u.id === b.dataset.id));
 });
 
 els.skills.addEventListener('click', e => {
-  const b = e.target.closest('[data-skill]');
+  if (toggleHelp(e)) return;
+  const b = e.target.closest('button[data-skill]');
   if (b) buySkill(SKILLS.find(k => k.id === b.dataset.skill));
 });
 
@@ -1447,7 +1514,7 @@ els.rebirth.addEventListener('click', e => {
   const l = L(), r = l.rebirth, ja = OPT.lang === 'ja';
   const base = soulBase();
   const confirm = keepId => {
-    const gain = keepId ? Math.max(1, Math.floor(base * 0.35)) : base;
+    const gain = keepId ? soulInherit() : base;
     const u = keepId && UPGRADES.find(x => x.id === keepId);
     showModal({
       rings: '◇',
@@ -1740,13 +1807,7 @@ const inEditable = e => { const n = e.target && (e.target.closest ? e.target : e
 document.addEventListener('contextmenu', e => { if (!inEditable(e)) e.preventDefault(); });
 document.addEventListener('selectstart', e => { if (!inEditable(e)) e.preventDefault(); });
 document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-let lastTouchEnd = 0;
-document.addEventListener('touchend', e => {
-  const now = Date.now();
-  const n = e.target && (e.target.closest ? e.target : e.target.parentElement);
-  if (now - lastTouchEnd < 300 && !(n && n.closest('textarea, input, button, select, label'))) e.preventDefault();
-  lastTouchEnd = now;
-}, { passive: false });
+// ダブルタップ拡大は CSS の touch-action: manipulation で止めている（連続タップを握りつぶさないため JS では止めない）
 
 window.addEventListener('resize', () => {
   fieldBox = null;
