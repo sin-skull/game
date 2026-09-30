@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.19.0';
+const VERSION = '0.20.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -30,7 +30,8 @@ const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
 const GATE_GAP = 170;                        // ゲートの間隔（進んだ距離）。1列に1つ
 const MOB_VY = 36, GATE_VY = 34, BULLET_V = 900, ROW_H = 14;   // 迫ってくる速さ（暇にならないよう速め）
 const METER = 10;                            // 表示用：内部の1を10mとして見せる
-const LMAX = 15, CMAX = 20;                  // 段数と人数の上限（仲間は 8 人目から後ろにもう1列）
+const LMAX = 15, CMAX = Infinity;            // 段数の上限。仲間は上限なし
+const CREW_FRONT = 7, CREW_BACK = 8;         // 見える仲間：前の列に7人（自分を入れて）、後ろの列に8人。それより多い分は「段数」として弾に乗る
 const HP_MAX = 3;                              // ハートは1つで始まり、LIFE ゲート・HEAL でだけ増える（最大3）
 const FOOD_MAX = 10, FOOD_EAT = 0.5;         // 飢餓ゲージ：1匹逃すと-1、1匹食べると+0.5
 const DMG_CAP = 1e250;                       // ダメージの上限（ボスHPなどが数の限界を超えないように）
@@ -62,7 +63,7 @@ function readSlot(i) {
     const skins = Object.assign(f.skins, d.skins || {});
     for (const k in skins) if (skins[k] === true) skins[k] = 1;   // 旧形式（持っているだけ）→ Lv1
     return { best: +d.best || 0, runs: +d.runs || 0, run: d.run && typeof d.run === 'object' ? d.run : null, coins: +d.coins || 0,
-      pearls: d.pearls == null ? f.pearls : +d.pearls, free: Object.assign(f.free, d.free || {}), maxStage: +d.maxStage || 0, pity: Object.assign(f.pity, d.pity || {}),
+      pearls: d.pearls == null ? f.pearls : +d.pearls, free10: Object.assign(f.free10, d.free10 || {}), gifts: Array.isArray(d.gifts) ? d.gifts : [], giftIds: d.giftIds || {}, login: Object.assign(f.login, d.login || {}), daily: Object.assign(f.daily, d.daily || {}), maxStage: +d.maxStage || 0, pity: Object.assign(f.pity, d.pity || {}),
       weapons: Object.assign(f.weapons, d.weapons || {}), weapon: d.weapon || f.weapon, skins, skin: d.skin || f.skin };
   } catch (e) { return null; }
 }
@@ -115,6 +116,37 @@ const SKIN_DEF = [
   { id: 'kokiake', r: 'SR', ink: '#8a2b2b', pas: 'food', v: 3 },   // 深緋（こきあけ）
   { id: 'kindei', r: 'SSR', ink: '#9a7a2a', pas: 'rate', v: 0.7 }, // 金泥
   { id: 'shinku', r: 'SSR', ink: '#a22041', pas: 'dmg', v: 0.35 }, // 真紅
+  // ここから：ワニ以外の生き物や、小物（笠・鉢巻・蓑・風呂敷・羽織）で見た目が変わる
+  { id: 'turtle', r: 'N', body: 'turtle', acc: '', ink: '#1a1714', pas: 'food', v: 1 },
+  { id: 'frog', r: 'N', body: 'frog', acc: '', ink: '#3d4a2a', pas: 'eat', v: 0.1 },
+  { id: 'carp', r: 'N', body: 'carp', acc: '', ink: '#1a1714', pas: 'coin', v: 0.08 },
+  { id: 'crab', r: 'N', body: 'crab', acc: '', ink: '#5a3a2a', pas: 'dmg', v: 0.08 },
+  { id: 'salamander', r: 'N', body: 'salamander', acc: '', ink: '#4a3f33', pas: 'food', v: 1 },
+  { id: 'catfish', r: 'N', body: 'catfish', acc: '', ink: '#3a3a3a', pas: 'eat', v: 0.1 },
+  { id: 'croc_hachi', r: 'N', body: 'croc', acc: 'hachimaki', ink: '#1a1714', pas: 'dmg', v: 0.08 },
+  { id: 'croc_kasa', r: 'N', body: 'croc', acc: 'kasa', ink: '#1a1714', pas: 'coin', v: 0.08 },
+  { id: 'turtle_kasa', r: 'R', body: 'turtle', acc: 'kasa', ink: '#3d4a2a', pas: 'food', v: 2 },
+  { id: 'frog_hachi', r: 'R', body: 'frog', acc: 'hachimaki', ink: '#006e54', pas: 'dmg', v: 0.12 },
+  { id: 'higoi', r: 'R', body: 'carp', acc: '', ink: '#c8321e', pas: 'coin', v: 0.15 },
+  { id: 'crab_furo', r: 'R', body: 'crab', acc: 'furoshiki', ink: '#762f07', pas: 'coin', v: 0.15 },
+  { id: 'shark', r: 'R', body: 'shark', acc: '', ink: '#1f3a5a', pas: 'dmg', v: 0.12 },
+  { id: 'rabbit', r: 'R', body: 'rabbit', acc: '', ink: '#5a534b', pas: 'eat', v: 0.15 },
+  { id: 'catfish_mino', r: 'R', body: 'catfish', acc: 'mino', ink: '#4a3f33', pas: 'food', v: 2 },
+  { id: 'sala_hachi', r: 'R', body: 'salamander', acc: 'hachimaki', ink: '#6b3a2a', pas: 'rate', v: 0.4 },
+  { id: 'croc_furo', r: 'R', body: 'croc', acc: 'furoshiki', ink: '#223a70', pas: 'coin', v: 0.15 },
+  { id: 'frog_kasa', r: 'SR', body: 'frog', acc: 'kasa', ink: '#3a6a5a', pas: 'eat', v: 0.3 },
+  { id: 'turtle_mino', r: 'SR', body: 'turtle', acc: 'mino', ink: '#6d3c32', pas: 'food', v: 3 },
+  { id: 'shark_hachi', r: 'SR', body: 'shark', acc: 'hachimaki', ink: '#19448e', pas: 'dmg', v: 0.2 },
+  { id: 'rabbit_kasa', r: 'SR', body: 'rabbit', acc: 'kasa', ink: '#1f3a5a', pas: 'coin', v: 0.25 },
+  { id: 'kappa', r: 'SR', body: 'kappa', acc: '', ink: '#3d4a2a', pas: 'eat', v: 0.3 },
+  { id: 'kingoi', r: 'SR', body: 'carp', acc: 'haori', ink: '#b8862b', pas: 'coin', v: 0.25 },
+  { id: 'croc_mino', r: 'SR', body: 'croc', acc: 'mino', ink: '#4a2a5a', pas: 'rate', v: 0.5 },
+  { id: 'crab_haori', r: 'SR', body: 'crab', acc: 'haori', ink: '#8a2b2b', pas: 'dmg', v: 0.2 },
+  { id: 'kappa_kasa', r: 'SSR', body: 'kappa', acc: 'kasa', ink: '#006e54', pas: 'rate', v: 0.7 },
+  { id: 'rabbit_haori', r: 'SSR', body: 'rabbit', acc: 'haori', ink: '#1a1714', pas: 'coin', v: 0.3 },
+  { id: 'shark_haori', r: 'SSR', body: 'shark', acc: 'haori', ink: '#0a0806', pas: 'dmg', v: 0.4 },
+  { id: 'turtle_haori', r: 'SSR', body: 'turtle', acc: 'haori', ink: '#9a7a2a', pas: 'food', v: 4 },
+  { id: 'croc_haori', r: 'SSR', body: 'croc', acc: 'haori', ink: '#a22041', pas: 'dmg', v: 0.45 },
 ];
 const RARITY = { N: { w: 60, col: '#5a534b' }, R: { w: 28, col: '#1f3a5a' }, SR: { w: 10, col: '#4a2a5a' }, SSR: { w: 2, col: '#c8321e' } };
 // ガチャは真珠で引く（1回10、10連100）。各ガチャの最初の1回は無料。
@@ -132,7 +164,7 @@ const sUpCost = (k, lv) => Math.round(S_UP_BASE[k.r] * Math.pow(1.8, lv - 1));
 const wDmg = (w, lv) => w.dmg * Math.pow(1.35, lv - 1);          // レベルで威力 ×1.35
 const wRate = (w, lv) => w.rate + Math.floor((lv - 1) / 3);      // 3レベルごとに連射+1
 const skinBonus = (pas) => { const k = skinOf(SLOT.skin); return k.pas === pas ? k.v * (SLOT.skins[k.id] || 1) : 0; };
-const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, pearls: 0, free: { weapon: 1, skin: 1 }, maxStage: 0, pity: { weapon: 0, skin: 0 },
+const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, pearls: 0, free10: { weapon: 1, skin: 1 }, gifts: [], giftIds: {}, login: { last: '', days: 0 }, daily: { day: '', eat: 0, tags: 0, boss: 0, m: 0, got: {} }, maxStage: 0, pity: { weapon: 0, skin: 0 },
   weapons: { pea: 1 }, weapon: 'pea', skins: { green: 1 }, skin: 'green' });
 const weaponOf = id => WEAPON_DEF.find(w => w.id === id) || WEAPON_DEF[0];
 const skinOf = id => SKIN_DEF.find(k => k.id === id) || SKIN_DEF[0];
@@ -153,21 +185,28 @@ const I18N = {
     stageClear: n => `第${n}段 突破`, stageName: n => (n > STAGES ? `続 第${n}段` : `第${n}段／${STAGES}`), hit: '被弾',
     mods: { normal: '', school: '魚の群れ', current: '急流', golden: '朱の魚（食べると銭）', minus: '逆さ札', rush: '札の雨', dark: '夜の海' },
     attacks: { plain: '', bubble: '墨玉を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
-    side: { news: 'お知らせ', road: '道のり', how: '遊び方' }, road: '十段の道のり', contShort: '続きから', fromStart: 'はじめから',
+    crewMore: n => `後ろに仲間 +${n}（段数に）`,
+    loginT: '今日のおまけ', loginLead: '毎日ひらくと、おまけがもらえる（7日でひと回り）。', loginToBox: 'おまけは「贈り物」に届いています。', dayN: n => `${n}日目`,
+    getAll: 'まとめて受け取る', getOne: '受け取る', noGift: 'いま届いている贈り物はありません。', gotToast: (p, c) => `受け取った　${p ? `真珠 +${p}　` : ''}${c ? `銭 +${c}` : ''}`,
+    gift: { welcome: () => 'ようこそ GATE VADER へ', update: v => `更新のお礼（版 ${v}）`, login: n => `ログインのおまけ ${n}日目` },
+    dailyLead: '毎日0時に新しくなる。ぜんぶ終えると、さらに真珠。', taskAll: 'ぜんぶ終える',
+    task: { eat: n => `魚を${n}匹食べる`, tags: n => `札を${n}枚くぐる`, boss: n => `ボスを${n}体倒す`, m: n => `合わせて${n}米すすむ` },
+    side: { news: 'お知らせ', gift: '贈り物', daily: '日課', road: '道のり', how: '遊び方' }, road: '十段の道のり', contShort: '続きから', fromStart: 'はじめから',
     roadLead: '真珠は 600米進むごとに1つ。さらに各段を初めて突破すると多めにもらえる（第十段の海坊主は特に多い）。', got: '済',
-    bn: { nextK: '初突破', next: (n, p) => `第${kan(n)}段を突破で　真珠 +${p}`, up: '強化できる装備があります', free: 'ガチャ 初回1回 無料', rec: n => `海の怪異 絵巻　${n} / 10` },
+    bn: { nextK: '初突破', next: (n, p) => `第${kan(n)}段を突破で　真珠 +${p}`, up: '強化できる装備があります', free: 'ガチャ 初回10連 無料', rec: n => `海の怪異 絵巻　${n} / 10` },
     rankName: n => (n >= STAGES ? '十段 踏破' : n > 0 ? `第${kan(n)}段 突破` : '見習い'),
     says: n => ['腹がへった…', `次は第${kan(Math.min(n, STAGES))}段だ`, '札は、くぐってこそ', '墨が乾く前に行こう', '海坊主…いつか会う'],
-    tapStart: 'タップしてはじめる', plusCoin: '銭は、進んだ距離と突破した段でたまる', plusPearl: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。ガチャ1回10、各ガチャの最初の1回は無料',
-    news: [['版 0.19.0', 'ガチャに注目の品と絵つきのラインナップ、10連（SR以上1つ確定）、各ガチャの初回無料。武器と墨の色を20種ずつに。真珠は600米ごとに1つ（1回10）。武器の札は、今の武器に撃ち方を外側2本足す形に。仲間は20人まで。'],
+    tapStart: 'タップしてはじめる', plusCoin: '銭は、進んだ距離と突破した段でたまる', plusPearl: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。ガチャ1回10、各ガチャの最初の10連は無料',
+    news: [['版 0.20.0', 'スキンを50種に（亀・蛙・鯉・蟹・山椒魚・鯰・鮫・河童・兎、笠・鉢巻・蓑・風呂敷・羽織）。各ガチャの最初の10連が無料。贈り物・ログインのおまけ・日課を追加。仲間は上限なし（見えるのは前7・後ろ8、それより多い分は段数に）。'],
+      ['版 0.19.0', 'ガチャに注目の品と絵つきのラインナップ、10連（SR以上1つ確定）、各ガチャの初回無料。武器と墨の色を20種ずつに。真珠は600米ごとに1つ（1回10）。武器の札は、今の武器に撃ち方を外側2本足す形に。仲間は20人まで。'],
       ['版 0.18.0', 'タイトル画面を追加。ホームを作り直し（左右のアイコン、下の角の大きな丸ボタン、バナー）。'],
       ['版 0.17.0', '下のタブ（装備・ガチャ・ホーム・絵巻・設定）。アイコンを一新。'],
       ['版 0.16.0', '墨絵と和紙の見た目に。ボスは海の怪異に。']],
-    gTitleW: '武器ガチャ', gTitleS: '墨の色ガチャ', pickup: '注目', owned: '所持', notOwned: '未入手', lineup: 'ラインナップ',
+    gTitleW: '武器ガチャ', gTitleS: 'スキンガチャ', pickup: '注目', owned: '所持', notOwned: '未入手', lineup: 'ラインナップ',
     lineupLead: '出るものと、1つずつの確率。同じものが出たら銭に変わる。', gResult: '結果', pull1: '1回', pull10: '10連', freeOnce: '初回無料', srSure: 'SR以上1つ確定',
-    skinNote: 'ワニを描く墨の色が変わる', 
+    skinNote: x => `姿：${L().bodyN[x.body || 'croc']}${x.acc ? `（${{ kasa: '笠', hachimaki: '鉢巻', mino: '蓑', furoshiki: '風呂敷', haori: '羽織' }[x.acc]}つき）` : ''}`, 
     tabs: { rec: '絵巻', gear: '装備', home: 'ホーム', gacha: 'ガチャ', opt: '設定' },
-    go: '出陣', skinTab: '墨の色', equipped: '装備中', collection: '集めたもの',
+    go: '出陣', skinTab: 'スキン', equipped: '装備中', collection: '集めたもの',
     nextClear: (n, p) => `次の初突破　第${kan(n)}段　真珠 +${p}`, allClear: '十段 すべて突破',
     yokai: '海の怪異 絵巻', unknown: '？？？', notMet: 'まだ出会っていない',
     recStat: { best: '最高到達', runs: '挑んだ回数', stage: '突破した段' },
@@ -188,7 +227,7 @@ const I18N = {
     skip: 'スキップ', close: 'とじる',
     coins: '銭', back: 'もどる', gacha: 'ガチャ', equip: '装備・強化', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
     gNew: '新たに入手', gDup: n => `もう持っている → 銭 ${n}`, pearl: '真珠', up: '強化',
-    pity: n => `SSR確定まで あと${n}回`, pearlHow: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。各ガチャの最初の1回は無料',
+    pity: n => `SSR確定まで あと${n}回`, pearlHow: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。各ガチャの最初の10連は無料',
     firstClear: n => `初突破　真珠 +${n}`, pearlGot: n => `真珠 +${n}`,
     pas: { food: v => `満腹 +${v}`, coin: v => `銭 +${Math.round(v * 100)}%`, eat: v => `食べて回復 +${Math.round(v * 100)}%`,
       dmg: v => `威力 +${Math.round(v * 100)}%`, rate: v => `連射 +${Math.floor(v)}` },
@@ -196,10 +235,12 @@ const I18N = {
     wname: { pea: '豆鉄砲', twin: '双筆', fan: '扇', rapid: '早打ち', bouncer: '跳ね墨', wave: '波筆',
       shotgun: '散らし墨', homing: '追い墨', beam: '一筆', trident: '三叉銛', jaws: '大顎',
       bamboo: '竹筒', reed: '葦笛', kasa: '番傘', oar: '櫂', net: '投網', kite: '凧', drum: '太鼓', anchor: '錨', suzuri: '大硯', aranami: '荒波' },
+    bodyN: { croc: '鰐', turtle: '亀', frog: '蛙', carp: '鯉', crab: '蟹', salamander: '山椒魚', catfish: '鯰', shark: '鮫', kappa: '河童', rabbit: '兎' }, accN: { kasa: '笠の', hachimaki: '鉢巻の', mino: '蓑の', furoshiki: '旅の', haori: '羽織の' },
     wdesc: { normal: 'まっすぐ撃つ', spread: '扇のように広がる', bounce: '斜めに撃ち、壁で跳ね返る', beam: '1人1本の太い筆。よく貫く', wave: 'くねくね進む',
       shotgun: '広く散らばる', homing: '近くの魚へ曲がる', trident: '何匹も貫く' },
     sname: { green: '墨', olive: '松葉色', sky: '藍色', pink: '臙脂', gold: '金茶', snow: '銀鼠',
       violet: '江戸紫', crimson: '朱色', shadow: '漆黒', neon: '青磁色',
+      higoi: '緋鯉', kingoi: '羽織の金鯉',
       tobi: '鳶色', kon: '紺色', moegi: '萌葱色', kuri: '栗色', ebicha: '海老茶', rurikon: '瑠璃紺', yamabuki: '山吹色', kokiake: '深緋', kindei: '金泥', shinku: '真紅' },
     tut: [
       '画面をドラッグして、ワニを左右に動かそう',
@@ -230,21 +271,28 @@ const I18N = {
     stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}/${STAGES}`), hit: 'HIT!',
     mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'RED FISH (coins)', minus: 'REVERSED TAGS', rush: 'TAG RAIN', dark: 'NIGHT SEA' },
     attacks: { plain: '', bubble: 'INK SHOTS', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK CLOUD' },
-    side: { news: 'News', road: 'Road', how: 'How to' }, road: 'ROAD OF 10', contShort: 'CONTINUE', fromStart: 'NEW RUN',
+    crewMore: n => `+${n} crew behind (→ lines)`,
+    loginT: 'LOGIN BONUS', loginLead: 'Open the game every day for a bonus (7-day cycle).', loginToBox: 'Your bonus is waiting in Gifts.', dayN: n => `Day ${n}`,
+    getAll: 'CLAIM ALL', getOne: 'CLAIM', noGift: 'No gifts right now.', gotToast: (p, c) => `Claimed ${p ? `+${p} pearls ` : ''}${c ? `+${c} coins` : ''}`,
+    gift: { welcome: () => 'Welcome to GATE VADER', update: v => `Thanks for updating (v${v})`, login: n => `Login bonus, day ${n}` },
+    dailyLead: 'Resets every day at midnight. Finish them all for extra pearls.', taskAll: 'Finish all tasks',
+    task: { eat: n => `Eat ${n} fish`, tags: n => `Pass ${n} tags`, boss: n => `Defeat ${n} bosses`, m: n => `Travel ${n} m in total` },
+    side: { news: 'News', gift: 'Gifts', daily: 'Daily', road: 'Road', how: 'How to' }, road: 'ROAD OF 10', contShort: 'CONTINUE', fromStart: 'NEW RUN',
     roadLead: 'You earn 1 pearl per 600 m, plus a bonus for each first-time stage clear (Stage 10, Umibozu, gives the most).', got: 'DONE',
-    bn: { nextK: 'FIRST CLEAR', next: (n, p) => `Clear stage ${n}: +${p} pearls`, up: 'Gear ready to upgrade', free: 'First gacha pull is FREE', rec: n => `Scroll of sea yokai  ${n} / 10` },
+    bn: { nextK: 'FIRST CLEAR', next: (n, p) => `Clear stage ${n}: +${p} pearls`, up: 'Gear ready to upgrade', free: 'First ×10 pull is FREE', rec: n => `Scroll of sea yokai  ${n} / 10` },
     rankName: n => (n >= STAGES ? 'All cleared' : n > 0 ? `Stage ${n} cleared` : 'Novice'),
     says: n => ['So hungry…', `Stage ${Math.min(n, STAGES)} next`, 'Tags count only when you pass', "Let's go before the ink dries", 'Umibozu… someday'],
-    tapStart: 'TAP TO START', plusCoin: 'Coins come from distance and stages cleared', plusPearl: '1 pearl per 600 m + first-time stage clears. A pull costs 10; the first pull of each gacha is free',
-    news: [['v0.19.0', 'Gacha now shows a pick-up with pictures, a full lineup with rates, ×10 pulls (1 SR+ guaranteed) and a free first pull. 21 weapons and 20 inks. 1 pearl per 600 m (a pull costs 10). Weapon gates now add 2 outer shots to your weapon. Crew up to 20.'],
+    tapStart: 'TAP TO START', plusCoin: 'Coins come from distance and stages cleared', plusPearl: '1 pearl per 600 m + first-time stage clears. A pull costs 10; the first ×10 of each gacha is free',
+    news: [['v0.20.0', '50 skins (turtle, frog, carp, crab, salamander, catfish, shark, kappa, rabbit, with straw hats, headbands, straw capes, bundles and haori). First ×10 pull of each gacha is free. Gifts, login bonus and daily tasks. Crew is unlimited (7 in front, 8 behind, the rest add lines).'],
+      ['v0.19.0', 'Gacha now shows a pick-up with pictures, a full lineup with rates, ×10 pulls (1 SR+ guaranteed) and a free first pull. 21 weapons and 20 inks. 1 pearl per 600 m (a pull costs 10). Weapon gates now add 2 outer shots to your weapon. Crew up to 20.'],
       ['v0.18.0', 'New title screen. Rebuilt home (side icons, big round buttons, banner).'],
       ['v0.17.0', 'Bottom tabs (Gear, Gacha, Home, Scroll, Option). New icon.'],
       ['v0.16.0', 'Sumi-e ink look on washi paper. Bosses are sea yokai.']],
-    gTitleW: 'WEAPON GACHA', gTitleS: 'INK GACHA', pickup: 'PICK UP', owned: 'OWNED', notOwned: 'not owned', lineup: 'LINEUP',
+    gTitleW: 'WEAPON GACHA', gTitleS: 'SKIN GACHA', pickup: 'PICK UP', owned: 'OWNED', notOwned: 'not owned', lineup: 'LINEUP',
     lineupLead: 'Everything you can get, with each rate. Duplicates turn into coins.', gResult: 'RESULT', pull1: '×1', pull10: '×10', freeOnce: 'FREE', srSure: '1 SR+ guaranteed',
-    skinNote: 'Changes the ink color of your croc', 
+    skinNote: x => `Look: ${L().bodyN[x.body || 'croc']}${x.acc ? ` with ${{ kasa: 'straw hat', hachimaki: 'headband', mino: 'straw cape', furoshiki: 'bundle', haori: 'haori coat' }[x.acc]}` : ''}`, 
     tabs: { rec: 'SCROLL', gear: 'GEAR', home: 'HOME', gacha: 'GACHA', opt: 'OPTION' },
-    go: 'START', skinTab: 'INK', equipped: 'EQUIPPED', collection: 'COLLECTION',
+    go: 'START', skinTab: 'SKIN', equipped: 'EQUIPPED', collection: 'COLLECTION',
     nextClear: (n, p) => `Next first clear: stage ${n}  ·  +${p} pearls`, allClear: 'All 10 stages cleared',
     yokai: 'SCROLL OF SEA YOKAI', unknown: '???', notMet: 'Not met yet',
     recStat: { best: 'BEST', runs: 'RUNS', stage: 'CLEARED' },
@@ -265,7 +313,7 @@ const I18N = {
     skip: 'SKIP', close: 'CLOSE',
     coins: 'COINS', back: 'BACK', gacha: 'GACHA', equip: 'GEAR', gWeapon: 'WEAPON', gSkin: 'SKIN', pull: 'PULL',
     gNew: 'NEW!', gDup: n => `Duplicate → ${n} coins`, pearl: 'PEARLS', up: 'UP',
-    pity: n => `SSR guaranteed in ${n}`, pearlHow: '1 pearl per 600 m + first-time stage clears. The first pull of each gacha is free',
+    pity: n => `SSR guaranteed in ${n}`, pearlHow: '1 pearl per 600 m + first-time stage clears. The first ×10 pull of each gacha is free',
     firstClear: n => `FIRST CLEAR! +${n} PEARLS`, pearlGot: n => `+${n} PEARLS`,
     pas: { food: v => `FULL +${v}`, coin: v => `COINS +${Math.round(v * 100)}%`, eat: v => `EAT +${Math.round(v * 100)}%`,
       dmg: v => `DMG +${Math.round(v * 100)}%`, rate: v => `RATE +${Math.floor(v)}` },
@@ -273,10 +321,12 @@ const I18N = {
     wname: { pea: 'Pea Shooter', twin: 'Twin Brush', fan: 'Folding Fan', rapid: 'Quick Tubes', bouncer: 'Inkstone Bounce', wave: 'Wave Brush',
       shotgun: 'Ink Spray', homing: 'Seeking Ink', beam: 'Single Stroke', trident: 'Trident', jaws: 'Great Jaw',
       bamboo: 'Bamboo Tube', reed: 'Reed Flute', kasa: 'Oil Umbrella', oar: 'Oar', net: 'Cast Net', kite: 'Kite', drum: 'Drum', anchor: 'Anchor', suzuri: 'Great Inkstone', aranami: 'Rough Waves' },
+    bodyN: { croc: 'Croc', turtle: 'Turtle', frog: 'Frog', carp: 'Carp', crab: 'Crab', salamander: 'Salamander', catfish: 'Catfish', shark: 'Shark', kappa: 'Kappa', rabbit: 'Rabbit' }, accN: { kasa: 'Straw-hat ', hachimaki: 'Headband ', mino: 'Straw-cape ', furoshiki: 'Traveling ', haori: 'Haori ' },
     wdesc: { normal: 'Shoots straight', spread: 'Fans out', bounce: 'Shoots diagonally, bounces off walls', beam: 'One thick stroke per shooter, pierces a lot', wave: 'Wiggles forward',
       shotgun: 'Scatters wide', homing: 'Curves toward nearby fish', trident: 'Pierces many fish' },
     sname: { green: 'Sumi ink', olive: 'Pine needle', sky: 'Indigo', pink: 'Enji red', gold: 'Kincha', snow: 'Silver gray',
       violet: 'Edo purple', crimson: 'Vermilion', shadow: 'Lacquer black', neon: 'Celadon',
+      higoi: 'Red Carp', kingoi: 'Haori Gold Carp',
       tobi: 'Kite brown', kon: 'Navy', moegi: 'Onion green', kuri: 'Chestnut', ebicha: 'Ebicha maroon', rurikon: 'Lapis navy', yamabuki: 'Yamabuki gold', kokiake: 'Deep scarlet', kindei: 'Gold paint', shinku: 'Crimson' },
     tut: [
       'Drag anywhere to move the croc left and right',
@@ -363,9 +413,11 @@ function artImg(key, make, w, h) {
 }
 const lighten = (hex, k = 0.55) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = v => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0'); return '#' + f(r) + f(g) + f(b); };
 const skinInk = id => skinOf(id).ink;
-const skinIconURL = id => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.croc(0, 'normal', skinInk(id)));
+// スキンの絵：生き物（body）× 小物（acc）× 墨の色（ink）
+const skinArt = (id, f, mood) => { const k = skinOf(id); return Ink.critter(k.body || 'croc', f, mood, k.ink, k.acc || ''); };
+const skinIconURL = id => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(skinArt(id, 0, 'normal'));
 const HERO_W = 40, HERO_H = 67, HELP_W = 26, HELP_H = 43, FISH_W = 18, FISH_H = 25;
-const heroImg = (f, mood, small) => artImg(`croc:${SLOT.skin}:${f}:${mood}:${small ? 1 : 0}`, () => Ink.croc(f, mood, skinInk(SLOT.skin)), small ? HELP_W : HERO_W, small ? HELP_H : HERO_H);
+const heroImg = (f, mood, small) => artImg(`croc:${SLOT.skin}:${f}:${mood}:${small ? 1 : 0}`, () => skinArt(SLOT.skin, f, mood), small ? HELP_W : HERO_W, small ? HELP_H : HERO_H);
 const fishImg = (k, f, gold) => artImg(`fish:${gold ? 'g' : 'n'}:${f}`, () => Ink.fish(f, gold), FISH_W, FISH_H);
 const bossSize = big => (big ? 156 : 120);
 const bossImg = (art, f, mood, big) => artImg(`boss:${art}:${f}:${mood}:${big ? 1 : 0}`, () => Ink.boss(art, f, mood), bossSize(big), bossSize(big));
@@ -460,7 +512,7 @@ const stageP = () => (R.stage - 1) / STAGES;   // 全体の進み具合（ステ
 const pOf = () => Math.min(1, R ? (R.stage - 1) / 7 : 0);   // ステージ8で全開
 const baseOf = k => (R && R.base ? R.base[k] : 1);
 const linesCap = () => Math.max(baseOf('lines'), Math.min(OPT.light ? 9 : LMAX, 2 + Math.floor(pOf() * 18)));
-const crewCap = () => Math.max(baseOf('crew'), Math.min(CMAX, 1 + Math.floor(pOf() * 19)));
+const crewCap = () => CMAX;
 const rateCap = () => Math.max(baseOf('rate'), Math.min(RMAX, 2 + Math.floor(pOf() * 14)));
 const mulCap = () => 1.2 + pOf() * 0.8;   // ×ゲートがどこまで育つか
 
@@ -542,7 +594,7 @@ function growGate(o, b) {
   o.hit = 0.1;
 }
 function applyGate(o) {
-  if (R.tut) R.tut.applied = true;
+  if (R.tut) R.tut.applied = true; else SLOT.daily.tags++;
   const st = R.st; let msg;
   if (o.stat === 'life') {
     R.hp = Math.min(HP_MAX, R.hp + 1);
@@ -669,6 +721,7 @@ function spawnBoss() {
 }
 function killBoss() {
   const b = R.boss;
+  SLOT.daily.boss++;
   R.deadBoss = { art: b.art, big: b.big, x: b.x, y: b.y, t: 1.4 };
   R.happy = 1.6;
   burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#cfe0ff');
@@ -704,13 +757,14 @@ function pop(x, y, text, big, col) {
 
 // ---------- 発射 ----------
 // 見た目の弾数には上限を設け、超えた分は1発の重み（w）に乗せる（スマホが熱くならないように）
-function shooterX(si) {   // 0 が自分、1〜7 は左右に並ぶ仲間、8 以降は後ろの列（前の列のすき間）
+function shooterX(si) {   // 0 が自分、1〜6 は左右に並ぶ仲間、7〜14 は後ろの列（前の列のすき間）
   if (si === 0) return R.x;
-  if (si <= 7) { const i = si - 1; return clamp(R.x + (i % 2 ? 1 : -1) * (26 + Math.floor(i / 2) * 20), 8, W - 8); }
-  const i = si - 8;
-  return clamp(R.x + (i % 2 ? 1 : -1) * (16 + Math.floor(i / 2) * 20), 8, W - 8);
+  if (si < CREW_FRONT) { const i = si - 1; return clamp(R.x + (i % 2 ? 1 : -1) * (26 + Math.floor(i / 2) * 20), 8, W - 8); }
+  const i = si - CREW_FRONT;
+  return clamp(R.x + (i % 2 ? 1 : -1) * (14 + Math.floor(i / 2) * 20), 8, W - 8);
 }
-const shooterBack = si => si >= 8;
+const shooterBack = si => si >= CREW_FRONT;
+const SHOOTERS_MAX = CREW_FRONT + CREW_BACK;
 function nearestFood(x) {
   let best = null, bd = 1e9;
   for (const mo of R.mobs) { if (mo.d || mo.y > PY - 40) continue; const d = Math.abs(mo.x - x) + (PY - mo.y) * 0.3; if (d < bd) { bd = d; best = mo; } }
@@ -718,7 +772,7 @@ function nearestFood(x) {
 }
 function volley() {
   const st = R.st, wp = st.wp || 'normal', total = st.lines * st.crew;
-  const shooters = Math.min(st.crew, CMAX);
+  const shooters = Math.min(st.crew, SHOOTERS_MAX);   // 見えている仲間が撃つ。残りは段数として total に入っている
   if (wp === 'beam') {
     // ビーム：1人1本。段数ぶんの威力をまとめ、たくさん貫く
     for (let si = 0; si < shooters; si++) {
@@ -820,7 +874,7 @@ function step(dt) {
           for (let j = head[xx + yy * GCOLS]; j !== -1; j = nxt[j]) {
             const mo = R.mobs[j];
             if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
-            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; if (mo.gold) { R.bonus = (R.bonus || 0) + 2; pop(mo.x, mo.y - 10, '+2', false, '#ffd84a'); } R.food = Math.min(R.foodMax, R.food + FOOD_EAT * (1 + skinBonus('eat')));
+            mo.d = 1; R.kills++; if (!R.tut) SLOT.daily.eat++; if (R.boss) R.fightKills++; if (mo.gold) { R.bonus = (R.bonus || 0) + 2; pop(mo.x, mo.y - 10, '+2', false, '#ffd84a'); } R.food = Math.min(R.foodMax, R.food + FOOD_EAT * (1 + skinBonus('eat')));
             if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: FCOL[mo.k] });
             if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
             sfx('kill');
@@ -989,12 +1043,15 @@ function applyStatic() {
 // ---------- ホーム：下のタブで 記録・装備・ホーム・ガチャ・設定 を切り替える ----------
 const TABS = ['gear', 'gacha', 'home', 'rec', 'opt'];
 let tab = 'home', gearTab = 'weapon', gachaTab = 'weapon', heroTimer = 0;
-const crocURL = (skin, f, mood) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.croc(f, mood, skinInk(skin)));
+const cURLc = {};
+const crocURL = (skin, f, mood) => { const key = `${skin}:${f}:${mood}`; return cURLc[key] || (cURLc[key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(skinArt(skin, f, mood))); };
 const bossURL = i => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.boss(i, 0, 'normal'));
 function showMenu() { showTitle(); }
 function showHome(t) {
   state = 'menu';
   show('title', false);
+  const loginNew = checkGifts();
+  if (loginNew) setTimeout(openLogin, 350);
   show('result', false); show('pause', false);
   applyStatic();
   show('home', true);
@@ -1036,7 +1093,7 @@ function renderTab() {
 // ホーム：まん中にワニ、左右に機能のアイコン、下の角に大きな丸ボタン、その間にバナー
 const canUpgrade = () => WEAPON_DEF.some(w => SLOT.weapons[w.id] && SLOT.weapons[w.id] < WLV_MAX && SLOT.coins >= wUpCost(w, SLOT.weapons[w.id]))
   || SKIN_DEF.some(k => SLOT.skins[k.id] && SLOT.skins[k.id] < SLV_MAX && SLOT.coins >= sUpCost(k, SLOT.skins[k.id]));
-const canPull = () => SLOT.pearls >= GACHA_COST || !!SLOT.free.weapon || !!SLOT.free.skin;
+const canPull = () => SLOT.pearls >= GACHA_COST || !!SLOT.free10.weapon || !!SLOT.free10.skin;
 const cleared = () => Math.min(SLOT.maxStage, STAGES);
 const nextReward = () => (cleared() >= STAGES ? 0 : cleared() + 1 === STAGES ? FIRST_CLEAR.big : FIRST_CLEAR.normal);
 // 波（墨の線を何段か）
@@ -1073,7 +1130,7 @@ function renderHomePanel() {
     clearTimeout(img._t); img._t = setTimeout(() => { delete img.dataset.happy; }, 1200);
   };
   const w = weaponOf(SLOT.weapon);
-  $('hmGear').innerHTML = `<span><small>${l.gWeapon}</small>${l.wname[w.id]}<em>Lv${SLOT.weapons[w.id]}</em></span><span><small>${l.skinTab}</small>${l.sname[SLOT.skin]}<em>Lv${SLOT.skins[SLOT.skin]}</em></span>`;
+  $('hmGear').innerHTML = `<span><small>${l.gWeapon}</small>${l.wname[w.id]}<em>Lv${SLOT.weapons[w.id]}</em></span><span><small>${l.skinTab}</small>${skinName(SLOT.skin)}<em>Lv${SLOT.skins[SLOT.skin]}</em></span>`;
   // 上：十段の道のり
   $('hmRoad').innerHTML = `<small>${l.road}</small>` + Array.from({ length: STAGES }, (_, i) => {
     const n = i + 1, cls = n <= done ? 'done' : n === done + 1 ? 'next' : '';
@@ -1081,8 +1138,8 @@ function renderHomePanel() {
   }).join('');
   // 左右のアイコン
   const side = (items) => items.map(([act, ic, label, dot]) => `<button class="side-btn" data-act="${act}"><i>${ic}</i><span>${label}</span>${dot ? '<b class="dot"></b>' : ''}</button>`).join('');
-  $('sideL').innerHTML = side([['news', '報', l.side.news, OPT.newsSeen !== VERSION], ['road', '道', l.side.road, false], ['how', '習', l.side.how, false]]);
-  $('sideR').innerHTML = side([['gacha', '引', l.tabs.gacha, canPull()], ['skin', '墨', l.skinTab, false], ['rec', '巻', l.tabs.rec, false]]);
+  $('sideL').innerHTML = side([['news', '報', l.side.news, OPT.newsSeen !== VERSION], ['gift', '贈', l.side.gift, SLOT.gifts.length > 0], ['daily', '課', l.side.daily, dailyClaimable()], ['road', '道', l.side.road, false], ['how', '習', l.side.how, false]]);
+  $('sideR').innerHTML = side([['gacha', '引', l.tabs.gacha, canPull()], ['skin', '姿', l.skinTab, false], ['rec', '巻', l.tabs.rec, false]]);
   document.querySelectorAll('.side-btn').forEach(b => { b.onclick = () => { sfx('gate'); sideAct(b.dataset.act); }; });
   // 下の角：左＝出陣（続きがあれば「続きから」）、右＝強化
   const st = $('btnStart');
@@ -1099,6 +1156,8 @@ function sideAct(act) {
   if (act === 'gacha' || act === 'rec') return setTab(act);
   if (act === 'skin') { gearTab = 'skin'; return setTab('gear'); }
   if (act === 'how') { applyStatic(); return show('help', true); }
+  if (act === 'gift') return openGifts();
+  if (act === 'daily') return openDaily();
   if (act === 'news') { OPT.newsSeen = VERSION; saveOpt(); renderTab();
     return openInfo(l.side.news, l.news.map(([v, t]) => `<div class="news"><b>${v}</b><span>${t}</span></div>`).join('')); }
   if (act === 'road') {
@@ -1110,6 +1169,63 @@ function sideAct(act) {
     }).join(''));
   }
 }
+
+// ---------- 贈り物・ログインのおまけ・日課 ----------
+const LOGIN_REWARD = [{ p: 5 }, { c: 300 }, { p: 5 }, { c: 500 }, { p: 10 }, { c: 800 }, { p: 30 }];   // 7日でひと回り
+const DAILY = [{ k: 'eat', n: 150, p: 5 }, { k: 'tags', n: 15, p: 5 }, { k: 'boss', n: 2, p: 5 }, { k: 'm', n: 1500, p: 5 }];
+const DAILY_ALL = 10;
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+function dailyCheck() { const t = today(); if (SLOT.daily.day !== t) SLOT.daily = { day: t, eat: 0, tags: 0, boss: 0, m: 0, got: {} }; }
+function grantGift(id, k, r, n) { if (SLOT.giftIds[id]) return; SLOT.giftIds[id] = 1; SLOT.gifts.push({ id, k, n: n || 0, p: r.p || 0, c: r.c || 0 }); }
+// ホームに来たとき：はじめての贈り物・更新のお礼・その日のログイン
+function checkGifts() {
+  grantGift('welcome', 'welcome', { p: 50, c: 300 });
+  grantGift('update-0.20', 'update', { p: 30 }, '0.20');
+  dailyCheck();
+  let loginNew = false;
+  if (SLOT.login.last !== today()) {
+    SLOT.login.last = today(); SLOT.login.days = SLOT.login.days % 7 + 1; loginNew = true;
+    grantGift('login-' + today(), 'login', LOGIN_REWARD[SLOT.login.days - 1], SLOT.login.days);
+  }
+  writeSlot();
+  return loginNew;
+}
+const rewardHTML = g => `${g.p ? `<span><i class="ic-pearl"></i>${g.p}</span>` : ''}${g.c ? `<span><i class="ic-zeni"></i>${fmt(g.c)}</span>` : ''}`;
+const dailyDone = d => Math.min(d.n, SLOT.daily[d.k] || 0) >= d.n;
+const dailyClaimable = () => { dailyCheck(); return DAILY.some(d => dailyDone(d) && !SLOT.daily.got[d.k]) || (DAILY.every(dailyDone) && !SLOT.daily.got.all); };
+function claim(p, c) { SLOT.pearls += p || 0; SLOT.coins += c || 0; writeSlot(); sfx('boss'); }
+function openLogin() {
+  const l = L(), d = SLOT.login.days;
+  openInfo(l.loginT, `<p class="info-lead">${l.loginLead}</p><div class="stamps">${LOGIN_REWARD.map((r, i) => `<div class="stamp ${i < d ? 'got' : ''} ${i === d - 1 ? 'now' : ''}">
+    <small>${l.dayN(i + 1)}</small>${rewardHTML(r)}${i < d ? '<b>済</b>' : ''}</div>`).join('')}</div><p class="info-lead">${l.loginToBox}</p>`);
+}
+function openGifts() {
+  const l = L();
+  const body = () => SLOT.gifts.length ? `<button class="btn-go sm" id="giftAll">${l.getAll}</button>` + SLOT.gifts.map((g, i) => `<div class="gift-row"><span><b>${l.gift[g.k](g.n)}</b><em>${rewardHTML(g)}</em></span>
+      <button class="btn-line sm" data-g="${i}">${l.getOne}</button></div>`).join('') : `<p class="info-lead">${l.noGift}</p>`;
+  const draw = () => {
+    $('infoBody').innerHTML = body();
+    $('infoBody').querySelectorAll('[data-g]').forEach(b => { b.onclick = () => { const g = SLOT.gifts.splice(+b.dataset.g, 1)[0]; claim(g.p, g.c); toast(l.gotToast(g.p, g.c)); draw(); renderTab(); }; });
+    const all = $('giftAll'); if (all) all.onclick = () => { let p = 0, c = 0; SLOT.gifts.forEach(g => { p += g.p; c += g.c; }); SLOT.gifts = []; claim(p, c); toast(l.gotToast(p, c)); draw(); renderTab(); };
+  };
+  openInfo(l.side.gift, ''); draw();
+}
+function openDaily() {
+  const l = L(); dailyCheck();
+  const draw = () => {
+    const allDone = DAILY.every(dailyDone);
+    $('infoBody').innerHTML = `<p class="info-lead">${l.dailyLead}</p>` + DAILY.map(d => {
+      const v = Math.min(d.n, SLOT.daily[d.k] || 0), got = SLOT.daily.got[d.k];
+      return `<div class="task ${got ? 'got' : ''}"><span><b>${l.task[d.k](fmt(d.n))}</b><i><u style="width:${v / d.n * 100}%"></u></i><small>${fmt(v)} / ${fmt(d.n)}</small></span>
+        <button class="btn-line sm" data-t="${d.k}" ${!dailyDone(d) || got ? 'disabled' : ''}>${got ? '済' : `<i class="ic-pearl"></i>${d.p}`}</button></div>`;
+    }).join('') + `<div class="task all ${SLOT.daily.got.all ? 'got' : ''}"><span><b>${l.taskAll}</b></span>
+      <button class="btn-line sm" data-t="all" ${!allDone || SLOT.daily.got.all ? 'disabled' : ''}>${SLOT.daily.got.all ? '済' : `<i class="ic-pearl"></i>${DAILY_ALL}`}</button></div>`;
+    $('infoBody').querySelectorAll('[data-t]').forEach(b => { b.onclick = () => {
+      const k = b.dataset.t, p = k === 'all' ? DAILY_ALL : DAILY.find(d => d.k === k).p;
+      SLOT.daily.got[k] = 1; claim(p, 0); toast(l.gotToast(p, 0)); draw(); renderTab(); }; });
+  };
+  openInfo(l.side.daily, ''); draw();
+}
 function openInfo(title, html) { $('infoTitle').textContent = title; $('infoBody').innerHTML = html; $('btnInfoClose').textContent = L().close; show('info', true); }
 // バナー：いま役に立つお知らせを横にめくる
 let bnIdx = 0, bnTimer = 0;
@@ -1117,7 +1233,7 @@ function renderBanner() {
   const l = L(), done = cleared(), slides = [];
   if (done < STAGES) slides.push({ go: 'road', img: bossURL(done), k: l.bn.nextK, t: l.bn.next(done + 1, nextReward()) });
   else slides.push({ go: 'road', img: bossURL(9), k: l.bn.nextK, t: l.allClear });
-  if (SLOT.free.weapon || SLOT.free.skin) slides.push({ go: 'gacha', img: weaponURL('jaws'), k: l.tabs.gacha, t: l.bn.free });
+  if (SLOT.free10.weapon || SLOT.free10.skin) slides.push({ go: 'gacha', img: weaponURL('jaws'), k: l.tabs.gacha, t: l.bn.free });
   slides.push({ go: 'gacha', img: weaponURL('suzuri'), k: l.tabs.gacha, t: l.pity(PITY - Math.max(SLOT.pity.weapon || 0, SLOT.pity.skin || 0)) });
   if (canUpgrade()) slides.push({ go: 'gear', img: crocURL(SLOT.skin, 1, 'normal'), k: l.tabs.gear, t: l.bn.up });
   slides.push({ go: 'rec', img: bossURL(Math.max(0, done - 1)), k: l.tabs.rec, t: l.bn.rec(done) });
@@ -1185,11 +1301,12 @@ const STARS = { N: 1, R: 2, SR: 3, SSR: 4 };
 const wURLc = {};
 const weaponURL = id => wURLc[id] || (wURLc[id] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.weapon(id)));
 const itemPic = (kind, id, mood) => (kind === 'weapon' ? weaponURL(id) : crocURL(id, 0, mood || 'normal'));
-const itemName = (kind, id) => (kind === 'weapon' ? L().wname[id] : L().sname[id]);
+const skinName = id => { const l = L(), k = skinOf(id); return l.sname[id] || (l.accN[k.acc] || '') + l.bodyN[k.body || 'croc']; };
+const itemName = (kind, id) => (kind === 'weapon' ? L().wname[id] : skinName(id));
 const itemInfo = (kind, x, lv = 1) => {
   const l = L();
   return kind === 'weapon' ? `${l.wp[x.pat]}：${l.wdesc[x.pat]}<br>${l.stat.rate} ${wRate(x, lv)}　${l.stat.lines} ${x.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(x, lv) * 10) / 10)}`
-    : `${l.pas[x.pas](x.v * lv)}<br>${l.skinNote}`;
+    : `${l.pas[x.pas](x.v * lv)}<br>${l.skinNote(x)}`;
 };
 const itemRate = (kind, x) => RARITY[x.r].w / (kind === 'weapon' ? WEAPON_DEF : SKIN_DEF).filter(y => y.r === x.r).length;
 function pullOne(kind, minR) {
@@ -1207,10 +1324,10 @@ function pullOne(kind, minR) {
 }
 // n=1 または 10。各ガチャの最初の1回は無料。10連は SR 以上が1つ確定
 function pull(kind, n = 1) {
-  const free = n === 1 && SLOT.free[kind];
+  const free = n === 10 && SLOT.free10[kind];   // 各ガチャの最初の10連は無料
   const cost = free ? 0 : GACHA_COST * n;
   if (SLOT.pearls < cost) return;
-  SLOT.pearls -= cost; if (free) SLOT.free[kind] = 0;
+  SLOT.pearls -= cost; if (free) SLOT.free10[kind] = 0;
   const res = [];
   for (let i = 0; i < n; i++) res.push(pullOne(kind, n === 10 && i === 9 && !res.some(r => r.rar === 'SR' || r.rar === 'SSR') ? 'SR' : null));
   writeSlot();
@@ -1260,11 +1377,11 @@ function renderGacha() {
   $('btnLineup').textContent = l.lineup;
   $('btnLineup').onclick = () => { sfx('gate'); openLineup(kind); };
   $('gachaPity').innerHTML = `${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
-  const free = SLOT.free[kind];
-  $('btnPull').innerHTML = free ? `${l.pull1}<span class="free">${l.freeOnce}</span>` : `${l.pull1}<span><i class="ic-pearl"></i>${GACHA_COST}</span>`;
-  $('btnPull').disabled = !free && SLOT.pearls < GACHA_COST;
-  $('btnPull10').innerHTML = `${l.pull10}<span><i class="ic-pearl"></i>${GACHA_COST * 10}</span><small>${l.srSure}</small>`;
-  $('btnPull10').disabled = SLOT.pearls < GACHA_COST * 10;
+  const free = SLOT.free10[kind];
+  $('btnPull').innerHTML = `${l.pull1}<span><i class="ic-pearl"></i>${GACHA_COST}</span>`;
+  $('btnPull').disabled = SLOT.pearls < GACHA_COST;
+  $('btnPull10').innerHTML = free ? `${l.pull10}<span class="free">${l.freeOnce}</span><small>${l.srSure}</small>` : `${l.pull10}<span><i class="ic-pearl"></i>${GACHA_COST * 10}</span><small>${l.srSure}</small>`;
+  $('btnPull10').disabled = !free && SLOT.pearls < GACHA_COST * 10;
   $('gachaRates').textContent = `SSR 2%　SR 10%　R 28%　N 60%`;
   $('gachaHow').textContent = l.pearlHow;
   $('gachaListHead').textContent = `${l.collection}　${list.filter(x => owned[x.id]).length} / ${list.length}`;
@@ -1281,7 +1398,7 @@ function renderEquip() {
   // いま装備しているもの
   const w = weaponOf(SLOT.weapon), wl = SLOT.weapons[w.id], sk = skinOf(SLOT.skin), sl = SLOT.skins[sk.id];
   $('gearNow').innerHTML = `<img class="${isW ? 'wimg' : ''}" src="${isW ? weaponURL(w.id) : crocURL(SLOT.skin, 0, 'normal')}" alt="">
-    <div><small>${l.equipped}</small><b>${isW ? l.wname[w.id] : l.sname[sk.id]} <em>Lv${isW ? wl : sl}</em></b>
+    <div><small>${l.equipped}</small><b>${isW ? l.wname[w.id] : skinName(sk.id)} <em>Lv${isW ? wl : sl}</em></b>
     <span>${isW ? `${l.wp[w.pat]}：${l.wdesc[w.pat]}<br>${l.stat.rate} ${wRate(w, wl)}　${l.stat.lines} ${w.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(w, wl) * 10) / 10)}` : l.pas[sk.pas](sk.v * sl)}</span></div>`;
   const rows = isW ? WEAPON_DEF.filter(x => SLOT.weapons[x.id]).map(x => {
     const lv = SLOT.weapons[x.id], max = lv >= WLV_MAX, cost = wUpCost(x, lv);
@@ -1289,7 +1406,7 @@ function renderEquip() {
       stat: `${l.stat.rate} ${wRate(x, lv)}　${l.stat.lines} ${x.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(x, lv) * 10) / 10)}` };
   }) : SKIN_DEF.filter(x => SLOT.skins[x.id]).map(x => {
     const lv = SLOT.skins[x.id], max = lv >= SLV_MAX, cost = sUpCost(x, lv);
-    return { id: x.id, r: x.r, on: SLOT.skin === x.id, lv, max, cost, name: l.sname[x.id], pic: `<img src="${crocURL(x.id, 0, 'normal')}" alt="">`, stat: l.pas[x.pas](x.v * lv) };
+    return { id: x.id, r: x.r, on: SLOT.skin === x.id, lv, max, cost, name: skinName(x.id), pic: `<img src="${crocURL(x.id, 0, 'normal')}" alt="">`, stat: l.pas[x.pas](x.v * lv) };
   });
   $('gearList').innerHTML = rows.map(x => `<div class="eq-row ${x.on ? 'on' : ''}" style="--rc:${RARITY[x.r].col}">
       <button class="eq-pick" data-id="${x.id}">${x.pic}<span><span class="eq-name"><i>${x.r}</i>${x.name}<small>Lv${x.lv}</small></span><span class="eq-stat">${x.stat}</span></span>${x.on ? `<b class="eq-on">${l.equipped}</b>` : ''}</button>
@@ -1312,6 +1429,7 @@ function preloadArt() {
 }
 function startRun(resume) {
   preloadArt();
+  dailyCheck();
   clearInterval(heroTimer); clearInterval(tsTimer); show('title', false); show('info', false); show('home', false); show('result', false); show('pause', false); show('help', false);
   if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; enterStage(1); if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
@@ -1353,6 +1471,7 @@ function gameOver() {
   if (R.newBest) SLOT.best = m;
   const gain = coinsFor(m, Math.min(R.stage - 1, STAGES)) + Math.round((R.bonus || 0) * (1 + skinBonus('coin')));
   SLOT.coins += gain;
+  SLOT.daily.m += Math.floor(m * METER);
   const pm = Math.floor(m * METER / PEARL_PER_M);   // 進んだ距離の真珠（600米ごとに1）
   SLOT.pearls += pm; R.pearls = (R.pearls || 0) + pm;
   SLOT.run = null; writeSlot();
@@ -1574,7 +1693,7 @@ function render(now) {
   }
   // 自機と仲間
   if (!R.over) {
-    const n = Math.min(R.st.crew, CMAX);
+    const n = Math.min(R.st.crew, SHOOTERS_MAX);
     const wf = Math.floor(now / 130) % 4;
     const mood = R.hurt > 0 ? 'hurt' : R.happy > 0 ? 'happy' : 'normal';
     for (const back of [true, false]) for (let si = 1; si < n; si++) {   // 後ろの列から描く
@@ -1586,6 +1705,13 @@ function render(now) {
     const hero = heroImg(wf, mood, false);
     if (hero) ctx.drawImage(hero, Math.round(R.x - HERO_W / 2), PY + 16 - HERO_H, HERO_W, HERO_H);
     ctx.globalAlpha = 1;
+    // 見えない仲間：「後ろに +N（段数に加わる）」
+    const more = R.st.crew - SHOOTERS_MAX;
+    if (more > 0) {
+      const tx = clamp(R.x, 68, W - 68);
+      ctx.fillStyle = 'rgba(246,239,223,.9)'; ctx.fillRect(tx - 64, PY + 14, 128, 15);
+      text(L().crewMore(fmt(more)), tx, PY + 25, 10, SHU, 'center');
+    }
   }
   // 墨の飛び散りと、数字
   for (const p of R.parts) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = inkCol(p.col); ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, 6.283); ctx.fill(); }
