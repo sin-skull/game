@@ -84,7 +84,7 @@ button:disabled { cursor: default; }
 .hm-road i.done { background: var(--shu); border-color: var(--shu); color: var(--paper2); }
 .hm-road i.next { border-color: var(--sumi); color: var(--sumi); animation: blink 1.2s ease-in-out infinite; }
 @keyframes blink { 50% { background: rgba(200, 50, 30, .2); } }
-.hm-side { position: absolute; top: 52px; display: flex; flex-direction: column; gap: 12px; z-index: 2; }
+.hm-side { position: absolute; top: 50px; display: flex; flex-direction: column; gap: 7px; z-index: 2; }
 .hm-side.l { left: 8px; } .hm-side.r { right: 8px; }
 .side-btn { position: relative; width: 54px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .side-btn i { font-style: normal; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-family: 'Yuji Boku', serif; font-size: 22px;
@@ -362,3 +362,28 @@ html[lang=en] .eq-wp { font-size: 8.5px; letter-spacing: 0; }
 html[lang=en] .g-wp { font-size: 11px; letter-spacing: 0; }
 html[lang=en] .round b { font-size: 15px; letter-spacing: .05em; }
 html[lang=en] .ts-tap { font-size: 18px; letter-spacing: .25em; }
+
+/* ログインのおまけ：7日の判子 */
+.stamps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; }
+.stamp { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 2px 6px; background: rgba(246, 239, 223, .9); border: 1px solid rgba(26, 23, 20, .35); font-size: 12px; }
+.stamp:last-child { grid-column: span 2; border-color: var(--shu); }
+.stamp small { font-size: 10px; color: var(--usu); }
+.stamp span { display: flex; align-items: center; }
+.stamp b { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%) rotate(-12deg); width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid var(--shu);
+  color: var(--shu); font-weight: 400; font-family: 'Yuji Boku', serif; font-size: 20px; line-height: 35px; text-align: center; background: rgba(246, 239, 223, .5); }
+.stamp.now { box-shadow: 0 0 0 2px var(--shu); }
+.stamp.now b { animation: stampIn .5s ease-out both .3s; }
+@keyframes stampIn { 0% { transform: translate(-50%, -50%) rotate(-12deg) scale(2.2); opacity: 0; } 100% { transform: translate(-50%, -50%) rotate(-12deg) scale(1); opacity: 1; } }
+/* 贈り物・日課 */
+.gift-row, .task { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid rgba(26, 23, 20, .18); }
+.gift-row > span, .task > span { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gift-row b, .task b { font-weight: 400; font-size: 14px; }
+.gift-row em { font-style: normal; display: flex; gap: 12px; font-size: 13px; }
+.gift-row em span, .btn-line.sm { display: inline-flex; align-items: center; justify-content: center; }
+#giftAll { margin-bottom: 4px; }
+.task i { display: block; height: 6px; background: rgba(26, 23, 20, .12); }
+.task i u { display: block; height: 100%; background: var(--shu); }
+.task small { font-size: 10px; color: var(--usu); }
+.task.got { opacity: .55; }
+.task.all b { color: var(--shu); }
+.btn-line.sm:disabled { opacity: .45; }
