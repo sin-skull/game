@@ -1,7 +1,7 @@
 'use strict';
 
 // =====================================================
-//  起動画面：アイコン → クレジット → 注意事項 → スロット選択
+//  起動画面：アイコン → クレジット → 注意事項（セーブは1つなのでスロット選択はない）
 //  前作（infinity）と同じ流れ。どれもタップで飛ばせる。
 //  ※ game.js より先に読み込むので、ゲームの関数は実行時にだけ使う
 // =====================================================
@@ -20,8 +20,7 @@ const Boot = (() => {
         '長時間のプレイは、適度に休憩をとってください。',
         '予告なく内容を変更・終了することがあります。',
       ],
-      agree: 'OK', slotTitle: 'スロットをえらぶ', empty: 'はじめから',
-      slotInfo: (b, r) => `ベスト ${b} m ・ ${r} 回`, inRun: m => `旅の途中 ${m} m`, noRun: '旅に出ていない',
+      agree: 'OK',
     },
     en: {
       credit: 'A GAME BY',
@@ -34,8 +33,7 @@ const Boot = (() => {
         'Please take breaks during long sessions.',
         'The game may change or end without notice.',
       ],
-      agree: 'OK', slotTitle: 'SELECT SLOT', empty: 'NEW GAME',
-      slotInfo: (b, r) => `BEST ${b} m · ${r} RUNS`, inRun: m => `RUN IN PROGRESS ${m} m`, noRun: 'NO RUN IN PROGRESS',
+      agree: 'OK',
     },
   };
   const tx = () => TT[Game.OPT.lang] || TT.ja;
@@ -74,43 +72,6 @@ const Boot = (() => {
     });
   }
 
-  function slotHTML() {
-    const T = tx();
-    const cards = [0, 1, 2].map(i => {
-      const s = Game.readSlot(i);
-      const has = s && (s.runs || s.best);
-      return `<button class="boot-slot ${i === Game.OPT.slot ? 'on' : ''}" data-slot="${i}">
-        <span class="bs-no">${String(i + 1).padStart(2, '0')}</span>
-        <span class="bs-body">${has
-          ? `<b>${T.slotInfo(Game.fmt(Math.floor(s.best)), s.runs)}</b><small>${s.run ? T.inRun(Game.fmt(Math.floor(s.run.m))) : T.noRun}</small>`
-          : `<b>${T.empty}</b>`}</span>
-      </button>`;
-    }).join('');
-    return `<div class="boot-title">${T.slotTitle}</div><div class="boot-slots">${cards}</div>`;
-  }
-
-  function pickSlot() {
-    return new Promise(resolve => {
-      stage.className = 'boot-stage slots';
-      stage.innerHTML = slotHTML();
-      void stage.offsetWidth;
-      stage.classList.add('in');
-      skipHint.hidden = true;
-      needOk = true;
-      advance = null;
-      stage.querySelectorAll('[data-slot]').forEach(b => {
-        b.onclick = e => {
-          e.stopPropagation();
-          Game.selectSlot(Number(b.dataset.slot));
-          stage.classList.remove('in');
-          stage.classList.add('out');
-          setTimeout(resolve, 260);
-        };
-      });
-    });
-  }
-
-  // skipSlot: タイトルの SLOT ボタンから来たときは、ロゴなどを飛ばしてスロットだけ選ぶ
   async function start(skipIntro) {
     root = document.getElementById('boot');
     stage = document.getElementById('bootStage');
@@ -132,7 +93,6 @@ const Boot = (() => {
       Game.saveOpt();
     }
 
-    await pickSlot();
     root.classList.add('gone');
     setTimeout(() => { root.hidden = true; }, 400);
     Game.showMenu();

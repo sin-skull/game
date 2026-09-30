@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=0.7.0">
+  <link rel="stylesheet" href="style.css?v=0.10.0">
 </head>
 <body>
   <div id="stage">
@@ -36,8 +36,17 @@
       <div class="row">
         <button class="btn sm ghost" id="btnHow">HOW TO PLAY</button>
         <button class="btn sm ghost" id="btnLang">日本語</button>
-        <button class="btn sm ghost" id="btnSlot">SLOT</button>
       </div>
+    </div>
+
+    <!-- 出発準備（コインで次の1回ぶんの強化を買う） -->
+    <div class="layer" id="shop" hidden>
+      <div class="title" id="shopTitle">PREPARE</div>
+      <div class="coins" id="shopCoins"></div>
+      <div class="shop-list" id="shopList"></div>
+      <div class="sub" id="shopNote"></div>
+      <button class="btn big" id="btnDepart">DEPART</button>
+      <button class="btn sm ghost" id="btnShopBack">BACK</button>
     </div>
 
     <!-- 一時停止 -->
@@ -52,6 +61,7 @@
       <div class="title" id="resTitle">GAME OVER</div>
       <div class="res-m" id="resM">0 m</div>
       <div class="sub" id="resSub"></div>
+      <div class="coins" id="resCoins"></div>
       <button class="btn big" id="btnRetry">RETRY</button>
       <button class="btn sm" id="btnHome">TITLE</button>
     </div>
@@ -79,7 +89,7 @@
     <div class="boot-skip" id="bootSkip">TAP</div>
   </div>
 
-  <script src="boot.js?v=0.7.0"></script>
-  <script src="game.js?v=0.7.0"></script>
+  <script src="boot.js?v=0.10.0"></script>
+  <script src="game.js?v=0.10.0"></script>
 </body>
 </html>
