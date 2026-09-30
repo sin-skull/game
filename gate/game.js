@@ -2,11 +2,12 @@
 
 // =====================================================
 //  GATE VADER — 撃つか、育てるか。数字のインフレが止まらないゲートシューター
-//  v0.2  左＝ワニの大群 / 右＝迫ってくるゲートとアイテム。据え置きの自機で狙い撃つ。
+//  v0.4  主人公はワニ。左＝流れてくる魚（撃って食べる）/ 右＝迫ってくるゲートとアイテム。
+//        食べ逃すと飢え、飢餓ゲージが尽きたら餓死。何かに当たったら（ハートがなければ）負け。
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -30,6 +31,8 @@ const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
 const GATE_GAP = 200;                        // ゲートの行の間隔（進んだ距離）
 const MOB_VY = 14, GATE_VY = 14, BULLET_V = 720, ROW_H = 14;
 const LMAX = 15, CMAX = 8;                   // 段数と人数の上限
+const HP_MAX = 3;                            // ハートは1つで始まり、LIFE ゲート・HEAL でだけ増える（最大3）
+const FOOD_MAX = 10, FOOD_EAT = 0.15;        // 飢餓ゲージ：1匹逃すと-1、1匹食べると+0.15
 const DMG_CAP = 1e250;                       // ダメージの上限（ボスHPなどが数の限界を超えないように）
 const PIERCE_MAX = 6;                        // 1発で貫ける数の上限（∞ MODE で無敵にならないように）
 const ST0 = { dmg: 1, lines: 7, crew: 1, rate: 8 };   // 初期グレード（転生で買う要素は次の段階）
@@ -72,18 +75,20 @@ function spr(rows, pal, px) {
   rows.forEach((r, j) => [...r].forEach((ch, i) => { if (pal[ch]) { x.fillStyle = pal[ch]; x.fillRect(i * px, j * px, px, px); } }));
   return c;
 }
-// 敵：インベーダー型のワニ（目の出っ張り・牙の列）
-const CF = [
-  ['#.....#', '.#####.', '##.#.##', '#######', '#.#.#.#', '.#...#.'],
-  ['#.....#', '.#####.', '##.#.##', '#######', '#.#.#.#', '#.....#'],
+// 餌：こちらへ泳いでくる魚（尾が上、頭が下）
+const FF = [
+  ['.#...#.', '..#.#..', '...#...', '..###..', '.#####.', '.#.#.#.', '..###..'],
+  ['#.....#', '.#...#.', '...#...', '..###..', '.#####.', '.#.#.#.', '..###..'],
 ];
-const CCOL = ['#e8e8e8', '#c9e86a', '#ff7a6a'];
-const CROCS = CCOL.map(col => CF.map(f => spr(f, { '#': col }, 2)));
+const FCOL = ['#cfe0ff', '#ffb35a', '#ff6a8a'];
+const FISH = FCOL.map(col => FF.map(f => spr(f, { '#': col }, 2)));
+const MEAT = spr(['.....ww', '....ww.', '..###..', '.####..', '#####..', '####...', '.##....'], { '#': '#e0664a', w: '#fff' }, 2);
 const PLAYER = spr(['.....w.....', '....###....', '...#####...', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#.#######.#', '#..#####..#', '...##.##...', '..##...##..'],
   { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 3);
-const BOSS_ROWS = ['....########....', '..############..', '.##############.', '.#ee########ee#.', '.#eK########Ke#.', '################', '################', '#####.####.#####', '################', '#w#w#w#ww#w#w#w#', '.#.#.#.##.#.#.#.'];
-const BOSS_MID = spr(BOSS_ROWS, { '#': '#e8e8e8', e: '#ffe14a', K: '#000', w: '#fff' }, 7);
-const BOSS_BIG = spr(BOSS_ROWS, { '#': '#ff6a5a', e: '#ffe14a', K: '#000', w: '#fff' }, 9);
+// ボス：大きな魚（食べごたえのある獲物）
+const BOSS_ROWS = ['.##..........##.', '..##........##..', '....##....##....', '......####......', '.....######.....', '...##########...', '..############..', '.##############.', '.###ee####ee###.', '.###eK####Ke###.', '..############..', '....########....'];
+const BOSS_MID = spr(BOSS_ROWS, { '#': '#cfe0ff', e: '#fff', K: '#000' }, 7);
+const BOSS_BIG = spr(BOSS_ROWS, { '#': '#ff6a5a', e: '#ffe14a', K: '#000' }, 9);
 const HELPER = spr(['.....w.....', '....###....', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#..#####..#', '...##.##...'],
   { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 2);
 const HEART = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#ff4d6d' }, 2);
@@ -130,7 +135,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function newRun() {
   const r = {
-    m: 0, hp: 3, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, calm: 0, inv: 0,
+    m: 0, hp: 1, food: FOOD_MAX, nextLife: SEG * 0.5, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, inv: 0,
     st: { ...ST0 }, aim: MID + 70,
     mobs: [], b: [], objs: [],
     boss: null, nextBoss: 1, cleared: false, fightKills: 0, kills: 0,
@@ -141,8 +146,8 @@ function newRun() {
 }
 function snapshot() {
   if (!R || R.over) return null;
-  const { m, hp, t, rowAcc, gateAcc, uid, calm, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
-  return JSON.parse(JSON.stringify({ m, hp, t, rowAcc, gateAcc, uid, calm, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
+  const { m, hp, food, nextLife, t, rowAcc, gateAcc, uid, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
+  return JSON.parse(JSON.stringify({ m, hp, food, nextLife, t, rowAcc, gateAcc, uid, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
 }
 function loadRun(snap) {
   const r = newRun();
@@ -183,17 +188,27 @@ function makeGate(slot, safe) {
   if (bad) { if (type === 'add') v = -v; else if (v >= 1) v = 0.5; }
   return { id: ++R.uid, cls: 'gate', stat, type, v, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
-function makeItem(slot) {
-  const kind = ['crew', 'heal', 'power'][Math.floor(Math.random() * 3)];
-  const hp = Math.max(8, dpsOf(R.st) * rnd(0.8, 1.6));
+function makeLife(slot) {
+  return { id: ++R.uid, cls: 'gate', stat: 'life', type: 'add', v: 1, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
+}
+function makeItem(slot, kind) {
+  kind = kind || ['crew', 'power'][Math.floor(Math.random() * 2)];
+  const hp = Math.max(8, dpsOf(R.st) * rnd(0.5, 1.0));   // 狙えば1秒ほどで壊せる硬さ
   return { id: ++R.uid, cls: 'item', kind, hp, max: hp, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
 function spawnGateRow() {
   const p = R.m / G;
   const early = p < 0.04;
-  const first = Math.random() < 0.15 && !early ? makeItem(0) : makeGate(0, early);
-  let second = Math.random() < 0.15 && !early && first.cls !== 'item' ? makeItem(1) : makeGate(1, early);
+  let first = Math.random() < 0.1 && !early ? makeItem(0) : makeGate(0, early);
+  let second = Math.random() < 0.1 && !early && first.cls !== 'item' ? makeItem(1) : makeGate(1, early);
   if (!isGood(first) && !isGood(second) && second.cls === 'gate') second = makeGate(1, true);
+  // ハートを増やす機会は多すぎないように、距離で間隔を空けて1枠だけ差し込む
+  if (R.m >= R.nextLife) {
+    R.nextLife = R.m + SEG * rnd(0.45, 0.75);
+    const slot = Math.random() < 0.5 ? 0 : 1;
+    const o = Math.random() < 0.5 ? makeLife(slot) : makeItem(slot, 'heal');
+    if (slot) second = o; else first = o;
+  }
   R.objs.push(first, second);
 }
 const stepOf = o => (o.stat === 'dmg' ? o.v : Math.round(o.v));   // LINE・CREW は整数で効く
@@ -203,9 +218,10 @@ function gateLabel(o) {
   if (o.v < 1) return '÷' + (1 / Math.max(0.05, o.v)).toFixed(1).replace(/\.0$/, '');
   return '×' + (o.v < 10 ? o.v.toFixed(1).replace(/\.0$/, '') : fmt(Math.floor(o.v)));
 }
-const STAT_NAME = { dmg: 'DMG', lines: 'LINE', crew: 'CREW' };
+const STAT_NAME = { dmg: 'DMG', lines: 'LINE', crew: 'CREW', life: 'LIFE' };
 // 撃たれたとき：数値が「良い方向」に動く（マイナスも撃てばプラスに転じる）
 function growGate(o, b) {
+  if (o.stat === 'life') { o.hit = 0.1; return; }
   // 弾が増えるほど当たる回数も増えるので、育つ速さは弾数に関わらず一定になるよう割り戻す
   const w = b.w * 40 / (R.st.lines * R.st.crew * R.st.rate);
   if (o.stat === 'dmg' && o.type === 'add') o.v += R.st.dmg * 0.00015 * w;
@@ -216,6 +232,11 @@ function growGate(o, b) {
 }
 function applyGate(o) {
   const st = R.st; let msg;
+  if (o.stat === 'life') {
+    R.hp = Math.min(HP_MAX, R.hp + 1);
+    pop(PX, PY - 50, '+1 LIFE', true, '#ff8da1'); burst(o.x + o.w / 2, PY, 14, '#ff8da1'); sfx('gate');
+    return;
+  }
   const before = { ...st };
   if (o.stat === 'dmg') { st.dmg = clamp(o.type === 'add' ? st.dmg + o.v : st.dmg * o.v, 1, DMG_CAP); }
   else if (o.stat === 'lines') st.lines = clamp(st.lines + stepOf(o), 1, linesCap());
@@ -229,13 +250,13 @@ function applyGate(o) {
 }
 function breakItem(o) {
   if (o.kind === 'crew') { R.st.crew = Math.min(CMAX, R.st.crew + 1); pop(o.x + o.w / 2, o.y, '+1 CREW', true, '#66e6ff'); }
-  else if (o.kind === 'heal') { R.hp = Math.min(3, R.hp + 1); pop(o.x + o.w / 2, o.y, '+1 HP', true, '#ff8da1'); }
+  else if (o.kind === 'heal') { R.hp = Math.min(HP_MAX, R.hp + 1); pop(o.x + o.w / 2, o.y, '+1 HP', true, '#ff8da1'); }
   else { R.st.dmg = Math.min(DMG_CAP, R.st.dmg * 1.5); pop(o.x + o.w / 2, o.y, 'DMG ×1.5', true, '#ffd84a'); }
   burst(o.x + o.w / 2, o.y + o.h / 2, 20, '#66e6ff');
   sfx('gate');
 }
 
-// ---------- ワニ ----------
+// ---------- 魚（餌） ----------
 const ZSLOTS = 12, ZX0 = 9, ZDX = 14;
 function spawnRow() {
   const p = Math.min(1, R.m / G);
@@ -270,11 +291,10 @@ function spawnBoss() {
 }
 function killBoss() {
   const b = R.boss;
-  burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#e8e8e8');
+  burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#cfe0ff');
   R.m = b.k * SEG;
   R.nextBoss++;
   R.boss = null;
-  R.hp = Math.min(3, R.hp + 1);
   sfx('boss');
   if (b.k === SEGS && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
   else R.banner = { text: 'BOSS DOWN', t: 1.8 };
@@ -322,9 +342,6 @@ function step(dt) {
   }
   if (BOT) botControl();
   R.aim = clamp(R.aim, 6, W - 6);
-  // しばらく無傷なら、ハートが1つ戻る（長い旅で削られ続けないように）
-  R.calm = (R.calm || 0) + dt;
-  if (R.calm >= 120 && R.hp < 3) { R.hp++; R.calm = 0; }
 
   // 発射
   R.fire += dt * st.rate;
@@ -347,7 +364,7 @@ function step(dt) {
         }
       }
     }
-    // 左：ワニ（一撃。強い弾は何体も貫く）
+    // 左：魚（撃てば食べられる。強い弾は何匹も貫く）
     if (!dead && b.x < MID + 10) {
       const cx = clamp(Math.floor(b.x / GC), 0, GCOLS - 1), cy = clamp(Math.floor((b.y + 16) / GC), 0, GROWS - 1);
       for (let yy = Math.max(0, cy - 1); yy <= Math.min(GROWS - 1, cy + 1) && !dead; yy++) {
@@ -355,8 +372,8 @@ function step(dt) {
           for (let j = head[xx + yy * GCOLS]; j !== -1; j = nxt[j]) {
             const mo = R.mobs[j];
             if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
-            mo.d = 1; R.kills++; if (R.boss) R.fightKills++;
-            if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: CCOL[mo.k] });
+            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; R.food = Math.min(FOOD_MAX, R.food + FOOD_EAT);
+            if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: FCOL[mo.k] });
             if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
             sfx('kill');
             if (--b.pr <= 0) { dead = true; break; }
@@ -385,14 +402,14 @@ function step(dt) {
     else if (bo.y > PY - 40) R.hp = 0;
   }
 
-  // ワニ：前進、到達（1体でも届いたらハート-1）
+  // 魚：前進、到達（食べ逃すと飢餓ゲージ-1）
   R.rowAcc += MOB_VY * s * dt * (R.boss ? 0.4 : 1);
   if (R.rowAcc >= ROW_H) { R.rowAcc -= ROW_H; if (R.mobs.length < 900) spawnRow(); }
   let any = false;
   for (const mo of R.mobs) {
     if (mo.d) { any = true; continue; }
     mo.y += MOB_VY * s * dt;
-    if (mo.y > PY + 4) { mo.d = 1; any = true; damage(); burst(mo.x, PY, 10, '#ff4d6d'); }
+    if (mo.y > PY + 4) { mo.d = 1; any = true; R.food -= 1; R.hungry = 0.4; burst(mo.x, PY, 6, '#e0664a'); }
   }
   if (any) R.mobs = R.mobs.filter(mo => !mo.d);
 
@@ -412,23 +429,27 @@ function step(dt) {
   if (R.objs.some(o => o.dead)) R.objs = R.objs.filter(o => !o.dead);
 
   // 演出
-  R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt); R.inv = Math.max(0, (R.inv || 0) - dt);
+  R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt); R.inv = Math.max(0, (R.inv || 0) - dt); R.hungry = Math.max(0, (R.hungry || 0) - dt);
   for (let i = R.pops.length - 1; i >= 0; i--) { const p = R.pops[i]; p.t -= dt; p.y -= 34 * dt; if (p.t <= 0) R.pops.splice(i, 1); }
   for (let i = R.parts.length - 1; i >= 0; i--) { const p = R.parts[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.life <= 0) R.parts.splice(i, 1); }
   if (R.banner) { R.banner.t -= dt; if (R.banner.t <= 0) R.banner = null; }
 
-  if (R.hp <= 0) gameOver();
+  if (R.food <= 0) { R.food = 0; R.starved = true; gameOver(); }
+  else if (R.hp <= 0) gameOver();
 }
 
-// ハートが1つ減る。直後は少し無敵（群れがまとめて届いても一気に削れない）
+// 当たった：ハートが1つ減る（0で負け）。直後は少し無敵
 function damage() {
   if (R.inv > 0) return;
-  R.hp--; R.inv = 1.5; R.hurt = 0.6; R.calm = 0;
+  R.hp--; R.inv = 1.5; R.hurt = 0.6;
   sfx('hurt');
 }
 
 // 開発用の自動操縦：ワニが詰まってきたら左へ、そうでなければ右のゲートとアイテムを撃つ
 function botControl() {
+  // 壊さないと当たるアイテムが近づいたら最優先
+  const it = R.objs.find(o => o.cls === 'item' && !o.dead && o.y > 260);
+  if (it) { R.aim = it.x + it.w / 2; return; }
   let low = 0, sum = 0;
   for (const mo of R.mobs) if (mo.y > 120) { low++; sum += mo.x; }
   if (low > 2) { R.aim = sum / low + Math.sin(R.t * 4) * 45; return; }
@@ -496,7 +517,7 @@ function gameOver() {
   if (R.newBest) SLOT.best = m;
   SLOT.run = null; writeSlot();
   sfx('hurt');
-  $('resTitle').textContent = 'GAME OVER';
+  $('resTitle').textContent = R.starved ? 'STARVED' : 'GAME OVER';
   $('resM').textContent = fmt(Math.floor(m)) + ' m';
   $('resSub').textContent = (R.newBest ? 'NEW BEST!  ' : `BEST ${fmt(Math.floor(SLOT.best))} m  ·  `) + `${R.cleared ? '∞ MODE  ·  ' : ''}${R.kills} KILLS`;
   setTimeout(() => { if (state === 'result') show('result', true); }, 700);
@@ -598,7 +619,7 @@ function render(now) {
   // ワニ（小さく大量に）
   const fr = Math.floor(now / 380) % 2;
   for (const mo of R.mobs) {
-    const im = CROCS[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
+    const im = FISH[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
     ctx.drawImage(im, Math.round(mo.x + Math.sin(now / 500 + mo.ph) * 1.5 - 7), Math.round(mo.y - 6));
   }
 
@@ -607,7 +628,7 @@ function render(now) {
     if (o.y < -o.h || o.dead) continue;
     if (o.cls === 'gate') {
       const good = isGood(o);
-      const col = o.type === 'mul' && o.v >= 1 ? '#ffd84a' : good ? '#39ff88' : '#ff5a5a';
+      const col = o.stat === 'life' ? '#ff8da1' : o.type === 'mul' && o.v >= 1 ? '#ffd84a' : good ? '#39ff88' : '#ff5a5a';
       ctx.fillStyle = col; ctx.globalAlpha = 0.1 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
       ctx.globalAlpha = 1;
       if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 6 + o.hit * 40; }
@@ -635,7 +656,7 @@ function render(now) {
     ctx.drawImage(im, Math.round(bo.x - im.width / 2 + rnd(-j, j)), Math.round(bo.y - im.height / 2));
     const bw = 120, bx = bo.x - bw / 2, by = bo.y - im.height / 2 - 18;
     ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, 7);
-    ctx.fillStyle = bo.big ? '#ff6a5a' : '#e8e8e8'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
+    ctx.fillStyle = bo.big ? '#ff6a5a' : '#cfe0ff'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, 8);
     text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
   }
@@ -685,6 +706,8 @@ function render(now) {
 
 function drawHUD() {
   const m = mEff(), p = m / G;
+  // 上の表示が魚と重なって読めなくならないよう、薄く下地を敷く
+  ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, 84);
   const bx = 10, by = 10, bw = 170, bh = 10;
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
   ctx.fillStyle = R.boss ? (R.boss.big ? '#ff6a5a' : '#ffd84a') : '#39ff88';
@@ -693,12 +716,21 @@ function drawHUD() {
   for (let i = 1; i < SEGS; i++) ctx.fillRect(bx + bw * i / SEGS - 0.5, by, 1, bh);
   text(R.cleared ? '∞' : Math.min(100, Math.floor(p * 100)) + '%', bx + bw + 8, by + 10, 12, '#fff');
   text('BEST ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
-  text(fmt(Math.floor(m)) + ' m', 10, 44, 18, '#fff');
-  text('SPEED ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 60, 11, '#6b7a70');
-  text('CROC', MID / 2, 84, 10, 'rgba(255,120,120,.6)', 'center');
-  text('GATE', MID + MID / 2, 84, 10, 'rgba(120,255,170,.6)', 'center');
+  // 飢餓ゲージ（🍖）
+  ctx.drawImage(MEAT, 9, 26);
+  const low = R.food <= 3;
+  for (let i = 0; i < FOOD_MAX; i++) {
+    const f = clamp(R.food - i, 0, 1);
+    ctx.fillStyle = '#2a2a2a'; ctx.fillRect(28 + i * 15, 29, 12, 8);
+    if (f > 0) { ctx.fillStyle = low && Math.floor(performance.now() / 200) % 2 ? '#ff4d4d' : '#e0664a'; ctx.fillRect(28 + i * 15, 29, 12 * f, 8); }
+  }
+  if (R.hungry > 0) { ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(26.5, 27.5, FOOD_MAX * 15, 11); }
+  text(fmt(Math.floor(m)) + ' m', 10, 62, 18, '#fff');
+  text('SPEED ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 77, 11, '#6b7a70');
+  text('FOOD', MID / 2, 96, 10, 'rgba(255,120,120,.6)', 'center');
+  text('GATE', MID + MID / 2, 96, 10, 'rgba(120,255,170,.6)', 'center');
   // 下段：ハートと今の強さ
-  for (let i = 0; i < 3; i++) ctx.drawImage(i < R.hp ? HEART : HEART_OFF, 10 + i * 18, H - 28);
+  for (let i = 0; i < HP_MAX; i++) if (i < R.hp) ctx.drawImage(HEART, 10 + i * 18, H - 28);
   text('DMG ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
   text(`LINE ${R.st.lines}  CREW ${R.st.crew}`, W / 2, H - 6, 11, '#9aa89f', 'center');
   ctx.strokeStyle = '#9aa89f'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
