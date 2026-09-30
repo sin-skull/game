@@ -67,7 +67,7 @@ const I18N = {
       clear: ['清算転生', 'すべて 0 に戻る。魂をまるごと得る。'],
       gain: n => `魂 +${n}`, locked: n => `あと ${n} コイン稼ぐと転生できる`,
       how: '魂の量は、この周回で稼いだコインと、どこまで到達したかで決まる。',
-      rows: ['稼ぎ', '到達ランク', '次元', '共鳴', '∞ の数'],
+      rows: ['基本', '到達ランク', '次元', '共鳴', '∞ の数'],
       pickTitle: '残す強化を選ぶ', confirmTitle: '転生する？',
       confirmText: (n, keep) => `コイン・オブジェクト・強化は 0 に戻る${keep ? `（${keep} は残る）` : ''}。<br>次元とスキルはそのまま。魂 +${n}`,
       done: n => `転生した。魂 +${n}`,
@@ -170,7 +170,7 @@ const I18N = {
       clear: ['Liquidate', 'Everything back to 0. All the Souls.'],
       gain: n => `Souls +${n}`, locked: n => `Earn ${n} more coins to rebirth`,
       how: 'Souls depend on the coins earned this run and how far you reached.',
-      rows: ['Earnings', 'Rank reached', 'Dimension', 'Resonance', '∞ count'],
+      rows: ['Base', 'Rank reached', 'Dimension', 'Resonance', '∞ count'],
       pickTitle: 'Choose an upgrade to keep', confirmTitle: 'Rebirth?',
       confirmText: (n, keep) => `Coins, objects and upgrades reset${keep ? ` (${keep} stays)` : ''}.<br>Dimension and skills stay. Souls +${n}`,
       done: n => `Reborn. Souls +${n}`,
@@ -546,17 +546,20 @@ const dimStr = (s = S) => String(s.shards + 1).padStart(2, '0');
 const offlineCapSec = () => 12 * 3600;
 const offlineRate = () => 0.6;
 
-// 転生で得られる魂：今回の稼ぎ × 到達ランク × ∞の数 × 次元 × 共鳴
+// 転生で得られる魂（バランス表：次元dを終えた時点で累計が「パワー d bit」分より少し下になるように）
+//   基本13 × 到達度 × ∞の数 × 次元（次元2から×2ずつ）× 共鳴
+//   コインの稼ぎには比例させない（稼ぎ→魂→永遠強化→稼ぎ…の雪だるまを防ぐ）
 const REBIRTH_MIN = 1000;   // ∞ を作っていなければ、今回これだけ稼ぐと転生できる
+const SOUL_BASE = 13;
 function soulParts() {
   const n = infCount();
-  const earn = Math.max(1, Math.floor(Math.sqrt(S.runEarned / 50)));
-  const rank = 1 + 0.2 * Math.min(S.runMaxTier, INF());
-  const inf = n > 0 ? 1 + 3 * Math.pow(n, 0.7) : 1;   // ∞1つで×4、2つで×5.9、3つで×7.4
-  const dim = 1 + 0.25 * S.shards;
+  const earn = SOUL_BASE;
+  const rank = Math.pow(Math.min(S.runMaxTier, INF()) / INF(), 3);   // ∞ に届いていれば ×1
+  const inf = n > 0 ? 1 + 0.5 * Math.log2(n) : 0.5;                  // ∞1つ×1、2つ×1.5、4つ×2
+  const dim = Math.pow(2, Math.max(0, S.shards - 1));
   const res = 1 + 0.25 * E('eSoul');
   const ok = n > 0 || S.runEarned >= REBIRTH_MIN;
-  return { n, earn, rank, inf, dim, res, total: ok && !MODE ? Math.floor(earn * rank * inf * dim * res) : 0 };
+  return { n, earn, rank, inf, dim, res, total: ok && !MODE ? Math.max(1, Math.floor(earn * rank * inf * dim * res)) : 0 };
 }
 const soulBase = () => soulParts().total;
 const soulToNext = () => Math.max(0, Math.ceil(REBIRTH_MIN - S.runEarned));
