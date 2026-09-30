@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.11.0';
+const VERSION = '0.13.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -37,8 +37,8 @@ const PIERCE_MAX = 6;                        // 1発で貫ける数の上限（�
 const ST0 = { dmg: 1, lines: 1, crew: 1, rate: 1, wp: 'normal' };
 const RMAX = 12;                             // 連射（1秒あたり）の上限
 // 武器：撃ち方が変わる（弾はまっすぐ上に飛ぶのが基本）
-const WEAPONS = ['normal', 'spread', 'bounce', 'beam'];
-const WP_NAME = { normal: 'NORMAL', spread: 'SPREAD', bounce: 'BOUNCE', beam: 'BEAM' };
+const WEAPONS = ['normal', 'spread', 'bounce', 'beam', 'wave'];   // 旅の途中の WEAPON ゲートで切り替わる撃ち方
+const WP_NAME = { normal: 'NORMAL', spread: 'SPREAD', bounce: 'BOUNCE', beam: 'BEAM', wave: 'WAVE', shotgun: 'SHOTGUN', homing: 'HOMING', trident: 'TRIDENT' };
 
 // ---------- 設定・セーブ ----------
 const SETTINGS_KEY = 'gate-settings';
@@ -54,22 +54,62 @@ function readSlot(i) {
   try {
     const d = JSON.parse(localStorage.getItem(SLOT_KEYS[i]) || 'null');
     if (!d) return null;
-    return { best: +d.best || 0, runs: +d.runs || 0, run: d.run && typeof d.run === 'object' ? d.run : null,
-      coins: +d.coins || 0, prep: Object.assign(freshPrep(), d.prep || {}) };
+    const f = freshSlot();
+    const skins = Object.assign(f.skins, d.skins || {});
+    for (const k in skins) if (skins[k] === true) skins[k] = 1;   // 旧形式（持っているだけ）→ Lv1
+    return { best: +d.best || 0, runs: +d.runs || 0, run: d.run && typeof d.run === 'object' ? d.run : null, coins: +d.coins || 0,
+      pearls: d.pearls == null ? f.pearls : +d.pearls, maxStage: +d.maxStage || 0, pity: Object.assign(f.pity, d.pity || {}),
+      weapons: Object.assign(f.weapons, d.weapons || {}), weapon: d.weapon || f.weapon, skins, skin: d.skin || f.skin };
   } catch (e) { return null; }
 }
-// ---------- 出発準備（転生）：コインで「次の1回ぶん」の強化を買う。旅が終わるとリセット ----------
-function freshPrep() { return { rate: 0, lines: 0, crew: 0, dmg: 0, life: 0, food: 0 }; }
-const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, prep: freshPrep() });
-const SHOP = [
-  { id: 'rate', max: 6, cost: l => Math.round(30 * Math.pow(1.8, l)) },
-  { id: 'lines', max: 6, cost: l => Math.round(30 * Math.pow(1.8, l)) },
-  { id: 'dmg', max: 8, cost: l => Math.round(40 * Math.pow(2, l)) },
-  { id: 'crew', max: 3, cost: l => Math.round(80 * Math.pow(2.2, l)) },
-  { id: 'food', max: 5, cost: l => Math.round(25 * Math.pow(1.8, l)) },
-  { id: 'life', max: 2, cost: l => Math.round(120 * Math.pow(2.5, l)) },
+// ---------- 装備（武器）とスキン ----------
+// 手に入れるのは ガチャ（パール）。強くするのは コイン。どちらもずっと使える
+// 武器：撃ち方と、最初の連射・段数・威力が決まる
+const WEAPON_DEF = [
+  { id: 'pea', r: 'N', pat: 'normal', rate: 1, lines: 1, dmg: 1 },
+  { id: 'twin', r: 'N', pat: 'normal', rate: 1, lines: 2, dmg: 1 },
+  { id: 'fan', r: 'N', pat: 'spread', rate: 1, lines: 3, dmg: 1 },
+  { id: 'rapid', r: 'R', pat: 'normal', rate: 3, lines: 1, dmg: 1 },
+  { id: 'bouncer', r: 'R', pat: 'bounce', rate: 2, lines: 2, dmg: 2 },
+  { id: 'wave', r: 'R', pat: 'wave', rate: 2, lines: 2, dmg: 2 },
+  { id: 'shotgun', r: 'SR', pat: 'shotgun', rate: 2, lines: 5, dmg: 2 },
+  { id: 'homing', r: 'SR', pat: 'homing', rate: 2, lines: 2, dmg: 3 },
+  { id: 'beam', r: 'SR', pat: 'beam', rate: 2, lines: 3, dmg: 4 },
+  { id: 'trident', r: 'SSR', pat: 'trident', rate: 3, lines: 3, dmg: 6 },
+  { id: 'jaws', r: 'SSR', pat: 'beam', rate: 4, lines: 4, dmg: 10 },
 ];
-const coinsFor = (m, bosses) => Math.floor(m * METER / 10) + bosses * 25;   // 10m で1コイン、ボス1体で25
+// スキン：見た目（体・影・目の色）と、レベルで伸びる小さな効果（pas × Lv）
+const SKIN_DEF = [
+  { id: 'green', r: 'N', c: '#39ff88', d: '#1f9d54', e: '#ffe14a', pas: 'food', v: 1 },
+  { id: 'olive', r: 'N', c: '#a6d13a', d: '#5f7d1c', e: '#ffffff', pas: 'coin', v: 0.08 },
+  { id: 'sky', r: 'N', c: '#4ab3ff', d: '#1f5f9d', e: '#ffe14a', pas: 'eat', v: 0.1 },
+  { id: 'pink', r: 'R', c: '#ff7ab8', d: '#a8406f', e: '#ffffff', pas: 'food', v: 2 },
+  { id: 'gold', r: 'R', c: '#ffd84a', d: '#a8841c', e: '#ff4d4d', pas: 'coin', v: 0.15 },
+  { id: 'snow', r: 'R', c: '#e8f4ff', d: '#8aa0b8', e: '#39a0ff', pas: 'dmg', v: 0.1 },
+  { id: 'violet', r: 'SR', c: '#b07aff', d: '#5a3a9d', e: '#ffe14a', pas: 'dmg', v: 0.2 },
+  { id: 'crimson', r: 'SR', c: '#ff5a5a', d: '#8d1f1f', e: '#ffe14a', pas: 'rate', v: 0.5 },
+  { id: 'shadow', r: 'SSR', c: '#2f3642', d: '#141920', e: '#39ff88', pas: 'coin', v: 0.3 },
+  { id: 'neon', r: 'SSR', c: '#00fff0', d: '#008a80', e: '#ff3df0', pas: 'dmg', v: 0.4 },
+];
+const RARITY = { N: { w: 60, col: '#cfd8d2' }, R: { w: 28, col: '#4ab3ff' }, SR: { w: 10, col: '#b07aff' }, SSR: { w: 2, col: '#ffd84a' } };
+// ガチャはパールで引く。パールはステージの初回クリアでもらえる（大ボスは多め）。50回目は SSR 確定（天井）
+const GACHA_COST = 50;
+const PITY = 50;
+const FIRST_CLEAR = { normal: 5, big: 30 };
+const DUP_COINS = { N: 60, R: 150, SR: 400, SSR: 1000 };   // もう持っているものが出たらコインに
+// 強化：コインでレベルを上げる
+const WLV_MAX = 10, SLV_MAX = 5;
+const W_UP_BASE = { N: 40, R: 80, SR: 160, SSR: 300 }, S_UP_BASE = { N: 60, R: 120, SR: 240, SSR: 480 };
+const wUpCost = (w, lv) => Math.round(W_UP_BASE[w.r] * Math.pow(1.7, lv - 1));
+const sUpCost = (k, lv) => Math.round(S_UP_BASE[k.r] * Math.pow(1.8, lv - 1));
+const wDmg = (w, lv) => w.dmg * Math.pow(1.35, lv - 1);          // レベルで威力 ×1.35
+const wRate = (w, lv) => w.rate + Math.floor((lv - 1) / 3);      // 3レベルごとに連射+1
+const skinBonus = (pas) => { const k = skinOf(SLOT.skin); return k.pas === pas ? k.v * (SLOT.skins[k.id] || 1) : 0; };
+const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, pearls: GACHA_COST, maxStage: 0, pity: { weapon: 0, skin: 0 },
+  weapons: { pea: 1 }, weapon: 'pea', skins: { green: 1 }, skin: 'green' });
+const weaponOf = id => WEAPON_DEF.find(w => w.id === id) || WEAPON_DEF[0];
+const skinOf = id => SKIN_DEF.find(k => k.id === id) || SKIN_DEF[0];
+const coinsFor = (m, bosses) => Math.floor((Math.floor(m * METER / 10) + bosses * 25) * (1 + skinBonus('coin')));   // 10m で1コイン、ボス1体で25（スキンで増える）
 let SLOT = readSlot(OPT.slot) || freshSlot();
 function writeSlot() { try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(SLOT)); } catch (e) { /* 保存不可 */ } }
 function selectSlot(i) { OPT.slot = i; saveOpt(); SLOT = readSlot(i) || freshSlot(); }
@@ -78,7 +118,7 @@ function selectSlot(i) { OPT.slot = i; saveOpt(); SLOT = readSlot(i) || freshSlo
 const I18N = {
   ja: {
     stat: { dmg: '威力', lines: '段数', crew: '仲間', rate: '連射', life: 'ライフ', weapon: '武器' },
-    wp: { normal: 'ノーマル', spread: '拡散', bounce: '反射', beam: 'ビーム' },
+    wp: { normal: 'ノーマル', spread: '拡散', bounce: '反射', beam: 'ビーム', wave: 'ウェーブ', shotgun: 'ショットガン', homing: 'ホーミング', trident: '貫通' },
     item: { crew: '仲間', heal: '回復', power: 'パワー' },
     food: 'エサ', gate: 'ゲート', best: 'ベスト', speed: '速さ', menu: 'メニュー',
     boss: 'ボス', bigBoss: '大ボス', bossDown: '撃破！', bigDown: '大ボス撃破！',
@@ -91,11 +131,17 @@ const I18N = {
     menuSub: (b, r) => `ベスト ${b} m ・ ${r} 回`,
     lightToast: '軽量モードにしました（タイトルで切り替えできます）',
     skip: 'スキップ', close: 'とじる',
-    prep: '出発準備', coins: 'コイン', depart: '出発', back: 'もどる', toPrep: '準備へ', maxed: 'MAX',
-    prepNote: '買った強化は、次の1回の旅だけ。終わるとリセット',
+    coins: 'コイン', back: 'もどる', gacha: 'ガチャ', equip: '装備・強化', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
+    gNew: 'NEW!', gDup: n => `もう持っている → ${n} コイン`, pearl: 'パール', up: '強化',
+    pity: n => `SSR確定まで あと${n}回`, pearlHow: 'パールは、ステージを初めてクリアするともらえる（大ボスは多め）',
+    firstClear: n => `初回クリア！ パール+${n}`, pearlGot: n => `パール +${n}`,
+    pas: { food: v => `満腹 +${v}`, coin: v => `コイン +${Math.round(v * 100)}%`, eat: v => `食べて回復 +${Math.round(v * 100)}%`,
+      dmg: v => `威力 +${Math.round(v * 100)}%`, rate: v => `連射 +${Math.floor(v)}` },
     earned: n => `+${n} コイン`,
-    shop: { rate: ['連射 +1', '1秒あたりの弾が増える'], lines: ['段数 +1', '横に並ぶ弾が増える'], dmg: ['威力 ×2', '1発の威力が2倍'],
-      crew: ['仲間 +1', '横で一緒に撃つワニ'], food: ['満腹 +3', '飢餓ゲージの目盛りが増える'], life: ['ライフ +1', '1回当たっても続けられる'] },
+    wname: { pea: '豆鉄砲', twin: 'ツイン', fan: 'ファン', rapid: 'ラピッド', bouncer: 'バウンサー', wave: 'ウェーブ',
+      shotgun: 'ショットガン', homing: 'ホーミング', beam: 'ビームキャノン', trident: 'トライデント', jaws: 'ジョーズ' },
+    sname: { green: 'みどり', olive: 'オリーブ', sky: 'そら', pink: 'ピンク', gold: 'ゴールド', snow: 'スノー',
+      violet: 'バイオレット', crimson: 'クリムゾン', shadow: 'シャドウ', neon: 'ネオン' },
     tut: [
       '画面をドラッグして、ワニを左右に動かそう',
       '左の魚を撃って食べよう。\n逃すと左上の🍖が減り、空になると餓死',
@@ -112,6 +158,7 @@ const I18N = {
       ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
       ['ボス', '毎ステージの最後に大きな魚。10の倍数は大ボス。下まで来られたら負け'],
       ['ゴール', '100ステージで GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
+      ['コイン・パール', '進んだ距離はコインになり、装備の強化に使う。ステージを初めてクリアするとパールがもらえ、ガチャで武器とスキンが手に入る'],
     ],
   },
   en: {
@@ -129,11 +176,17 @@ const I18N = {
     menuSub: (b, r) => `BEST ${b} m  ·  ${r} RUNS`,
     lightToast: 'LIGHT MODE ON — change it on the title screen',
     skip: 'SKIP', close: 'CLOSE',
-    prep: 'PREPARE', coins: 'COINS', depart: 'DEPART', back: 'BACK', toPrep: 'PREPARE', maxed: 'MAX',
-    prepNote: 'Boosts last for your next run only, then reset',
+    coins: 'COINS', back: 'BACK', gacha: 'GACHA', equip: 'GEAR', gWeapon: 'WEAPON', gSkin: 'SKIN', pull: 'PULL',
+    gNew: 'NEW!', gDup: n => `Duplicate → ${n} coins`, pearl: 'PEARLS', up: 'UP',
+    pity: n => `SSR guaranteed in ${n}`, pearlHow: 'Earn pearls by clearing a stage for the first time (more for big bosses)',
+    firstClear: n => `FIRST CLEAR! +${n} PEARLS`, pearlGot: n => `+${n} PEARLS`,
+    pas: { food: v => `FULL +${v}`, coin: v => `COINS +${Math.round(v * 100)}%`, eat: v => `EAT +${Math.round(v * 100)}%`,
+      dmg: v => `DMG +${Math.round(v * 100)}%`, rate: v => `RATE +${Math.floor(v)}` },
     earned: n => `+${n} COINS`,
-    shop: { rate: ['RATE +1', 'More shots per second'], lines: ['LINE +1', 'More bullets side by side'], dmg: ['DMG ×2', 'Double damage per shot'],
-      crew: ['CREW +1', 'A croc that shoots beside you'], food: ['FULL +3', 'A longer hunger gauge'], life: ['LIFE +1', 'Survive one hit'] },
+    wname: { pea: 'Pea Shooter', twin: 'Twin', fan: 'Fan', rapid: 'Rapid', bouncer: 'Bouncer', wave: 'Wave',
+      shotgun: 'Shotgun', homing: 'Homing', beam: 'Beam Cannon', trident: 'Trident', jaws: 'Jaws' },
+    sname: { green: 'Green', olive: 'Olive', sky: 'Sky', pink: 'Pink', gold: 'Gold', snow: 'Snow',
+      violet: 'Violet', crimson: 'Crimson', shadow: 'Shadow', neon: 'Neon' },
     tut: [
       'Drag anywhere to move the croc left and right',
       'Shoot the fish on the left to eat them.\nMiss them and the meat gauge drops — empty means starving',
@@ -150,6 +203,7 @@ const I18N = {
       ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
       ['Boss', 'A big fish ends every stage; every 10th is a big boss. If it reaches the bottom, you lose'],
       ['Goal', 'Stage 100 = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
+      ['Coins & pearls', 'Distance becomes coins for upgrading gear. First-time stage clears give pearls for the weapon / skin gacha'],
     ],
   },
 };
@@ -181,14 +235,20 @@ const FF = [
 const FCOL = ['#cfe0ff', '#ffb35a', '#ff6a8a'];
 const FISH = FCOL.map(col => FF.map(f => spr(f, { '#': col }, 2)));
 const MEAT = spr(['.....ww', '....ww.', '..###..', '.####..', '#####..', '####...', '.##....'], { '#': '#e0664a', w: '#fff' }, 2);
-const PLAYER = spr(['.....w.....', '....###....', '...#####...', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#.#######.#', '#..#####..#', '...##.##...', '..##...##..'],
-  { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 3);
+const PLAYER_ROWS = ['.....w.....', '....###....', '...#####...', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#.#######.#', '#..#####..#', '...##.##...', '..##...##..'];
 // ボス：大きな魚（食べごたえのある獲物）
 const BOSS_ROWS = ['.##..........##.', '..##........##..', '....##....##....', '......####......', '.....######.....', '...##########...', '..############..', '.##############.', '.###ee####ee###.', '.###eK####Ke###.', '..############..', '....########....'];
 const BOSS_MID = spr(BOSS_ROWS, { '#': '#cfe0ff', e: '#fff', K: '#000' }, 7);
 const BOSS_BIG = spr(BOSS_ROWS, { '#': '#ff6a5a', e: '#ffe14a', K: '#000' }, 9);
-const HELPER = spr(['.....w.....', '....###....', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#..#####..#', '...##.##...'],
-  { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 2);
+const HELPER_ROWS = ['.....w.....', '....###....', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#..#####..#', '...##.##...'];
+const skinCache = {};
+function crocSprites(id) {
+  if (!skinCache[id]) {
+    const k = skinOf(id), pal = { '#': k.c, d: k.d, e: k.e, w: '#ffffff' };
+    skinCache[id] = { player: spr(PLAYER_ROWS, pal, 3), helper: spr(HELPER_ROWS, pal, 2), icon: spr(PLAYER_ROWS, pal, 4) };
+  }
+  return skinCache[id];
+}
 const HEART = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#ff4d6d' }, 2);
 const HEART_OFF = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#3a3a3a' }, 2);
 
@@ -240,10 +300,10 @@ function newRun() {
     pops: [], parts: [], popT: 0, bossAcc: 0, bossAccT: 0, hurt: 0, banner: null, over: false, newBest: false,
   };
   R = r;
-  const pr = SLOT.prep || freshPrep();
-  r.st.rate += pr.rate; r.st.lines += pr.lines; r.st.crew += pr.crew; r.st.dmg *= Math.pow(2, pr.dmg);
-  r.hp += pr.life; r.foodMax = r.food = FOOD_MAX + pr.food * 3;
-  r.base = { ...r.st };   // 買った強さは、進み具合の上限より下がらない
+  const wd = weaponOf(SLOT.weapon), lv = SLOT.weapons[wd.id] || 1;
+  r.st.rate = wRate(wd, lv) + Math.floor(skinBonus('rate')); r.st.lines = wd.lines; r.st.dmg = wDmg(wd, lv) * (1 + skinBonus('dmg')); r.st.wp = wd.pat;
+  r.foodMax = r.food = FOOD_MAX + Math.floor(skinBonus('food'));
+  r.base = { ...r.st };   // 装備の強さは、ステージの上限より下がらない
   return r;
 }
 function snapshot() {
@@ -430,6 +490,12 @@ function killBoss() {
   burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#cfe0ff');
   R.stage++; R.stageM = 0;
   R.boss = null;
+  if (b.k > SLOT.maxStage) {   // 初めてクリアしたステージ：パール
+    SLOT.maxStage = b.k;
+    const p = b.big ? FIRST_CLEAR.big : FIRST_CLEAR.normal;
+    SLOT.pearls += p; R.pearls = (R.pearls || 0) + p; writeSlot();
+    pop(W / 2, 330, L().firstClear(p), true, '#ffc6f0');
+  }
   sfx('boss');
   if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
   else R.banner = { text: L().stageClear(b.k), t: 1.8, sub: b.big ? L().bigDown : '' };
@@ -453,6 +519,11 @@ function shooterX(si) {   // 0 が自分、1 以降は左右に並ぶ仲間
   const i = si - 1;
   return clamp(R.x + (i % 2 ? 1 : -1) * (26 + Math.floor(i / 2) * 20), 8, W - 8);
 }
+function nearestFood(x) {
+  let best = null, bd = 1e9;
+  for (const mo of R.mobs) { if (mo.d || mo.y > PY - 40) continue; const d = Math.abs(mo.x - x) + (PY - mo.y) * 0.3; if (d < bd) { bd = d; best = mo; } }
+  return best;
+}
 function volley() {
   const st = R.st, wp = st.wp || 'normal', total = st.lines * st.crew;
   const shooters = Math.min(st.crew, 8);
@@ -471,11 +542,15 @@ function volley() {
     const si = k % shooters, line = Math.floor(k / shooters);
     const u = per > 1 ? line / (per - 1) - 0.5 : 0;   // -0.5〜0.5
     const x = shooterX(si) + u * Math.min(per, 9) * 6;
-    let vx = 0;
+    let vx = 0, pierce = pr, wave = 0;
     if (wp === 'spread') vx = u * 0.8 * BULLET_V;                 // 扇状に広がる
+    else if (wp === 'shotgun') vx = u * 1.3 * BULLET_V;           // もっと広く散らばる
     else if (wp === 'bounce') vx = (line % 2 ? 1 : -1) * 0.45 * BULLET_V;   // 斜めに撃ち、壁で跳ね返る
+    else if (wp === 'homing') { const t = nearestFood(x); if (t) vx = clamp((t.x - x) / Math.max(40, PY - t.y), -0.6, 0.6) * BULLET_V; }   // 近くの魚へ
+    else if (wp === 'trident') pierce = pr + 3;                   // よく貫く
+    else if (wp === 'wave') wave = 1;                             // くねくね進む
     const vy = -Math.sqrt(BULLET_V * BULLET_V - vx * vx);
-    R.b.push({ x, y: PY - 14, vx, vy, d: st.dmg * w, w, pr, bn: wp === 'bounce' ? 3 : 0 });
+    R.b.push({ x, x0: x, y: PY - 14, vx, vy, d: st.dmg * w, w, pr: pierce, bn: wp === 'bounce' ? 3 : 0, wave, ph: line * 1.7 + si });
   }
 }
 
@@ -505,7 +580,9 @@ function step(dt) {
   // 弾
   for (let i = R.b.length - 1; i >= 0; i--) {
     const b = R.b[i];
-    b.x += b.vx * dt; b.y += b.vy * dt;
+    if (!b.wave) b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.wave) { b.x0 += b.vx * dt; b.x = b.x0 + Math.sin((PY - b.y) * 0.05 + b.ph) * 16; }   // ウェーブ
     if (b.bn > 0 && (b.x < 2 || b.x > W - 2)) { b.vx = -b.vx; b.x = clamp(b.x, 2, W - 2); b.bn--; }   // 反射
     let dead = b.y < -30 || b.x < -10 || b.x > W + 10;
     // 右：ゲートとアイテム（弾は通り抜けず、ぶつかって数値を動かす）
@@ -526,7 +603,7 @@ function step(dt) {
           for (let j = head[xx + yy * GCOLS]; j !== -1; j = nxt[j]) {
             const mo = R.mobs[j];
             if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
-            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; R.food = Math.min(R.foodMax, R.food + FOOD_EAT);
+            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; R.food = Math.min(R.foodMax, R.food + FOOD_EAT * (1 + skinBonus('eat')));
             if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: FCOL[mo.k] });
             if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
             sfx('kill');
@@ -669,7 +746,7 @@ function applyStatic() {
   $('pauseTitle').textContent = l.pause;
   $('btnResume').textContent = l.resume;
   $('btnQuit').textContent = l.quit;
-  $('btnRetry').textContent = l.toPrep;
+  $('btnRetry').textContent = l.retry;
   $('btnHome').textContent = l.title;
   $('tutSkip').textContent = l.skip;
   $('helpTitle').textContent = l.how;
@@ -680,48 +757,104 @@ function showMenu() {
   state = 'menu';
   show('result', false); show('pause', false);
   const l = L();
-  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs) + `  ·  ${l.coins} ${fmt(SLOT.coins)}`;
+  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs) + `  ·  ${l.coins} ${fmt(SLOT.coins)}  ·  ${l.pearl} ${fmt(SLOT.pearls)}`;
   show('btnContinue', !!SLOT.run);
   $('btnContinue').textContent = SLOT.run ? `${l.cont}  ${fmt(Math.floor(SLOT.run.m * METER))} m` : l.cont;
   $('btnStart').textContent = SLOT.run ? l.newRun : l.start;
   $('btnLight').textContent = `${l.light}: ${OPT.light ? l.on : l.off}`;
   $('btnSound').textContent = `${l.sound}: ${OPT.sound ? l.on : l.off}`;
   $('btnHow').textContent = l.how;
+  $('btnGacha').textContent = l.gacha;
+  $('btnEquip').textContent = `${l.equip}：${l.wname[SLOT.weapon] || ''}`;
   $('btnLang').textContent = l.lang;
   applyStatic();
   show('menu', true);
 }
-function openShop() {
-  state = 'menu';
-  show('menu', false); show('result', false);
-  renderShop();
-  show('shop', true);
+// ---------- ガチャ（武器 / スキン） ----------
+let gachaTab = 'weapon';
+function rollRarity() {
+  let r = Math.random() * 100;
+  for (const k of ['SSR', 'SR', 'R', 'N']) { r -= RARITY[k].w; if (r < 0) return k; }
+  return 'N';
 }
-function renderShop() {
-  const l = L(), pr = SLOT.prep;
-  $('shopTitle').textContent = l.prep;
-  $('shopCoins').textContent = `${l.coins} ${fmt(SLOT.coins)}`;
-  $('shopNote').textContent = l.prepNote;
-  $('btnDepart').textContent = l.depart;
-  $('btnShopBack').textContent = l.back;
-  $('shopList').innerHTML = SHOP.map(it => {
-    const lv = pr[it.id], maxed = lv >= it.max, cost = it.cost(lv);
-    const [name, desc] = l.shop[it.id];
-    return `<button class="shop-row" data-buy="${it.id}" ${maxed || SLOT.coins < cost ? 'disabled' : ''}>
-      <span class="sr-name">${name}<small>${desc}</small></span>
-      <span class="sr-lv">${'■'.repeat(lv)}${'□'.repeat(it.max - lv)}</span>
-      <span class="sr-cost">${maxed ? l.maxed : fmt(cost)}</span></button>`;
+function pull(kind) {
+  if (SLOT.pearls < GACHA_COST) return;
+  SLOT.pearls -= GACHA_COST;
+  SLOT.pity[kind] = (SLOT.pity[kind] || 0) + 1;
+  let rar = rollRarity();
+  if (SLOT.pity[kind] >= PITY) rar = 'SSR';   // 天井
+  if (rar === 'SSR') SLOT.pity[kind] = 0;
+  const pool = (kind === 'weapon' ? WEAPON_DEF : SKIN_DEF).filter(x => x.r === rar);
+  const got = pool[Math.floor(Math.random() * pool.length)];
+  const l = L(), owned = kind === 'weapon' ? SLOT.weapons : SLOT.skins;
+  let note;
+  if (!owned[got.id]) { owned[got.id] = 1; note = l.gNew; }
+  else { SLOT.coins += DUP_COINS[rar]; note = l.gDup(DUP_COINS[rar]); }
+  writeSlot();
+  sfx(rar === 'SSR' || rar === 'SR' ? 'boss' : 'gate');
+  const name = kind === 'weapon' ? l.wname[got.id] : l.sname[got.id];
+  const icon = kind === 'skin' ? `<img class="g-icon" src="${crocSprites(got.id).icon.toDataURL()}" alt="">` : '';
+  const el = $('gachaResult');
+  el.className = 'g-result r-' + rar;
+  el.innerHTML = `${icon}<b style="color:${RARITY[rar].col}">${rar}</b><span>${name}</span><small>${note}</small>`;
+  void el.offsetWidth; el.classList.add('pop');
+  renderGacha();
+}
+function openGacha() { state = 'menu'; show('menu', false); $('gachaResult').innerHTML = ''; renderGacha(); show('gacha', true); }
+function renderGacha() {
+  const l = L(), kind = gachaTab;
+  $('gachaTitle').textContent = l.gacha;
+  $('gachaCoins').textContent = `${l.pearl} ${fmt(SLOT.pearls)}`;
+  $('tabWeapon').textContent = l.gWeapon; $('tabSkin').textContent = l.gSkin;
+  $('tabWeapon').classList.toggle('on', kind === 'weapon'); $('tabSkin').classList.toggle('on', kind === 'skin');
+  $('btnPull').textContent = `${l.pull}  🦪${GACHA_COST}`;
+  $('btnPull').disabled = SLOT.pearls < GACHA_COST;
+  $('gachaRates').textContent = `N 60%  ·  R 28%  ·  SR 10%  ·  SSR 2%  ·  ${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
+  $('gachaHow').textContent = l.pearlHow;
+  const list = kind === 'weapon' ? WEAPON_DEF : SKIN_DEF;
+  $('gachaList').innerHTML = list.map(x => {
+    const own = kind === 'weapon' ? SLOT.weapons[x.id] : SLOT.skins[x.id];
+    const name = own ? (kind === 'weapon' ? l.wname[x.id] : l.sname[x.id]) : '？？？';
+    const extra = own ? ` Lv${own}` : '';
+    return `<span class="g-chip ${own ? 'own' : ''}" style="border-color:${RARITY[x.r].col}"><i style="color:${RARITY[x.r].col}">${x.r}</i>${name}${extra}</span>`;
   }).join('');
-  $('shopList').querySelectorAll('[data-buy]').forEach(b => { b.onclick = () => buy(b.dataset.buy); });
+  $('btnGachaBack').textContent = l.back;
 }
-function buy(id) {
-  const it = SHOP.find(x => x.id === id), lv = SLOT.prep[id], cost = it.cost(lv);
-  if (lv >= it.max || SLOT.coins < cost) return;
-  SLOT.coins -= cost; SLOT.prep[id]++; writeSlot();
-  sfx('gate'); renderShop();
+// ---------- 装備 ----------
+function openEquip() { state = 'menu'; show('menu', false); renderEquip(); show('equip', true); }
+function renderEquip() {
+  const l = L();
+  $('equipTitle').textContent = l.equip;
+  $('equipCoins').textContent = `${l.coins} ${fmt(SLOT.coins)}`;
+  $('equipWHead').textContent = l.gWeapon; $('equipSHead').textContent = l.gSkin;
+  $('equipWeapons').innerHTML = WEAPON_DEF.filter(w => SLOT.weapons[w.id]).map(w => {
+    const lv = SLOT.weapons[w.id], on = SLOT.weapon === w.id, max = lv >= WLV_MAX, cost = wUpCost(w, lv);
+    return `<div class="eq-row ${on ? 'on' : ''}">
+      <button class="eq-pick" data-w="${w.id}"><span><span class="eq-name"><i style="color:${RARITY[w.r].col}">${w.r}</i> ${l.wname[w.id]} <small>Lv${lv}</small></span>
+      <span class="eq-stat">${l.wp[w.pat]} · ${l.stat.rate}${wRate(w, lv)} · ${l.stat.lines}${w.lines} · ${l.stat.dmg}${fmt(Math.round(wDmg(w, lv) * 10) / 10)}</span></span></button>
+      <button class="eq-up" data-wu="${w.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
+  }).join('');
+  $('equipSkins').innerHTML = SKIN_DEF.filter(k => SLOT.skins[k.id]).map(k => {
+    const lv = SLOT.skins[k.id], on = SLOT.skin === k.id, max = lv >= SLV_MAX, cost = sUpCost(k, lv);
+    return `<div class="eq-row ${on ? 'on' : ''}">
+      <button class="eq-pick" data-s="${k.id}"><img src="${crocSprites(k.id).icon.toDataURL()}" alt="">
+      <span><span class="eq-name"><i style="color:${RARITY[k.r].col}">${k.r}</i> ${l.sname[k.id]} <small>Lv${lv}</small></span>
+      <span class="eq-stat">${l.pas[k.pas](k.v * lv)}</span></span></button>
+      <button class="eq-up" data-su="${k.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
+  }).join('');
+  $('equipWeapons').querySelectorAll('[data-w]').forEach(b => { b.onclick = () => { SLOT.weapon = b.dataset.w; writeSlot(); sfx('gate'); renderEquip(); }; });
+  $('equipSkins').querySelectorAll('[data-s]').forEach(b => { b.onclick = () => { SLOT.skin = b.dataset.s; writeSlot(); sfx('gate'); renderEquip(); }; });
+  $('equipWeapons').querySelectorAll('[data-wu]').forEach(b => { b.onclick = () => {
+    const w = weaponOf(b.dataset.wu), lv = SLOT.weapons[w.id], cost = wUpCost(w, lv);
+    if (lv >= WLV_MAX || SLOT.coins < cost) return;
+    SLOT.coins -= cost; SLOT.weapons[w.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
+  $('equipSkins').querySelectorAll('[data-su]').forEach(b => { b.onclick = () => {
+    const k = skinOf(b.dataset.su), lv = SLOT.skins[k.id], cost = sUpCost(k, lv);
+    if (lv >= SLV_MAX || SLOT.coins < cost) return;
+    SLOT.coins -= cost; SLOT.skins[k.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
+  $('btnEquipBack').textContent = l.back;
 }
 function startRun(resume) {
-  show('shop', false);
   show('menu', false); show('result', false); show('pause', false);
   if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
@@ -762,7 +895,7 @@ function gameOver() {
   R.newBest = m > SLOT.best;
   if (R.newBest) SLOT.best = m;
   const gain = coinsFor(m, R.stage - 1);
-  SLOT.coins += gain; SLOT.prep = freshPrep();
+  SLOT.coins += gain;
   SLOT.run = null; writeSlot();
   sfx('hurt');
   const l = L();
@@ -770,7 +903,7 @@ function gameOver() {
   $('resTitle').textContent = R.starved ? l.starved : l.over;
   $('resM').textContent = fmt(Math.floor(m * METER)) + ' m';
   $('resSub').textContent = (R.newBest ? l.newBest + '  ' : `${l.best} ${fmt(Math.floor(SLOT.best * METER))} m  ·  `) + `${R.cleared ? '∞ MODE  ·  ' : ''}${l.eaten(R.kills)}`;
-  $('resCoins').textContent = l.earned(gain);
+  $('resCoins').textContent = l.earned(gain) + (R.pearls ? `  ·  ${l.pearlGot(R.pearls)}` : '');
   setTimeout(() => { if (state === 'result') show('result', true); }, 700);
 }
 
@@ -811,13 +944,18 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('pagehide', () => { if (state === 'play' || state === 'pause') persist(); });
 
-$('btnStart').onclick = openShop;
-$('btnDepart').onclick = () => startRun(false);
-$('btnShopBack').onclick = () => { show('shop', false); showMenu(); };
+$('btnStart').onclick = () => startRun(false);
+$('btnGacha').onclick = openGacha;
+$('btnEquip').onclick = openEquip;
+$('tabWeapon').onclick = () => { gachaTab = 'weapon'; $('gachaResult').innerHTML = ''; renderGacha(); };
+$('tabSkin').onclick = () => { gachaTab = 'skin'; $('gachaResult').innerHTML = ''; renderGacha(); };
+$('btnPull').onclick = () => pull(gachaTab);
+$('btnGachaBack').onclick = () => { show('gacha', false); showMenu(); };
+$('btnEquipBack').onclick = () => { show('equip', false); showMenu(); };
 $('btnContinue').onclick = () => startRun(true);
 $('btnResume').onclick = resumeGame;
 $('btnQuit').onclick = () => { persist(); tutHide(); showMenu(); };
-$('btnRetry').onclick = openShop;
+$('btnRetry').onclick = () => startRun(false);
 $('btnHome').onclick = showMenu;
 $('btnLight').onclick = () => { OPT.light = !OPT.light; OPT.lightAsked = true; saveOpt(); resize(); showMenu(); };
 $('btnHow').onclick = () => { applyStatic(); show('help', true); };
@@ -948,6 +1086,7 @@ function render(now) {
   // 自機と仲間
   if (!R.over) {
     const n = Math.min(R.st.crew, 8);
+    const cs = crocSprites(SLOT.skin), HELPER = cs.helper, PLAYER = cs.player;
     for (let si = 1; si < n; si++) ctx.drawImage(HELPER, Math.round(shooterX(si) - HELPER.width / 2), PY - 12);
     if (R.hurt > 0 && Math.floor(R.hurt * 20) % 2) ctx.globalAlpha = 0.35;
     ctx.drawImage(PLAYER, Math.round(R.x - PLAYER.width / 2), PY - 16);
