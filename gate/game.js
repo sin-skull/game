@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -26,7 +26,7 @@ const speed = m => (m <= G ? 1 + K * m / G : (1 + K) * (1 + 1.8 * (m - G) / G));
 
 // ---------- 盤面 ----------
 const MID = W / 2;                           // 左半分＝ワニ、右半分＝ゲート
-const PX = MID, PY = 560;                    // 自機（据え置き）
+const PY = 560;                               // 自機の高さ（左右には自由に動ける）
 const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
 const GATE_GAP = 200;                        // ゲートの行の間隔（進んだ距離）
 const MOB_VY = 14, GATE_VY = 14, BULLET_V = 720, ROW_H = 14;
@@ -35,7 +35,10 @@ const HP_MAX = 3;                            // ハートは1つで始まり、L
 const FOOD_MAX = 10, FOOD_EAT = 0.15;        // 飢餓ゲージ：1匹逃すと-1、1匹食べると+0.15
 const DMG_CAP = 1e250;                       // ダメージの上限（ボスHPなどが数の限界を超えないように）
 const PIERCE_MAX = 6;                        // 1発で貫ける数の上限（∞ MODE で無敵にならないように）
-const ST0 = { dmg: 1, lines: 7, crew: 1, rate: 8 };   // 初期グレード（転生で買う要素は次の段階）
+const ST0 = { dmg: 1, lines: 7, crew: 1, rate: 8, wp: 'normal' };
+// 武器：撃ち方が変わる（弾はまっすぐ上に飛ぶのが基本）
+const WEAPONS = ['normal', 'spread', 'bounce', 'beam'];
+const WP_NAME = { normal: 'NORMAL', spread: 'SPREAD', bounce: 'BOUNCE', beam: 'BEAM' };   // 初期グレード（転生で買う要素は次の段階）
 
 // ---------- 設定・セーブ ----------
 const SETTINGS_KEY = 'gate-settings';
@@ -136,7 +139,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 function newRun() {
   const r = {
     m: 0, hp: 1, food: FOOD_MAX, nextLife: SEG * 0.5, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, inv: 0,
-    st: { ...ST0 }, aim: MID + 70,
+    st: { ...ST0 }, x: MID, tx: MID, nextWeapon: SEG * 0.3,
     mobs: [], b: [], objs: [],
     boss: null, nextBoss: 1, cleared: false, fightKills: 0, kills: 0,
     pops: [], parts: [], popT: 0, bossAcc: 0, bossAccT: 0, hurt: 0, banner: null, over: false, newBest: false,
@@ -146,13 +149,14 @@ function newRun() {
 }
 function snapshot() {
   if (!R || R.over) return null;
-  const { m, hp, food, nextLife, t, rowAcc, gateAcc, uid, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
-  return JSON.parse(JSON.stringify({ m, hp, food, nextLife, t, rowAcc, gateAcc, uid, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
+  const { m, hp, food, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
+  return JSON.parse(JSON.stringify({ m, hp, food, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
 }
 function loadRun(snap) {
   const r = newRun();
   Object.assign(r, snap);
   r.st = Object.assign({ ...ST0 }, snap.st);
+  r.x = r.tx = typeof snap.x === 'number' ? snap.x : MID;
   R = r;
   return r;
 }
@@ -191,6 +195,10 @@ function makeGate(slot, safe) {
 function makeLife(slot) {
   return { id: ++R.uid, cls: 'gate', stat: 'life', type: 'add', v: 1, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
+function makeWeapon(slot) {
+  const choices = WEAPONS.filter(w => w !== R.st.wp);
+  return { id: ++R.uid, cls: 'gate', stat: 'weapon', type: 'set', v: choices[Math.floor(Math.random() * choices.length)], c: 0, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
+}
 function makeItem(slot, kind) {
   kind = kind || ['crew', 'power'][Math.floor(Math.random() * 2)];
   const hp = Math.max(8, dpsOf(R.st) * rnd(0.5, 1.0));   // 狙えば1秒ほどで壊せる硬さ
@@ -208,20 +216,31 @@ function spawnGateRow() {
     const slot = Math.random() < 0.5 ? 0 : 1;
     const o = Math.random() < 0.5 ? makeLife(slot) : makeItem(slot, 'heal');
     if (slot) second = o; else first = o;
+  } else if (R.m >= R.nextWeapon) {
+    // 武器ゲートもたまにだけ。撃つと中身の武器が切り替わる
+    R.nextWeapon = R.m + SEG * rnd(0.3, 0.5);
+    const slot = Math.random() < 0.5 ? 0 : 1;
+    if (slot) second = makeWeapon(1); else first = makeWeapon(0);
   }
   R.objs.push(first, second);
 }
 const stepOf = o => (o.stat === 'dmg' ? o.v : Math.round(o.v));   // LINE・CREW は整数で効く
-function isGood(o) { return o.cls === 'item' || (o.type === 'add' ? stepOf(o) >= 0 : o.v >= 1); }
+function isGood(o) { return o.cls === 'item' || o.stat === 'weapon' || (o.type === 'add' ? stepOf(o) >= 0 : o.v >= 1); }
 function gateLabel(o) {
+  if (o.stat === 'weapon') return WP_NAME[o.v];
   if (o.type === 'add') { const v = stepOf(o); return (v < 0 ? '-' : '+') + (o.stat === 'dmg' ? fmt(Math.abs(v) < 10 ? Math.round(Math.abs(v) * 10) / 10 : Math.floor(Math.abs(v))) : Math.abs(v)); }
   if (o.v < 1) return '÷' + (1 / Math.max(0.05, o.v)).toFixed(1).replace(/\.0$/, '');
   return '×' + (o.v < 10 ? o.v.toFixed(1).replace(/\.0$/, '') : fmt(Math.floor(o.v)));
 }
-const STAT_NAME = { dmg: 'DMG', lines: 'LINE', crew: 'CREW', life: 'LIFE' };
+const STAT_NAME = { dmg: 'DMG', lines: 'LINE', crew: 'CREW', life: 'LIFE', weapon: 'WEAPON' };
 // 撃たれたとき：数値が「良い方向」に動く（マイナスも撃てばプラスに転じる）
 function growGate(o, b) {
   if (o.stat === 'life') { o.hit = 0.1; return; }
+  if (o.stat === 'weapon') {
+    o.c += b.w * 40 / (R.st.lines * R.st.crew * R.st.rate); o.hit = 0.1;
+    if (o.c >= 60) { o.c = 0; o.v = WEAPONS[(WEAPONS.indexOf(o.v) + 1) % WEAPONS.length]; }
+    return;
+  }
   // 弾が増えるほど当たる回数も増えるので、育つ速さは弾数に関わらず一定になるよう割り戻す
   const w = b.w * 40 / (R.st.lines * R.st.crew * R.st.rate);
   if (o.stat === 'dmg' && o.type === 'add') o.v += R.st.dmg * 0.00015 * w;
@@ -234,7 +253,12 @@ function applyGate(o) {
   const st = R.st; let msg;
   if (o.stat === 'life') {
     R.hp = Math.min(HP_MAX, R.hp + 1);
-    pop(PX, PY - 50, '+1 LIFE', true, '#ff8da1'); burst(o.x + o.w / 2, PY, 14, '#ff8da1'); sfx('gate');
+    pop(R.x, PY - 50, '+1 LIFE', true, '#ff8da1'); burst(o.x + o.w / 2, PY, 14, '#ff8da1'); sfx('gate');
+    return;
+  }
+  if (o.stat === 'weapon') {
+    st.wp = o.v;
+    pop(R.x, PY - 50, WP_NAME[o.v], true, '#66e6ff'); burst(o.x + o.w / 2, PY, 14, '#66e6ff'); sfx('gate');
     return;
   }
   const before = { ...st };
@@ -244,7 +268,7 @@ function applyGate(o) {
   const good = o.stat === 'dmg' ? st.dmg >= before.dmg : st[o.stat] >= before[o.stat];
   msg = `${STAT_NAME[o.stat]} ${gateLabel(o)}`;
   const stack = R.pops.filter(p => p.big && p.y > PY - 130).length;   // 同時に確定したら縦にずらす
-  pop(PX, PY - 50 - stack * 20, msg, true, good ? '#39ff88' : '#ff5a5a');
+  pop(R.x, PY - 50 - stack * 20, msg, true, good ? '#39ff88' : '#ff5a5a');
   burst(o.x + o.w / 2, PY, 14, good ? '#39ff88' : '#ff5a5a');
   if (!good) { R.hurt = 0.3; sfx('hurt'); } else sfx('gate');
 }
@@ -313,18 +337,34 @@ function pop(x, y, text, big, col) {
 
 // ---------- 発射 ----------
 // 見た目の弾数には上限を設け、超えた分は1発の重み（w）に乗せる（スマホが熱くならないように）
-function helperX(i) { return PX + (i % 2 ? 1 : -1) * (30 + Math.floor(i / 2) * 22); }
+function shooterX(si) {   // 0 が自分、1 以降は左右に並ぶ仲間
+  if (si === 0) return R.x;
+  const i = si - 1;
+  return clamp(R.x + (i % 2 ? 1 : -1) * (26 + Math.floor(i / 2) * 20), 8, W - 8);
+}
 function volley() {
-  const st = R.st, total = st.lines * st.crew, vis = OPT.light ? 14 : 32;
-  const n = Math.min(total, vis), w = total / n;
-  const shooters = Math.min(st.crew, 8), per = Math.ceil(n / shooters);
+  const st = R.st, wp = st.wp || 'normal', total = st.lines * st.crew;
+  const shooters = Math.min(st.crew, 8);
+  if (wp === 'beam') {
+    // ビーム：1人1本。段数ぶんの威力をまとめ、たくさん貫く
+    for (let si = 0; si < shooters; si++) {
+      const w = total / shooters;
+      R.b.push({ x: shooterX(si), y: PY - 14, vx: 0, vy: -BULLET_V * 1.3, d: st.dmg * w, w, pr: PIERCE_MAX * 4, beam: 1, bn: 0 });
+    }
+    return;
+  }
+  const vis = OPT.light ? 14 : 32;
+  const n = Math.min(total, vis), w = total / n, per = Math.ceil(n / shooters);
   const pr = Math.min(PIERCE_MAX, Math.max(1, Math.round(w)) + 1 + Math.floor(Math.log10(Math.max(1, st.dmg))));
   for (let k = 0; k < n; k++) {
     const si = k % shooters, line = Math.floor(k / shooters);
-    const sx = si === 0 ? PX : helperX(si - 1);
-    const tx = R.aim + ((line + 0.5) / per - 0.5) * st.lines * 14;   // 段数が増えるほど扇が広がる
-    const dx = tx - sx, dy = -(PY - 40), len = Math.hypot(dx, dy);
-    R.b.push({ x: sx, y: PY - 14, vx: dx / len * BULLET_V, vy: dy / len * BULLET_V, d: st.dmg * w, w, pr });
+    const u = per > 1 ? line / (per - 1) - 0.5 : 0;   // -0.5〜0.5
+    const x = shooterX(si) + u * Math.min(per, 9) * 6;
+    let vx = 0;
+    if (wp === 'spread') vx = u * 0.8 * BULLET_V;                 // 扇状に広がる
+    else if (wp === 'bounce') vx = (line % 2 ? 1 : -1) * 0.45 * BULLET_V;   // 斜めに撃ち、壁で跳ね返る
+    const vy = -Math.sqrt(BULLET_V * BULLET_V - vx * vx);
+    R.b.push({ x, y: PY - 14, vx, vy, d: st.dmg * w, w, pr, bn: wp === 'bounce' ? 3 : 0 });
   }
 }
 
@@ -341,7 +381,8 @@ function step(dt) {
     if (R.m >= R.nextBoss * SEG - FIGHT_LEN) spawnBoss();
   }
   if (BOT) botControl();
-  R.aim = clamp(R.aim, 6, W - 6);
+  R.tx = clamp(R.tx, 14, W - 14);
+  R.x += (R.tx - R.x) * Math.min(1, dt * 18);
 
   // 発射
   R.fire += dt * st.rate;
@@ -353,9 +394,10 @@ function step(dt) {
   for (let i = R.b.length - 1; i >= 0; i--) {
     const b = R.b[i];
     b.x += b.vx * dt; b.y += b.vy * dt;
-    let dead = b.y < -12 || b.x < -10 || b.x > W + 10;
+    if (b.bn > 0 && (b.x < 2 || b.x > W - 2)) { b.vx = -b.vx; b.x = clamp(b.x, 2, W - 2); b.bn--; }   // 反射
+    let dead = b.y < -30 || b.x < -10 || b.x > W + 10;
     // 右：ゲートとアイテム（弾は通り抜けず、ぶつかって数値を動かす）
-    if (!dead && b.x > MID - 4) {
+    if (!dead && b.x > MID - 10) {
       for (const o of R.objs) {
         if (b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h) {
           if (o.cls === 'gate') growGate(o, b);
@@ -449,15 +491,15 @@ function damage() {
 function botControl() {
   // 壊さないと当たるアイテムが近づいたら最優先
   const it = R.objs.find(o => o.cls === 'item' && !o.dead && o.y > 260);
-  if (it) { R.aim = it.x + it.w / 2; return; }
+  if (it) { R.tx = it.x + it.w / 2; return; }
   let low = 0, sum = 0;
   for (const mo of R.mobs) if (mo.y > 120) { low++; sum += mo.x; }
-  if (low > 2) { R.aim = sum / low + Math.sin(R.t * 4) * 45; return; }
-  if (R.boss && R.boss.y > 20) { R.aim = R.boss.x; return; }
+  if (low > 2) { R.tx = sum / low + Math.sin(R.t * 4) * 40; return; }
+  if (R.boss && R.boss.y > 20) { R.tx = R.boss.x; return; }
   let tgt = null;
   for (const o of R.objs) if (!o.dead && o.y > -10 && (!tgt || o.y > tgt.y)) tgt = o;
-  if (tgt) R.aim = tgt.x + tgt.w / 2;
-  else R.aim = MID / 2 + Math.sin(R.t * 3) * 60;
+  if (tgt) R.tx = tgt.x + tgt.w / 2;
+  else R.tx = MID / 2 + Math.sin(R.t * 3) * 60;
 }
 
 // ---------- 画面の流れ ----------
@@ -537,12 +579,11 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'play' && inMenu(p)) { pauseGame(false); return; }
   if (state !== 'play' || !R) return;
   cv.setPointerCapture(e.pointerId);
-  drag = true;
-  R.aim = clamp(p.x, 6, W - 6);
+  drag = { px: p.x, x0: R.tx };
 });
 cv.addEventListener('pointermove', e => {
   if (!drag || state !== 'play' || !R) return;
-  R.aim = clamp(toLogical(e).x, 6, W - 6);
+  R.tx = clamp(drag.x0 + (toLogical(e).x - drag.px) * 1.4, 14, W - 14);   // 指の移動量で動く（指で自機が隠れない）
 });
 const endDrag = () => { drag = null; };
 cv.addEventListener('pointerup', endDrag);
@@ -628,14 +669,14 @@ function render(now) {
     if (o.y < -o.h || o.dead) continue;
     if (o.cls === 'gate') {
       const good = isGood(o);
-      const col = o.stat === 'life' ? '#ff8da1' : o.type === 'mul' && o.v >= 1 ? '#ffd84a' : good ? '#39ff88' : '#ff5a5a';
+      const col = o.stat === 'weapon' ? '#66e6ff' : o.stat === 'life' ? '#ff8da1' : o.type === 'mul' && o.v >= 1 ? '#ffd84a' : good ? '#39ff88' : '#ff5a5a';
       ctx.fillStyle = col; ctx.globalAlpha = 0.1 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
       ctx.globalAlpha = 1;
       if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 6 + o.hit * 40; }
       ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2);
       ctx.shadowBlur = 0;
       text(STAT_NAME[o.stat], o.x + o.w / 2, o.y + 14, 11, col, 'center');
-      text(gateLabel(o), o.x + o.w / 2, o.y + 38, 22, '#fff', 'center');
+      text(gateLabel(o), o.x + o.w / 2, o.y + 38, o.stat === 'weapon' ? 17 : 22, '#fff', 'center');
     } else {
       const [name, col] = ITEM[o.kind];
       ctx.fillStyle = col; ctx.globalAlpha = 0.08 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
@@ -661,25 +702,19 @@ function render(now) {
     text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
   }
 
-  // 狙いの線
-  if (!R.over) {
-    ctx.strokeStyle = 'rgba(57,255,136,.18)'; ctx.lineWidth = 1; ctx.setLineDash([3, 7]);
-    ctx.beginPath(); ctx.moveTo(PX, PY - 20); ctx.lineTo(R.aim, 70); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(57,255,136,.55)'; ctx.fillRect(R.aim - 5, 66, 10, 2); ctx.fillRect(R.aim - 1, 62, 2, 10);
-  }
-
   // 弾
   for (const b of R.b) {
     ctx.fillStyle = bulletColor(b.d);
-    ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8);
+    if (b.beam) ctx.fillRect(b.x - 2, b.y - 16, 4, 32);
+    else ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8);
   }
 
   // 自機と仲間
   if (!R.over) {
     const n = Math.min(R.st.crew, 8);
-    for (let i = 0; i < n - 1; i++) ctx.drawImage(HELPER, Math.round(helperX(i) - HELPER.width / 2), PY - 12);
+    for (let si = 1; si < n; si++) ctx.drawImage(HELPER, Math.round(shooterX(si) - HELPER.width / 2), PY - 12);
     if (R.hurt > 0 && Math.floor(R.hurt * 20) % 2) ctx.globalAlpha = 0.35;
-    ctx.drawImage(PLAYER, Math.round(PX - PLAYER.width / 2), PY - 16);
+    ctx.drawImage(PLAYER, Math.round(R.x - PLAYER.width / 2), PY - 16);
     ctx.globalAlpha = 1;
   }
 
@@ -732,7 +767,7 @@ function drawHUD() {
   // 下段：ハートと今の強さ
   for (let i = 0; i < HP_MAX; i++) if (i < R.hp) ctx.drawImage(HEART, 10 + i * 18, H - 28);
   text('DMG ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
-  text(`LINE ${R.st.lines}  CREW ${R.st.crew}`, W / 2, H - 6, 11, '#9aa89f', 'center');
+  text(`LINE ${R.st.lines}  CREW ${R.st.crew}  ${WP_NAME[R.st.wp] || 'NORMAL'}`, W / 2, H - 6, 11, '#9aa89f', 'center');
   ctx.strokeStyle = '#9aa89f'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
   text('MENU', MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 19, 13, '#cfd8d2', 'center');
 }
@@ -744,9 +779,9 @@ function frame(now) {
   const raw = Math.min(0.1, (now - last) / 1000);
   last = now;
   if (state === 'play' && R) {
-    if (keys.ArrowLeft || keys.a) R.aim -= 300 * raw;
-    if (keys.ArrowRight || keys.d) R.aim += 300 * raw;
-    R.aim = clamp(R.aim, 6, W - 6);
+    if (keys.ArrowLeft || keys.a) R.tx -= 320 * raw;
+    if (keys.ArrowRight || keys.d) R.tx += 320 * raw;
+    R.tx = clamp(R.tx, 14, W - 14);
     let dt = Math.min(0.05, raw) * TS;
     while (dt > 0 && state === 'play') { const d = Math.min(1 / 30, dt); step(d); dt -= d; }
     starY += speed(R.m) * 40 * raw * TS % H;
