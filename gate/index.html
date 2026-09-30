@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yuji+Boku&family=Yuji+Syuku&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=0.17.0">
+  <link rel="stylesheet" href="style.css?v=0.18.0">
 </head>
 <body>
   <div id="stage">
@@ -26,9 +26,13 @@
     <!-- ホーム：上に通貨、下にタブ（中央がホーム）。左右スワイプでも切り替え -->
     <div class="home" id="home" hidden>
       <header class="h-bar">
-        <div class="h-cur"><i class="ic-zeni"></i><b id="hCoins">0</b></div>
+        <button class="h-prof" id="hProf"><span class="h-ava"><img id="hAva" alt=""></span><span class="h-rank" id="hRank"></span>
+          <span class="h-name"><b id="hName"></b><small id="hBest"></small></span></button>
         <div class="h-title" id="hTitle"></div>
-        <div class="h-cur r"><i class="ic-pearl"></i><b id="hPearls">0</b></div>
+        <div class="h-curs">
+          <div class="h-cur"><i class="ic-zeni"></i><b id="hCoins">0</b><button class="plus" data-plus="coin">＋</button></div>
+          <div class="h-cur"><i class="ic-pearl"></i><b id="hPearls">0</b><button class="plus" data-plus="pearl">＋</button></div>
+        </div>
       </header>
       <div class="h-panels" id="hPanels">
         <!-- 記録 -->
@@ -45,15 +49,20 @@
         </section>
         <!-- ホーム -->
         <section class="h-panel" id="p-home">
-          <div class="hm-logo">GATE<br>VADER</div>
-          <div class="hm-hero"><img id="hmCroc" alt=""><div class="hm-gear" id="hmGear"></div></div>
+          <div class="hm-scene" id="hmScene"></div>
           <div class="hm-road" id="hmRoad"></div>
-          <div class="hm-next" id="hmNext"></div>
-          <div class="hm-go">
-            <button class="btn-cont" id="btnContinue" hidden></button>
-            <button class="btn-go" id="btnStart"></button>
+          <div class="hm-side l" id="sideL"></div>
+          <div class="hm-side r" id="sideR"></div>
+          <button class="hm-croc" id="hmCrocBtn"><img id="hmCroc" alt=""><span class="hm-say" id="hmSay"></span></button>
+          <div class="hm-plate" id="hmGear"></div>
+          <div class="hm-bottom">
+            <div class="round-wrap">
+              <button class="chip-new" id="btnStartNew" hidden></button>
+              <button class="round go" id="btnStart"><b></b><small></small></button>
+            </div>
+            <div class="banner" id="hmBanner"><div class="bn-track" id="bnTrack"></div><div class="bn-dots" id="bnDots"></div></div>
+            <div class="round-wrap"><button class="round up" id="btnUp"><b></b><small></small><i class="dot" id="dotUp" hidden></i></button></div>
           </div>
-          <div class="hm-best" id="menuSub"></div>
         </section>
         <!-- ガチャ -->
         <section class="h-panel" id="p-gacha">
@@ -72,12 +81,31 @@
         </section>
       </div>
       <nav class="h-nav" id="hNav">
-        <button data-tab="rec"><i>録</i><span></span></button>
         <button data-tab="gear"><i>装</i><span></span><b class="dot" id="dotGear"></b></button>
-        <button data-tab="home" class="center"><i>鰐</i><span></span></button>
         <button data-tab="gacha"><i>引</i><span></span><b class="dot" id="dotGacha"></b></button>
+        <button data-tab="home" class="center"><i>鰐</i><span></span></button>
+        <button data-tab="rec"><i>巻</i><span></span></button>
         <button data-tab="opt"><i>設</i><span></span></button>
       </nav>
+    </div>
+
+    <!-- タイトル：絵巻の一場面。タップではじめる -->
+    <div class="title-screen" id="title" hidden>
+      <div class="ts-scene" id="tsScene"></div>
+      <div class="ts-ver" id="tsVer"></div>
+      <button class="ts-menu" id="tsMenu" aria-label="menu"><i></i><i></i><i></i></button>
+      <div class="ts-logo">GATE<br>VADER<span>鰐</span></div>
+      <div class="ts-tap" id="tsTap"></div>
+      <div class="ts-copy">© MASU01</div>
+    </div>
+
+    <!-- お知らせ・道のり など -->
+    <div class="sheet" id="info" hidden>
+      <div class="card tall">
+        <div class="card-title" id="infoTitle"></div>
+        <div class="info-body" id="infoBody"></div>
+        <button class="btn-line" id="btnInfoClose"></button>
+      </div>
     </div>
 
     <!-- 一時停止 -->
@@ -126,8 +154,8 @@
     <div class="boot-skip" id="bootSkip">TAP</div>
   </div>
 
-  <script src="boot.js?v=0.17.0"></script>
-  <script src="ink.js?v=0.17.0"></script>
-  <script src="game.js?v=0.17.0"></script>
+  <script src="boot.js?v=0.18.0"></script>
+  <script src="ink.js?v=0.18.0"></script>
+  <script src="game.js?v=0.18.0"></script>
 </body>
 </html>
