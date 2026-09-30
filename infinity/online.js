@@ -35,19 +35,24 @@ const Online = (() => {
       loggedIn: 'ログインした', loggedOut: 'ログアウトした', cloudLoaded: 'クラウドのデータを読み込んだ',
       errPopupClosed: 'ログインの画面が閉じられた', errPopupBlocked: 'ポップアップがブロックされた。ブラウザの設定で許可してください',
       errDomain: 'このアドレスではログインできない（管理者の設定が必要）', errNetwork: '通信できなかった', errOther: c => `ログインできなかった（${c}）`,
-      soul: '魂', record: (w, l) => `${w}勝 ${l}敗`, bet: 'BET', random: 'RANDOM MATCH', shadow: 'SHADOW MATCH',
+      record: (w, l) => `${w}勝 ${l}敗`, random: 'RANDOM MATCH',
+      chance: '勝率の目安', reward: '報酬', replay: '2回目以降', stageGo: 'CHALLENGE', stageAgain: 'REPLAY',
+      hintEasy: '今の強化なら勝てそう。', hintEven: '五分五分。運しだい。', hintHard: '今は厳しい。強化してから挑もう（負けても何も失わない）。',
+      stageWin: (c, bp, first) => `${first ? 'ステージクリア！ ' : ''}+${c} COIN ／ SP +${bp}`, stageLose: '負けても失うものはない。強化してもう一度。',
+      onlineSub: '世界中のプレイヤーの分身と対戦。勝てば SP +10、負けても +2。',
+      vsLocked: '最初の ∞ を作ると、VERSUS が解放されます。', onlineLocked: '次元 2 に進むと、オンライン対戦が解放されます。', inWeekly: '週間チャレンジ中は対戦できない',
       friendPh: 'フレンドのユーザー名', challenge: 'CHALLENGE',
-      needLogin: 'ログインすると、世界中のプレイヤーの分身と戦える。いまは自分の「影」と戦える。',
+      needLogin: 'ログインすると、世界中のプレイヤーの分身と対戦できる（MENU → ACCOUNT）。',
       searching: '相手を探している…', notFound: 'そのユーザーは見つからない（まだバトルに参加していないかも）',
-      noOpp: '相手が見つからないので、影と戦う', needName: '先にユーザー名を決めよう', self: '自分とは戦えない',
-      rule: 'タイムアタック。お互いのセーブデータの強化で全自動の合成を行い、先に目標のランク（GOAL）のオブジェクトを作った方の勝ち。生成の速さと合成の速さの両方が効く。60秒で決着しなければ、生み出した価値が多い方の勝ち。次元の倍率は関係なく、強化の組み方で決まる。',
+      noOpp: 'まだ対戦相手がいない。ステージで遊ぼう', needName: '先にユーザー名を決めよう', self: '自分とは戦えない',
+      rule: 'タイムアタック。先に GOAL のランクを作った方の勝ち。お互いのセーブデータの強化で全自動に進み、少しだけ運も絡む（次元の倍率は関係なし）。',
       finish: s => `FINISH ${s}s`, timeUp: 'TIME UP', goal: g => `GOAL ${g}`,
       resTime: (a, b) => `あなた ${a} ／ 相手 ${b}`,
       win: 'WIN', lose: 'LOSE', draw: 'DRAW',
-      resWin: (bp, s) => `BP +${bp}${s ? ` ／ 魂 +${s}` : ''}`, resLose: (bp, s) => `BP +${bp}${s ? ` ／ 魂 −${s}` : ''}`, resDraw: '引き分け。賭けた魂は戻った',
-      defense: (n, bp) => `留守の間に、分身が ${n} 回防衛した。BP +${bp}`,
+      resWin: bp => `SP +${bp}`, resLose: bp => `SP +${bp}`, resDraw: '引き分け',
+      defense: (n, bp) => `留守の間に、分身が ${n} 回防衛した。SP +${bp}`,
       history: 'HISTORY', noHistory: 'まだ戦っていない', close: 'CLOSE',
-      cats: { reach: 'REACH', bp: 'BP', clear: 'Ω TIME' }, catHelp: { reach: '到達した一番大きな数（次元をまたいだ指数）', bp: 'バトルで稼いだ BP の合計', clear: 'Ω に到達するまでのプレイ時間' },
+      cats: { weekly: 'WEEKLY', clear: '超越者' }, catHelp: { weekly: '毎週月曜 0時（日本時間）に変わる、全員同じ条件のタイムアタック。', clear: 'Ω（次元10の ∞）に到達するまでのプレイ時間。上位10人は「超越者」。' }, badge: '超越者',
       loading: '読み込み中…', empty: 'まだ誰もいない', rankErr: 'ランキングを読み込めない（通信か設定を確認）', you: 'YOU',
       notRanked: 'ログインして名前を決めると、ランキングに載る', refresh: 'REFRESH', dimLabel: d => `次元 ${d}`,
     },
@@ -62,19 +67,24 @@ const Online = (() => {
       loggedIn: 'Logged in', loggedOut: 'Logged out', cloudLoaded: 'Loaded your cloud data',
       errPopupClosed: 'The login window was closed', errPopupBlocked: 'The popup was blocked. Allow popups for this page',
       errDomain: 'Login isn’t allowed from this address (admin setup needed)', errNetwork: 'Network error', errOther: c => `Could not log in (${c})`,
-      soul: 'Souls', record: (w, l) => `${w}W ${l}L`, bet: 'BET', random: 'RANDOM MATCH', shadow: 'SHADOW MATCH',
+      record: (w, l) => `${w}W ${l}L`, random: 'RANDOM MATCH',
+      chance: 'Win chance', reward: 'Reward', replay: 'replay', stageGo: 'CHALLENGE', stageAgain: 'REPLAY',
+      hintEasy: 'Your build should win this.', hintEven: 'Even odds. Luck decides.', hintHard: 'Tough for now. Upgrade first (losing costs nothing).',
+      stageWin: (c, bp, first) => `${first ? 'Stage clear! ' : ''}+${c} COIN / SP +${bp}`, stageLose: 'Losing costs nothing. Upgrade and try again.',
+      onlineSub: 'Battle copies of players around the world. Win SP +10, lose SP +2.',
+      vsLocked: 'Make your first ∞ to open VERSUS.', onlineLocked: 'Reach dimension 2 to open online battles.', inWeekly: 'No battles during the Weekly Challenge',
       friendPh: 'Friend’s username', challenge: 'CHALLENGE',
-      needLogin: 'Log in to battle copies of players around the world. For now you can fight your own Shadow.',
+      needLogin: 'Log in to battle copies of players around the world (MENU → ACCOUNT).',
       searching: 'Looking for an opponent…', notFound: 'User not found (they may not have battled yet)',
-      noOpp: 'No opponent found, so you face your Shadow', needName: 'Choose a username first', self: 'You can’t fight yourself',
-      rule: 'Time attack. Both saves spawn and merge automatically using their upgrades; the first to create an object of the GOAL rank wins, so both spawn speed and merge speed matter. If nobody finishes in 60 seconds, the higher total value wins. Dimension multipliers don’t count — only how you built.',
+      noOpp: 'No opponents yet. Try the stages', needName: 'Choose a username first', self: 'You can’t fight yourself',
+      rule: 'Time attack: first to make the GOAL rank wins. Both saves play automatically with their upgrades, plus a little luck (dimension multipliers don\u2019t count).',
       finish: s => `FINISH ${s}s`, timeUp: 'TIME UP', goal: g => `GOAL ${g}`,
       resTime: (a, b) => `You ${a} / Them ${b}`,
       win: 'WIN', lose: 'LOSE', draw: 'DRAW',
-      resWin: (bp, s) => `BP +${bp}${s ? ` / Souls +${s}` : ''}`, resLose: (bp, s) => `BP +${bp}${s ? ` / Souls −${s}` : ''}`, resDraw: 'Draw. Your bet was returned',
-      defense: (n, bp) => `Your copy defended ${n} time${n > 1 ? 's' : ''} while you were away. BP +${bp}`,
+      resWin: bp => `SP +${bp}`, resLose: bp => `SP +${bp}`, resDraw: 'Draw',
+      defense: (n, bp) => `Your copy defended ${n} time${n > 1 ? 's' : ''} while you were away. SP +${bp}`,
       history: 'HISTORY', noHistory: 'No battles yet', close: 'CLOSE',
-      cats: { reach: 'REACH', bp: 'BP', clear: 'Ω TIME' }, catHelp: { reach: 'The largest number ever reached (exponent across dimensions)', bp: 'Total BP earned in battles', clear: 'Play time until reaching Ω' },
+      cats: { weekly: 'WEEKLY', clear: 'TRANSCENDENT' }, catHelp: { weekly: 'A time attack with the same rules for everyone. Resets every Monday 0:00 JST.', clear: 'Play time until Ω (the ∞ of dimension 10). The top 10 are Transcendent.' }, badge: 'TRANSCENDENT',
       loading: 'Loading…', empty: 'Nobody here yet', rankErr: 'Couldn’t load the ranking (check connection or setup)', you: 'YOU',
       notRanked: 'Log in and choose a name to appear here', refresh: 'REFRESH', dimLabel: d => `Dim ${d}`,
     },
@@ -83,8 +93,10 @@ const Online = (() => {
 
   let fb = null, fbLoading = null, user = null;
   let status = 'guest', statusAt = 0, dirtyCloud = false, pushTimer = null, syncing = false;
-  let rankCat = 'reach', rankData = {}, rankState = {};
-  let betValue = 0;
+  let rankCat = 'weekly', rankData = {}, rankState = {};
+  const SIM_CAP = 60;   // バトルの計算で使う上限（次元の上限とは別）
+  const vsOpen = () => !!(PROFILE.everInf || PROFILE.maxDim > 1 || S.shards > 0);
+  const onlineOpen = () => PROFILE.maxDim > 1 || S.shards > 0;
 
   // ---------- Firebase ----------
   function loadFb() {
@@ -152,6 +164,7 @@ const Online = (() => {
       const loaded = await pullAndMerge(u);
       await claimInbox();
       await pushAll();
+      if (window.Weekly) Weekly.claimLast();
       toast(loaded ? t().cloudLoaded : t().loggedIn);
       if (!PROFILE.name) askName();
     } catch (e) {
@@ -192,8 +205,18 @@ const Online = (() => {
     }
     const cp = normalizeProfile(cloud.profile || {});
     const skins = [...new Set([...PROFILE.skins, ...cp.skins])];
-    if (cp.updated > PROFILE.updated) PROFILE = cp;
-    PROFILE.skins = skins;
+    const bgs = [...new Set([...PROFILE.bgs, ...cp.bgs])];
+    const keep = {
+      stage: Math.max(PROFILE.stage || 0, cp.stage || 0), maxDim: Math.max(PROFILE.maxDim || 1, cp.maxDim || 1),
+      everInf: PROFILE.everInf || cp.everInf, weekly: { ...cp.weekly, ...PROFILE.weekly },
+      weeklyClaimed: Math.max(PROFILE.weeklyClaimed || 0, cp.weeklyClaimed || 0),
+      dailyAt: Math.max(PROFILE.dailyAt || 0, cp.dailyAt || 0), loginAt: Math.max(PROFILE.loginAt || 0, cp.loginAt || 0),
+    };
+    Object.keys(PROFILE.weekly).forEach(k => { if (cp.weekly[k] && cp.weekly[k] < keep.weekly[k]) keep.weekly[k] = cp.weekly[k]; });
+    // 新しい端末の真っさらなプロフィール（ログインボーナスだけ）が、クラウドを上書きしないように
+    const name = PROFILE.name || cp.name;
+    if (cp.updated > PROFILE.updated || cp.bpTotal > PROFILE.bpTotal) PROFILE = cp;
+    Object.assign(PROFILE, keep, { skins, bgs, name: PROFILE.name || name });
     saveProfile(false);
     return loadedCurrent;
   }
@@ -205,19 +228,22 @@ const Online = (() => {
     for (let i = 0; i < SLOT_KEYS.length; i++) {
       const s = slotData(i);
       if (!s) continue;
-      reach = Math.max(reach, s.shards * MAX_TIER + s.stats.maxTier);
-      const sc = (s.shards + 1) * 100 + s.stats.maxTier;
-      if (sc > score) { score = sc; dim = s.shards + 1; maxTier = s.stats.maxTier; }
+      reach = Math.max(reach, s.shards * 2 + s.stats.maxTier);
+      const sc = Math.min(1e6, (s.shards + 1) * 100 + Math.min(99, s.stats.maxTier));
+      if (sc > score) { score = sc; dim = s.shards + 1; maxTier = Math.min(MAX_TIER, s.stats.maxTier); }
       if (s.clearTime && (!clearTime || s.clearTime < clearTime)) clearTime = Math.floor(s.clearTime);
     }
-    return { name: PROFILE.name, skin: PROFILE.skin, score, dim, maxTier, clearTime, reach, bp: Math.floor(PROFILE.bpTotal), wins: PROFILE.wins, updated: Date.now() };
+    const e = { name: PROFILE.name, skin: PROFILE.skin, score, dim, maxTier, clearTime, reach, bp: Math.floor(PROFILE.bpTotal), wins: PROFILE.wins, updated: Date.now() };
+    // 週間チャレンジの記録（今週と先週。先週の分は報酬の集計に使う）
+    if (window.Weekly) { const k = Weekly.key(); [k, k - 1].forEach(w => { if (PROFILE.weekly[w] > 0) e['w' + w] = Math.floor(PROFILE.weekly[w]); }); }
+    return e;
   }
 
   function snapshot(s = S) {
     return {
       name: PROFILE.name || 'YOU', skin: PROFILE.skin, dim: s.shards + 1,
       up: { autoGen: s.up.autoGen, autoMerge: s.up.autoMerge, luck: s.up.luck, baseTier: s.up.baseTier, space: s.up.space, tapPower: s.up.tapPower },
-      dup: s.skills.dupMerge || 0,
+      dup: Math.min(10, (s.up.chain || 0) * 2),
     };
   }
 
@@ -367,21 +393,25 @@ const Online = (() => {
     const f = await loadFb();
     const col = f.F.collection(f.db, 'bi_ranking');
     const q = cat === 'clear' ? f.F.query(col, f.F.where('clearTime', '>', 0), f.F.orderBy('clearTime', 'asc'), f.F.limit(50))
-      : f.F.query(col, f.F.orderBy(cat === 'bp' ? 'bp' : 'reach', 'desc'), f.F.limit(50));
+      : f.F.query(col, f.F.orderBy('w' + (cat === 'weekly' ? Weekly.key() : Number(cat.slice(1))), 'asc'), f.F.limit(50));
     const snaps = await f.F.getDocs(q);
     return snaps.docs.map(d => ({ uid: d.id, ...d.data() }));
   }
 
   function rankValue(cat, r) {
     if (cat === 'clear') return fmtTime(r.clearTime);
-    if (cat === 'bp') return `BP ${fmt(r.bp || 0)}`;
-    return `2<sup>${Math.floor(Number.isFinite(r.reach) ? r.reach : ((r.dim || 1) - 1) * MAX_TIER + (r.maxTier || 0))}</sup>`;
+    const v = r['w' + Weekly.key()];
+    return v ? (v / 100).toFixed(2) + 's' : '—';
   }
+  // 超越者（Ω タイム上位10人）
+  const transcendent = uid => (rankData.clear || []).slice(0, 10).some(r => r.uid === uid);
+  const rkSkin = (id, d) => { const k = isSkinId(id) ? id : 'CIRCLE'; return `<span class="rk-skin ${skinClass(k)}">${skinSVG(k, 6, d, 99)}</span>`; };
 
   function renderRank() {
     const box = $('sub-rank'), l = t();
     const cats = Object.entries(l.cats).map(([k, v]) => `<button data-cat="${k}" class="${k === rankCat ? 'on' : ''}">${v}</button>`).join('');
     const st = rankState[rankCat];
+    if (rankCat === 'weekly' && rankState.clear === undefined) loadRank('clear');
     let list;
     if (st === 'loading' || st === undefined) list = `<p class="dim-text">${l.loading}</p>`;
     else if (st === 'error') list = `<p class="dim-text">${l.rankErr}</p>`;
@@ -389,17 +419,18 @@ const Online = (() => {
       const rows = rankData[rankCat] || [];
       list = rows.length ? rows.map((r, i) => `<div class="rk ${i < 3 ? 'top top' + (i + 1) : ''} ${user && r.uid === user.uid ? 'me' : ''}">
           <span class="rk-no">${i + 1}</span>
-          <span class="rk-skin">${skinSVG(SKIN_LIST.some(s => s.id === r.skin) ? r.skin : 'CIRCLE', 6, i < 3 ? 30 : 22)}</span>
-          <span class="rk-name">${esc(r.name || '???')}</span>
+          ${rkSkin(r.skin, i < 3 ? 30 : 22)}
+          <span class="rk-name">${esc(r.name || '???')}${transcendent(r.uid) ? `<em class="rk-badge">${l.badge}</em>` : ''}</span>
           <span class="rk-val">${rankValue(rankCat, r)}</span>
         </div>`).join('') : `<p class="dim-text">${l.empty}</p>`;
     }
     const mine = !user || !PROFILE.name ? `<p class="dim-text small">${l.notRanked}</p>` : '';
     const me = rankingEntry();
     const inList = user && (rankData[rankCat] || []).some(r => r.uid === user.uid);
-    const myRow = user && PROFILE.name && st === 'ok' && !inList && (rankCat !== 'clear' || me.clearTime)
-      ? `<div class="rk me pinned"><span class="rk-no">—</span><span class="rk-skin">${skinSVG(PROFILE.skin, 6, 22)}</span><span class="rk-name">${esc(PROFILE.name)}</span><span class="rk-val">${rankValue(rankCat, me)}</span></div>` : '';
-    box.innerHTML = `<div class="seg wide no-swipe" id="rankCats">${cats}</div><p class="sec-sub rk-help">${l.catHelp[rankCat]}</p>${mine}<div class="rk-list">${list}${myRow}</div>
+    const myRow = user && PROFILE.name && st === 'ok' && !inList && (rankCat !== 'clear' || me.clearTime) && (rankCat !== 'weekly' || me['w' + Weekly.key()])
+      ? `<div class="rk me pinned"><span class="rk-no">—</span>${rkSkin(PROFILE.skin, 22)}<span class="rk-name">${esc(PROFILE.name)}</span><span class="rk-val">${rankValue(rankCat, me)}</span></div>` : '';
+    const wk = rankCat === 'weekly' && window.Weekly ? Weekly.panelHTML() : '';
+    box.innerHTML = `<div class="seg wide no-swipe" id="rankCats">${cats}</div><p class="sec-sub rk-help">${l.catHelp[rankCat]}</p>${wk}${mine}<div class="rk-list">${list}${myRow}</div>
       <button class="opt-btn wide" data-rank="refresh">${l.refresh}</button>`;
     if (st === undefined) loadRank(rankCat);
   }
@@ -414,7 +445,7 @@ const Online = (() => {
       console.warn('rank', e);
       rankState[cat] = 'error';
     }
-    if (currentPanel === 'vs') renderRank();
+    if (currentPanel === 'vs' && $('sub-rank').classList.contains('on')) renderRank();
   }
 
   $('sub-rank').addEventListener('click', e => {
@@ -424,53 +455,72 @@ const Online = (() => {
   });
 
   // ---------- バトル ----------
-  const maxBet = () => Math.max(0, Math.min(Math.floor(S.soul), 50 * (S.shards + 1)));
-
   function renderBattle() {
     const box = $('sub-battle'), l = t();
-    const mb = maxBet();
-    betValue = Math.min(betValue, mb);
+    if (!vsOpen()) { box.innerHTML = `<div class="locked-note"><b>VERSUS</b><p>${l.vsLocked}</p></div>`; return; }
     const hist = PROFILE.history.slice(0, 6).map(h => `<div class="hist ${h.r}">
-        <span>${h.r === 'win' ? 'W' : h.r === 'lose' ? 'L' : 'D'}</span><span class="rk-name">${esc(h.name)}</span><span>${h.time ? `${h.time.toFixed(2)}s ` : ''}${h.bet ? `◇ ${fmt(h.bet)}` : ''}</span>
+        <span>${h.r === 'win' ? 'W' : h.r === 'lose' ? 'L' : 'D'}</span><span class="rk-name">${esc(h.name)}</span><span>${h.time ? `${h.time.toFixed(2)}s` : ''}</span>
       </div>`).join('') || `<p class="dim-text">${l.noHistory}</p>`;
     box.innerHTML = `
       <div class="vs-stats">
-        <div><small>◇ ${l.soul}</small><b>${fmt(S.soul)}</b></div>
-        <div><small>BP</small><b>${fmt(PROFILE.bp)}</b></div>
+        <div><small>STAGE</small><b>${stageCleared()} / ${STAGE_MAX}</b></div>
+        <div><small>SP</small><b>${fmt(PROFILE.bp)}</b></div>
         <div><small>W / L</small><b>${PROFILE.wins} / ${PROFILE.losses}</b></div>
       </div>
       <p class="sec-sub">${l.rule}</p>
-      <div class="bet no-swipe">
-        <div class="bet-head"><span>${l.bet}</span><b id="betVal">◇ ${fmt(betValue)}</b></div>
-        <input type="range" id="betRange" min="0" max="${mb}" step="1" value="${betValue}" ${mb ? '' : 'disabled'}>
-      </div>
-      ${user ? '' : `<p class="sec-sub">${l.needLogin}</p>`}
-      <button class="beyond" data-vs="random">${user ? l.random : l.shadow} &nbsp;→</button>
-      ${user ? `<div class="friend no-swipe"><input id="friendBox" class="f-input" maxlength="12" placeholder="${l.friendPh}" autocomplete="off"><button class="opt-btn" data-vs="friend">${l.challenge}</button></div>` : ''}
+      ${stageHTML()}
+      <h3>ONLINE</h3>
+      ${!onlineOpen() ? `<p class="sec-sub">${l.onlineLocked}</p>` : user ? `<p class="sec-sub">${l.onlineSub}</p>
+      <button class="opt-btn wide" data-vs="random">${l.random} &nbsp;→</button>
+      <div class="friend no-swipe"><input id="friendBox" class="f-input" maxlength="12" placeholder="${l.friendPh}" autocomplete="off"><button class="opt-btn" data-vs="friend">${l.challenge}</button></div>`
+      : `<p class="sec-sub">${l.needLogin}</p>`}
       <h3>${l.history}</h3>
       <div class="hist-list">${hist}</div>`;
   }
 
-  $('sub-battle').addEventListener('input', e => {
-    if (e.target.id === 'betRange') {
-      betValue = Number(e.target.value);
-      $('betVal').textContent = `◇ ${fmt(betValue)}`;
-    }
-  });
+  function stageHTML() {
+    const l = t(), n = curStage(), opp = stageOpp(n), cleared = stageCleared();
+    const first = n > cleared, rw = stageReward(n, first);
+    const ch = winChance(snapshot(), opp);
+    const dots = Array.from({ length: STAGE_MAX }, (_, i) => `<i class="${i < cleared ? 'on' : ''} ${i + 1 === n ? 'cur' : ''}"></i>`).join('');
+    return `<div class="stage">
+      <div class="stage-head">
+        <button class="stage-nav" data-stage="-1" ${n <= 1 ? 'disabled' : ''}>‹</button>
+        <div class="stage-title"><small>STAGE</small><b>${String(n).padStart(2, '0')}</b></div>
+        <button class="stage-nav" data-stage="1" ${n >= Math.min(STAGE_MAX, cleared + 1) ? 'disabled' : ''}>›</button>
+        <span class="stage-skin">${skinSVG(opp.skin, 6, 34)}</span>
+      </div>
+      <div class="stage-dots">${dots}</div>
+      <div class="stage-info">
+        <div><small>${l.chance}</small><b>${ch}%</b></div>
+        <div><small>${l.reward}${first ? '' : ' · ' + l.replay}</small><b>${fmt(rw.coins)} <em class="unit">COIN</em></b></div>
+      </div>
+      <p class="stage-hint">${ch >= 60 ? l.hintEasy : ch >= 35 ? l.hintEven : l.hintHard}</p>
+      <button class="beyond" data-vs="stage">${first ? l.stageGo : l.stageAgain} &nbsp;→</button>
+    </div>`;
+  }
 
   $('sub-battle').addEventListener('click', async e => {
+    const nav = e.target.closest('[data-stage]');
+    if (nav && !nav.disabled) {
+      stageSel = Math.min(Math.min(STAGE_MAX, stageCleared() + 1), Math.max(1, curStage() + Number(nav.dataset.stage)));
+      renderBattle();
+      return;
+    }
     const b = e.target.closest('[data-vs]');
     if (!b || b.disabled) return;
     const l = t();
+    if (MODE) { toast(l.inWeekly); return; }
     b.disabled = true;
     try {
-      if (b.dataset.vs === 'random') {
-        if (!user) { startBattle(shadowOf(snapshot())); return; }
+      if (b.dataset.vs === 'stage') {
+        startBattle(stageOpp(curStage()));
+      } else if (b.dataset.vs === 'random') {
         if (!PROFILE.name) { askName(); return; }
         toast(l.searching);
         const opp = await findRandom().catch(() => null);
-        if (!opp) toast(l.noOpp);
-        startBattle(opp || shadowOf(snapshot()));
+        if (!opp) { toast(l.noOpp); return; }
+        startBattle(opp);
       } else {
         if (!PROFILE.name) { askName(); return; }
         const name = ($('friendBox').value || '').trim();
@@ -508,17 +558,6 @@ const Online = (() => {
     return g.exists() ? { uid, ...g.data() } : null;
   }
 
-  // 自分の分身を少し揺らした「影」
-  function shadowOf(me) {
-    const up = { ...me.up };
-    Object.keys(up).forEach(k => { up[k] = Math.max(0, up[k] + Math.floor(Math.random() * 3) - 1); });
-    up.space = Math.min(up.space, SPACE_CAPS.length - 1);
-    up.baseTier = Math.min(up.baseTier, 10);
-    up.luck = Math.min(up.luck, 10);
-    const owned = SKIN_LIST.map(s => s.id);
-    return { name: 'SHADOW', skin: owned[Math.floor(Math.random() * owned.length)], dim: me.dim, up, dup: me.dup, uid: null };
-  }
-
   // ---- 全自動シミュレーション（同じシードなら同じ結果） ----
   function rng(a) {
     return () => {
@@ -531,14 +570,20 @@ const Online = (() => {
 
   function simInit(p, seed) {
     const up = p.up || {};
-    return {
+    const slow = p.slow || 1;   // ステージ序盤の相手はわざと遅い
+    const s = {
       p, up, rand: rng(seed), objs: [], sold: 0, g: 0, m: 0,
-      // 強化なしでも手で遊ぶくらいの速さ（1.4秒・1.2秒）は保証。強化するとそれより速くなる
-      genIv: Math.min(1.4, up.autoGen ? genInterval(up.autoGen) : 1.4),
-      mergeIv: Math.min(1.2, up.autoMerge ? mergeInterval(up.autoMerge) : 1.2),
+      // 手で遊ぶ分（1.4秒・1.2秒に1回）＋自動の分を足した速さ。どのレベルでも強化が効く
+      genIv: slow / (1 / 1.4 + (up.autoGen ? 1 / genInterval(up.autoGen) : 0)),
+      mergeIv: slow / (1 / 1.2 + (up.autoMerge ? 1 / mergeInterval(up.autoMerge) : 0)),
       cap: SPACE_CAPS[Math.min(up.space || 0, SPACE_CAPS.length - 1)],
     };
+    // 運：次の生成・合成までの間隔が毎回 0.55〜1.45 倍でゆらぐ
+    s.nextG = s.genIv * (0.3 + s.rand());
+    s.nextM = s.mergeIv * (0.3 + s.rand());
+    return s;
   }
+  const jitter = s => 0.55 + 0.9 * s.rand();
 
   function simSpawn(s) {
     if (s.objs.length >= s.cap) {
@@ -547,37 +592,95 @@ const Online = (() => {
       s.sold += Math.pow(2, s.objs[lo].t);
       s.objs.splice(lo, 1);
     }
-    let tier = Math.min(10, s.up.baseTier || 0);
-    if (s.rand() < (s.up.luck || 0) * 0.05) tier++;
-    s.objs.push({ t: Math.min(tier, MAX_TIER - 1), x: 0.08 + s.rand() * 0.84, y: 0.12 + s.rand() * 0.76 });
+    let tier = Math.min(SIM_CAP - 8, s.up.baseTier || 0);
+    if (s.rand() < 0.04 + (s.up.luck || 0) * 0.05) tier++;   // 幸運0でも4%はある
+    s.objs.push({ t: Math.min(tier, SIM_CAP - 1), x: 0.08 + s.rand() * 0.84, y: 0.12 + s.rand() * 0.76 });
   }
 
   function simMerge(s) {
     const seen = {};
     let pair = null;
     s.objs.forEach((o, i) => {
-      if (o.t >= MAX_TIER) return;
+      if (o.t >= SIM_CAP) return;
       if (seen[o.t] !== undefined) { if (!pair || o.t < s.objs[pair[0]].t) pair = [i, seen[o.t]]; } else seen[o.t] = i;
     });
     if (!pair) return;
     const b = s.objs[pair[1]];
     b.t++;
-    if (b.t < MAX_TIER && s.rand() < (s.p.dup || 0) * 0.04) b.t++;
+    if (b.t < SIM_CAP && s.rand() < (s.p.dup || 0) * 0.04) b.t++;
     s.objs.splice(pair[0], 1);
   }
 
   function simStep(s, dt) {
     s.g += dt;
-    while (s.g >= s.genIv) {
-      s.g -= s.genIv;
+    while (s.g >= s.nextG) {
+      s.g -= s.nextG;
+      s.nextG = s.genIv * jitter(s);
       simSpawn(s);
       if (s.rand() < (s.up.tapPower || 0) * 0.15) simSpawn(s);
     }
     s.m += dt;
-    while (s.m >= s.mergeIv) { s.m -= s.mergeIv; simMerge(s); }
+    while (s.m >= s.nextM) { s.m -= s.nextM; s.nextM = s.mergeIv * jitter(s); simMerge(s); }
   }
 
   const simScore = s => s.sold + s.objs.reduce((a, o) => a + Math.pow(2, o.t), 0);
+  const goalOf = (a, b) => Math.min(SIM_CAP - 1, Math.max((a.up && a.up.baseTier) || 0, (b.up && b.up.baseTier) || 0) + 5);
+
+  // 最後まで一気に計算（勝率の目安用）。1=勝ち -1=負け 0=引き分け
+  function race(pa, pb, seed) {
+    const goal = goalOf(pa, pb);
+    const a = simInit(pa, seed), b = simInit(pb, seed ^ 0x9e3779b9);
+    for (let tm = 0; tm < BATTLE_SEC; tm += 0.05) {
+      simStep(a, 0.05); simStep(b, 0.05);
+      const A = a.objs.some(o => o.t >= goal), B = b.objs.some(o => o.t >= goal);
+      if (A || B) return A && !B ? 1 : B && !A ? -1 : 0;
+    }
+    const sa = simScore(a), sb = simScore(b);
+    return sa > sb ? 1 : sa < sb ? -1 : 0;
+  }
+  const chanceCache = new Map();
+  function winChance(me, opp) {
+    const key = JSON.stringify([me.up, me.dup, opp.up, opp.dup, opp.slow]);
+    if (chanceCache.has(key)) return chanceCache.get(key);
+    let w = 0;
+    const N = 40;
+    for (let i = 1; i <= N; i++) { const r = race(me, opp, i * 7919); w += r > 0 ? 1 : r === 0 ? 0.5 : 0; }
+    const c = Math.round(w / N * 100);
+    if (chanceCache.size > 200) chanceCache.clear();
+    chanceCache.set(key, c);
+    return c;
+  }
+
+  // ---- ステージ（オフラインでも遊べる。少しずつ強くなる相手） ----
+  const STAGE_MAX = 30;
+  const STAGE_SLOW = [2.2, 1.8, 1.5, 1.3, 1.15, 1.05];
+  const STAGE_TUNE = { gen: 0.7, merge: 0.6, tierEvery: 7 };
+  function stageOpp(n) {
+    const k = n - 1;
+    return {
+      name: `STAGE ${String(n).padStart(2, '0')}`, stage: n, uid: null, dim: 1 + Math.floor(k / 6),
+      skin: ['CIRCLE', ...RARE_SKINS][k % (RARE_SKINS.length + 1)],
+      slow: STAGE_SLOW[k] || 1,
+      up: {
+        autoGen: Math.min(25, Math.round(k * STAGE_TUNE.gen)),
+        autoMerge: Math.min(25, Math.round(k * STAGE_TUNE.merge)),
+        luck: Math.min(10, Math.floor(k / 3)),
+        baseTier: Math.min(10, Math.floor(k / STAGE_TUNE.tierEvery)),
+        space: Math.min(4, Math.floor(k / 6)),
+        tapPower: Math.min(4, Math.floor(k / 8)),
+      },
+      dup: Math.min(5, Math.floor(k / 10)),
+    };
+  }
+  const stageCleared = () => PROFILE.stage || 0;
+  let stageSel = null;
+  const curStage = () => Math.min(STAGE_MAX, Math.max(1, stageSel || stageCleared() + 1));
+  // 報酬：ステージの GOAL くらいの価値 × 今の売却倍率。初クリアは満額、2回目以降は3割
+  function stageReward(n, first) {
+    const o = stageOpp(n);
+    const coins = Math.pow(2, Math.min(infTier() - 1, o.up.baseTier + 6)) * (1 + 0.25 * (n - 1)) * sellMult();
+    return { coins: Math.floor(first ? coins : coins * 0.3), bp: first ? 5 + n : 1 };
+  }
 
   // ---- 会場 ----
   let battle = null;
@@ -593,11 +696,10 @@ const Online = (() => {
   function startBattle(opp) {
     if (battle) return;
     const me = snapshot();
-    const bet = Math.min(betValue, maxBet());
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
-    const oppSkin = SKIN_LIST.some(s => s.id === opp.skin) ? opp.skin : 'CIRCLE';
-    const goalExp = Math.min(MAX_TIER - 1, Math.max((me.up && me.up.baseTier) || 0, (opp.up && opp.up.baseTier) || 0) + 5);
-    battle = { opp, me, bet, oppSkin, a: simInit(me, seed), b: simInit(opp, seed ^ 0x9e3779b9), time: 0, last: performance.now(), done: false,
+    const oppSkin = isSkinId(opp.skin) ? opp.skin : 'CIRCLE';
+    const goalExp = goalOf(me, opp);
+    battle = { opp, me, oppSkin, a: simInit(me, seed), b: simInit(opp, seed ^ 0x9e3779b9), time: 0, last: performance.now(), done: false,
       goalExp, goal: Math.pow(2, goalExp), ta: 0, tb: 0 };
     $('arGoal').textContent = t().goal(pow2(goalExp));
     $('arMeScore').classList.remove('done');
@@ -605,7 +707,7 @@ const Online = (() => {
     $('arOppName').textContent = opp.name || '???';
     $('arOppInfo').textContent = `DIM ${String(opp.dim || 1).padStart(2, '0')}`;
     $('arMeName').textContent = me.name;
-    $('arMeInfo').textContent = bet ? `BET ◇ ${fmt(bet)}` : `DIM ${String(me.dim).padStart(2, '0')}`;
+    $('arMeInfo').textContent = `DIM ${String(me.dim).padStart(2, '0')}`;
     els.arena.hidden = false;
     tone(330, 0.2, 0.05, 'triangle');
     tone(660, 0.3, 0.05, 'triangle', 0.2);
@@ -657,12 +759,23 @@ const Online = (() => {
     } else {
       r = sa > sb ? 'win' : sa < sb ? 'lose' : 'draw';
     }
-    let bp = 0, soulDelta = 0;
-    if (r === 'win') { bp = 10 + Math.min(20, Math.floor(bt.bet / 5)); soulDelta = Math.floor(bt.bet * 0.9); PROFILE.wins++; sfx.win(); vibe([20, 30, 60]); }
-    if (r === 'lose') { bp = 3; soulDelta = -bt.bet; PROFILE.losses++; sfx.lose(); vibe(40); }
-    S.soul = Math.max(0, S.soul + soulDelta);
+    let bp = 0, coins = 0, firstClear = false;
+    if (bt.opp.stage) {
+      // ステージ：勝てばコイン。負けても何も失わない
+      if (r === 'win') {
+        firstClear = bt.opp.stage > stageCleared();
+        const rw = stageReward(bt.opp.stage, firstClear);
+        coins = rw.coins; bp = rw.bp;
+        addCoins(coins);
+        if (firstClear) { PROFILE.stage = bt.opp.stage; stageSel = null; }
+        sfx.win(); vibe([20, 30, 60]);
+      } else if (r === 'lose') { sfx.lose(); vibe(40); }
+    } else {
+      if (r === 'win') { bp = 10; PROFILE.wins++; sfx.win(); vibe([20, 30, 60]); }
+      if (r === 'lose') { bp = 2; PROFILE.losses++; sfx.lose(); vibe(40); }
+    }
     addBP(bp);
-    PROFILE.history.unshift({ name: bt.opp.name || '???', r, bet: bt.bet, time: bt.ta || 0, at: Date.now() });
+    PROFILE.history.unshift({ name: bt.opp.name || '???', r, time: bt.ta || 0, at: Date.now() });
     PROFILE.history = PROFILE.history.slice(0, 20);
     save();
     saveProfile();
@@ -676,7 +789,9 @@ const Online = (() => {
       battle = null;
       const tt = v => (v ? v.toFixed(2) + 's' : (bt.ta || bt.tb ? '—' : l.timeUp));
       const head = bt.ta || bt.tb ? l.resTime(tt(bt.ta), tt(bt.tb)) : `${fmt(sa)} — ${fmt(sb)}`;
-      const text = r === 'draw' ? `${head}<br>${l.resDraw}` : `${head}<br>${r === 'win' ? l.resWin(bp, fmt(soulDelta)) : l.resLose(bp, bt.bet ? fmt(bt.bet) : 0)}`;
+      const text = bt.opp.stage
+        ? `${head}<br>${r === 'win' ? l.stageWin(fmt(coins), bp, firstClear) : r === 'lose' ? l.stageLose : l.resDraw}`
+        : r === 'draw' ? `${head}<br>${l.resDraw}` : `${head}<br>${r === 'win' ? l.resWin(bp) : l.resLose(bp)}`;
       showModal({
         rings: r === 'win' ? 'WIN' : r === 'lose' ? 'LOSE' : 'DRAW',
         title: `VS ${esc(bt.opp.name || '???')}`,
@@ -696,7 +811,15 @@ const Online = (() => {
   try { if (localStorage.getItem(AUTH_FLAG) === '1') loadFb().catch(() => {}); } catch (e) { /* 保存不可 */ }
   render();
 
-  return { markDirty, syncSoon, syncNow, render, accountHTML, isLoggedIn: () => !!user, _sim: { simInit, simStep, simScore } };
+  // 週間ランキングの上位（報酬の集計用）
+  async function fetchWeek(k) {
+    const f = await loadFb();
+    const snaps = await f.F.getDocs(f.F.query(f.F.collection(f.db, 'bi_ranking'), f.F.orderBy('w' + k, 'asc'), f.F.limit(50)));
+    return snaps.docs.map(d => ({ uid: d.id, ...d.data() }));
+  }
+  function reloadRank() { rankState = {}; if (currentPanel === 'vs') render(); }
+
+  return { markDirty, syncSoon, syncNow, render, accountHTML, fetchWeek, reloadRank, isLoggedIn: () => !!user, uid: () => user && user.uid, _sim: { simInit, simStep, simScore } };
 })();
 
 window.Online = Online;
