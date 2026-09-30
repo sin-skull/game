@@ -57,7 +57,7 @@ const I18N = {
     rebirthHintSame: 'まだ ∞ がないので、転生しても同じ次元でやり直し。',
     rebirthConfirm: (n, k) => `コイン・オブジェクト・強化は 0 に戻る。永遠強化はそのまま。<br>魂 +${n}${k ? '<br>次の次元へ進む' : ''}`,
     rebirthDone: n => `転生した。魂 +${n}`,
-    omegaTitle: 'Ω に到達した。', omegaText: t => `クリアタイム ${t}。<br>無限の次の、そのまた先。<br>ここからは、終わりのない旅。`, omegaReward: 'スキン「墨」を解放した',
+    omegaTitle: 'Ω に到達した。', omegaText: (t, pen) => `クリアタイム ${t}。${pen ? `<br><small>（ブースト券の補正 +${pen} を含む）</small>` : ''}<br>無限の次の、そのまた先。<br>ここからは、終わりのない旅。`, omegaReward: 'スキン「墨」を解放した',
     offlineText: t => `留守の間（${t}）も、生成は続いていた。`,
     sellConfirmTitle: '本当に売る？', sellConfirmText: (r, p) => `${r} を ${p} コインで売却します。`, sell: 'SELL',
     resetTitle: 'このスロットのデータを消去する？', resetText: '元には戻せません（ひとつ前のデータに戻すことはできる）。',
@@ -160,7 +160,7 @@ const I18N = {
     rebirthHintSame: 'No ∞ yet, so rebirth restarts this same dimension.',
     rebirthConfirm: (n, k) => `Coins, objects and upgrades reset. Eternal upgrades stay.<br>Souls +${n}${k ? '<br>You move on to the next dimension' : ''}`,
     rebirthDone: n => `Reborn. Souls +${n}`,
-    omegaTitle: 'You reached Ω.', omegaText: t => `Clear time ${t}.<br>Beyond the beyond.<br>From here, the journey never ends.`, omegaReward: 'Skin “Sumi” unlocked',
+    omegaTitle: 'You reached Ω.', omegaText: (t, pen) => `Clear time ${t}.${pen ? `<br><small>(includes a Boost ticket adjustment of +${pen})</small>` : ''}<br>Beyond the beyond.<br>From here, the journey never ends.`, omegaReward: 'Skin “Sumi” unlocked',
     offlineText: t => `While you were away (${t}), spawning continued.`,
     sellConfirmTitle: 'Sell this?', sellConfirmText: (r, p) => `Sell ${r} for ${p} coins.`, sell: 'SELL',
     resetTitle: 'Erase this slot?', resetText: 'This cannot be undone (you can restore the previous data once).',
@@ -442,6 +442,7 @@ function freshState(keep) {
     stats: {
       spawned: 0, merged: 0, sold: 0, earned: 0, maxTier: 0,
       infinities: 0, playTime: 0, taps: 0, bought: 0, rebirths: 0,
+      boostPen: 0,   // ブースト券で得した時間（Ω タイムに足してランキングを公平に）
     },
     seenInf: false,
     created: Date.now(),
@@ -767,7 +768,7 @@ function merge(a, b) {
   S.objs = S.objs.filter(o => o !== a);
   const from = b.t;
   b.t++;
-  if (b.t < INF() && S.boost.jump > 0 && !MODE) { b.t++; S.boost.jump--; }   // 跳躍券
+  if (b.t < INF() && S.boost.jump > 0 && !MODE) { b.t++; S.boost.jump--; S.stats.boostPen = (S.stats.boostPen || 0) + 30; }   // 跳躍券（1回 +30秒の補正）
   Object.assign(b, clampPos(b.t, b.x, b.y));
   S.stats.merged++;
   fx.pop.add(b.id);
@@ -884,7 +885,7 @@ function noteTier(t) {
     PROFILE.everInf = true;
     addSP(30, '∞');
     if (S.shards + 1 >= OMEGA_DIM && !S.clearTime) {
-      S.clearTime = Math.max(1, Math.floor(S.stats.playTime));
+      S.clearTime = Math.max(1, Math.floor(S.stats.playTime + (S.stats.boostPen || 0)));
       save();
       setTimeout(showOmega, 600);
       return;
@@ -1419,7 +1420,7 @@ function showOmega() {
   showModal({
     rings: 'Ω',
     title: l.omegaTitle,
-    text: `${l.omegaText(fmtTime(S.clearTime))}<br><br>${l.omegaReward}`,
+    text: `${l.omegaText(fmtTime(S.clearTime), S.stats.boostPen >= 1 ? fmtTime(Math.floor(S.stats.boostPen)) : '')}<br><br>${l.omegaReward}`,
     buttons: [{ label: 'CONTINUE', primary: true, onClick: () => { renderAll(); if (window.Online) Online.syncSoon(); } }],
   });
 }
@@ -1936,6 +1937,11 @@ function tick() {
 
   // ゲームの速さ（倍速モード・2倍速券）と永遠の速さ
   const gdt = dt * gameSpeed();
+  // ブースト補正：速さが m 倍のあいだは、1秒ごとに (1 - 1/m) 秒得している
+  if (!MODE && (S.boost.x2 > 0 || S.boost.rank > 0)) {
+    const m = (S.boost.x2 > 0 ? 2 : 1) * Math.pow(2, S.boost.rank);
+    S.stats.boostPen = (S.stats.boostPen || 0) + dt * (1 - 1 / m);
+  }
   if (S.boost.x2 > 0) S.boost.x2 = Math.max(0, S.boost.x2 - dt);
   const rate = autoRate();
   if (S.up.autoGen) {
