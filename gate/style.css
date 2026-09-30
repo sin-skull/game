@@ -6,26 +6,192 @@ html, body { margin: 0; height: 100%; background: #2b2621; color: var(--sumi); o
 #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #2b2621; }
 #cv { display: block; background: var(--paper); box-shadow: 0 0 24px rgba(0, 0, 0, .45); }
 
-/* 画面（タイトル・一時停止・結果など）：和紙を重ねる */
-.layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  background: var(--washi) center / cover, rgba(239, 231, 212, .95); z-index: 5; padding: 24px; text-align: center; }
-.layer[hidden], #count[hidden], .boot[hidden] { display: none; }
-.logo { font-family: 'Yuji Boku', serif; font-size: 58px; line-height: 1.05; color: var(--sumi); letter-spacing: 2px; margin-bottom: 4px; position: relative; }
-.logo::after { content: '鰐'; position: absolute; right: -34px; bottom: -6px; width: 34px; height: 34px; font-size: 22px; line-height: 34px;
-  background: var(--shu); color: var(--paper2); border-radius: 3px; transform: rotate(-4deg); }
-.title { font-family: 'Yuji Boku', serif; font-size: 34px; color: var(--sumi); letter-spacing: 3px; }
-.res-m { font-family: 'Yuji Boku', serif; font-size: 44px; color: var(--sumi); }
-.sub { font-size: 13px; color: var(--usu); min-height: 18px; letter-spacing: 1px; }
+/* 共通 */
 .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; }
 
-/* ボタン：墨の縁取りの札。押すと少し沈む */
-.btn { font: inherit; color: var(--sumi); background: var(--paper2); border: 2px solid var(--sumi); padding: 12px 26px; letter-spacing: 3px; cursor: pointer;
-  box-shadow: 3px 3px 0 rgba(26, 23, 20, .75); transition: transform .06s, box-shadow .06s; }
-.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(26, 23, 20, .75); }
-.btn.big { font-family: 'Yuji Boku', serif; font-size: 24px; min-width: 210px; padding: 12px 26px; background: var(--shu); color: var(--paper2); border-color: var(--sumi); }
-.btn.sm { font-size: 14px; padding: 8px 14px; letter-spacing: 2px; }
-.btn.ghost { color: var(--usu); border-color: var(--usu); box-shadow: 2px 2px 0 rgba(90, 83, 75, .5); }
-.btn:disabled { opacity: .45; cursor: default; }
+/* 通貨のしるし：銭（四角い穴の銅銭）・真珠 */
+.ic-zeni { display: inline-block; width: 1em; height: 1em; border-radius: 50%; border: .13em solid var(--sumi); position: relative; vertical-align: -.14em; margin-right: .3em; background: #b89a5a; }
+.ic-zeni::after { content: ''; position: absolute; left: 50%; top: 50%; width: .3em; height: .3em; transform: translate(-50%, -50%); border: .09em solid var(--sumi); background: var(--paper2); }
+.ic-pearl { display: inline-block; width: .9em; height: .9em; border-radius: 50%; vertical-align: -.1em; margin-right: .3em;
+  background: radial-gradient(circle at 34% 30%, #fff 0 18%, #efe9e0 40%, #c9c0b3 100%); box-shadow: 0 0 0 .08em var(--sumi); }
+
+/* ===== ホーム：上に通貨の帯、下にタブ ===== */
+.home { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; background: var(--washi) center / cover, var(--paper); }
+.home[hidden] { display: none; }
+.home > * { width: 100%; max-width: 480px; margin: 0 auto; }
+.h-bar { flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 16px 0; border-bottom: 1px solid rgba(26, 23, 20, .18); }
+.h-cur { display: flex; align-items: center; font-size: 17px; min-width: 0; }
+.h-cur b { font-weight: 400; font-family: 'Noto Serif JP', serif; font-size: 16px; }
+.h-cur.r { justify-content: flex-end; }
+.h-title { font-family: 'Yuji Boku', serif; font-size: 20px; letter-spacing: .15em; }
+.h-panels { flex: 1; position: relative; overflow: hidden; }
+.h-panel { position: absolute; inset: 0; overflow-y: auto; touch-action: pan-y; padding: 18px 16px 52px; display: none; -webkit-overflow-scrolling: touch; }
+.h-panel.on { display: block; }
+.h-panel.from-r { animation: fromR .22s ease-out; }
+.h-panel.from-l { animation: fromL .22s ease-out; }
+@keyframes fromR { from { transform: translateX(28px); opacity: 0; } }
+@keyframes fromL { from { transform: translateX(-28px); opacity: 0; } }
+.h-sec { font-family: 'Yuji Boku', serif; font-weight: 400; font-size: 16px; letter-spacing: .12em; margin: 22px 0 10px; display: flex; align-items: center; gap: 10px; }
+.h-sec::after { content: ''; flex: 1; height: 1px; background: rgba(26, 23, 20, .25); }
+
+/* 下のタブ：真ん中（ホーム）だけ大きな朱の印 */
+.h-nav { flex: none; display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; height: calc(64px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); background: rgba(246, 239, 223, .96); border-top: 1.5px solid var(--sumi); position: relative; }
+.h-nav button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; height: 64px; padding-bottom: 9px; color: var(--usu); }
+.h-nav i { font-style: normal; font-family: 'Yuji Boku', serif; font-size: 22px; line-height: 1; }
+.h-nav span { font-size: 10px; letter-spacing: .1em; }
+.h-nav button.on { color: var(--sumi); }
+.h-nav button.on::before { content: ''; position: absolute; top: 0; left: 30%; right: 30%; height: 3px; background: var(--shu); }
+.h-nav .center i { width: 60px; height: 60px; margin-top: -30px; margin-bottom: 2px; display: flex; align-items: center; justify-content: center; font-size: 32px;
+  color: var(--paper2); background: var(--shu); border: 2px solid var(--sumi); border-radius: 50%; box-shadow: 0 3px 0 var(--sumi); transition: transform .1s; }
+.h-nav .center:not(.on) i { background: var(--sumi); }
+.h-nav .center.on::before { display: none; }
+.h-nav .center:active i { transform: translateY(2px); box-shadow: 0 1px 0 var(--sumi); }
+.h-nav .dot { position: absolute; top: 10px; right: calc(50% - 20px); width: 8px; height: 8px; border-radius: 50%; background: var(--shu); border: 1.5px solid var(--paper2); }
+.h-nav .dot[hidden] { display: none; }
+
+/* ホーム画面 */
+#p-home.on { display: flex; flex-direction: column; align-items: center; padding-top: 22px; }
+.hm-logo { font-family: 'Noto Serif JP', serif; font-weight: 600; font-size: 40px; line-height: 1.05; letter-spacing: .12em; text-align: center; position: relative; }
+.hm-logo::after { content: '鰐'; position: absolute; right: -30px; bottom: -2px; width: 28px; height: 28px; font-size: 19px; line-height: 28px; text-align: center;
+  background: var(--shu); color: var(--paper2); border-radius: 2px; transform: rotate(-5deg); }
+.hm-hero { flex: 1; min-height: 190px; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.hm-hero::before { content: ''; position: absolute; width: 190px; height: 190px; border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -58%);
+  background: radial-gradient(closest-side, rgba(90, 83, 75, .16), rgba(90, 83, 75, 0)); }
+.hm-hero img { position: relative; height: min(30vh, 220px); }
+.hm-gear { display: flex; gap: 8px; margin-top: 4px; }
+.hm-gear span { font-size: 13px; padding: 3px 10px; border: 1px solid rgba(26, 23, 20, .4); background: rgba(246, 239, 223, .8); }
+.hm-gear small { color: var(--shu); }
+.hm-road { display: flex; gap: 5px; margin-top: 16px; }
+.hm-road i { font-style: normal; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 1.5px solid rgba(26, 23, 20, .35); color: var(--usu); }
+.hm-road i.big { width: 30px; border-color: var(--sumi); }
+.hm-road i.done { background: var(--shu); border-color: var(--shu); color: var(--paper2); }
+.hm-road i.next { border-color: var(--sumi); color: var(--sumi); animation: blink 1.2s ease-in-out infinite; }
+@keyframes blink { 50% { background: rgba(200, 50, 30, .15); } }
+.hm-next { font-size: 12px; color: var(--usu); margin-top: 8px; min-height: 16px; }
+.hm-go { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 18px; }
+.btn-go { font-family: 'Yuji Boku', serif; width: min(260px, 76%); height: 70px; font-size: 32px; letter-spacing: .3em; padding-left: .3em; color: var(--paper2); background: var(--shu);
+  border: 2px solid var(--sumi); box-shadow: 0 4px 0 var(--sumi), inset 0 0 0 4px var(--shu), inset 0 0 0 5px rgba(246, 239, 223, .6); transition: transform .08s, box-shadow .08s; }
+.btn-go:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--sumi), inset 0 0 0 4px var(--shu), inset 0 0 0 5px rgba(246, 239, 223, .6); }
+.btn-go.sub { height: 46px; font-size: 18px; letter-spacing: .15em; color: var(--sumi); background: var(--paper2); box-shadow: 0 3px 0 var(--sumi); }
+.btn-go.sm { height: 56px; font-size: 24px; width: 100%; }
+.btn-cont { font-family: 'Yuji Boku', serif; width: min(260px, 76%); height: 64px; font-size: 21px; letter-spacing: .08em; color: var(--paper2); background: var(--shu);
+  border: 2px solid var(--sumi); box-shadow: 0 4px 0 var(--sumi); }
+.btn-cont:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--sumi); }
+.btn-cont[hidden] { display: none; }
+.hm-best { font-size: 12px; color: var(--usu); margin-top: 12px; letter-spacing: .05em; }
+
+/* 切り替え（武器 / 墨の色 など） */
+.seg { display: flex; border: 1.5px solid var(--sumi); }
+.seg button { flex: 1; height: 38px; font-size: 14px; letter-spacing: .1em; color: var(--usu); }
+.seg button + button { border-left: 1.5px solid var(--sumi); }
+.seg button.on { background: var(--sumi); color: var(--paper2); }
+.seg.mini { width: 150px; }
+.seg.mini button { height: 32px; font-size: 12px; letter-spacing: .04em; }
+
+/* 装備 */
+.gear-now { display: flex; align-items: center; gap: 14px; margin: 14px 0 12px; padding: 10px 14px; background: rgba(246, 239, 223, .85); border: 1.5px solid var(--sumi); box-shadow: 3px 3px 0 rgba(26, 23, 20, .5); }
+.gear-now img { height: 84px; }
+.gear-now div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gear-now small { font-size: 11px; color: var(--shu); letter-spacing: .1em; }
+.gear-now b { font-weight: 400; font-family: 'Yuji Boku', serif; font-size: 22px; }
+.gear-now b em { font-style: normal; font-family: 'Noto Serif JP', serif; font-size: 13px; color: var(--shu); }
+.gear-now span { font-size: 12px; color: var(--usu); }
+.eq-list { display: flex; flex-direction: column; gap: 8px; }
+.eq-row { display: flex; align-items: stretch; background: rgba(246, 239, 223, .85); border: 1px solid rgba(26, 23, 20, .3); border-left: 4px solid var(--rc); }
+.eq-row.on { border-color: var(--sumi); border-left-color: var(--rc); }
+.eq-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left; position: relative; }
+.eq-pick > span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.eq-pick img { width: 26px; height: 44px; object-fit: contain; flex: none; }
+.eq-wp { flex: none; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 11px; line-height: 1.2; text-align: center;
+  border: 1px solid rgba(26, 23, 20, .4); border-radius: 50%; color: var(--sumi); }
+.eq-name { font-size: 15px; display: flex; align-items: baseline; gap: 6px; }
+.eq-name i { font-style: normal; font-size: 10px; color: var(--rc); font-family: 'Noto Serif JP', serif; }
+.eq-name small { color: var(--shu); font-size: 12px; }
+.eq-stat { font-size: 11px; color: var(--usu); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eq-on { position: absolute; top: 6px; right: 8px; font-weight: 400; font-size: 10px; color: var(--paper2); background: var(--sumi); padding: 1px 6px; }
+.eq-up { flex: none; width: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px;
+  color: var(--paper2); background: var(--shu); border-left: 1px solid var(--sumi); }
+.eq-up small { font-size: 11px; display: flex; align-items: center; }
+.eq-up .ic-zeni { font-size: 10px; }
+.eq-up:disabled { background: rgba(207, 198, 178, .8); color: var(--usu); }
+
+/* ガチャ */
+.g-stage { margin: 16px 0 14px; height: 200px; display: flex; align-items: center; justify-content: center;
+  background: rgba(246, 239, 223, .85); border: 1.5px solid var(--sumi); position: relative; }
+.g-stage::before, .g-stage::after { content: ''; position: absolute; top: -4px; bottom: -4px; width: 8px; background: #6a4428; border-radius: 3px; }
+.g-stage::before { left: -6px; } .g-stage::after { right: -6px; }
+.g-result { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.g-idle { font-family: 'Yuji Boku', serif; font-size: 72px; line-height: 1; color: rgba(26, 23, 20, .14); }
+.g-result small { font-size: 12px; color: var(--usu); }
+.g-rar { font-weight: 400; font-family: 'Noto Serif JP', serif; font-size: 18px; letter-spacing: .15em; }
+.g-result span { font-family: 'Yuji Boku', serif; font-size: 26px; }
+.g-icon { height: 88px; }
+.g-wp { width: 70px; height: 70px; border-radius: 50%; border: 2px solid var(--sumi); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.g-result.pop { animation: gpop .5s ease-out; }
+.g-result.r-SSR.pop { animation: gpop .5s ease-out, gshine 1.2s ease-out; }
+@keyframes gpop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes gshine { 0% { filter: drop-shadow(0 0 0 #c8321e); } 30% { filter: drop-shadow(0 0 16px #c8321e); } 100% { filter: none; } }
+.btn-pull { width: 100%; height: 58px; display: flex; align-items: center; justify-content: center; gap: 18px; font-family: 'Yuji Boku', serif; font-size: 24px; letter-spacing: .2em;
+  color: var(--paper2); background: var(--shu); border: 2px solid var(--sumi); box-shadow: 0 4px 0 var(--sumi); }
+.btn-pull span { font-family: 'Noto Serif JP', serif; font-size: 16px; letter-spacing: 0; display: flex; align-items: center; }
+.btn-pull:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--sumi); }
+.btn-pull:disabled { background: rgba(207, 198, 178, .9); color: var(--usu); }
+.g-rates, .g-how { font-size: 11px; color: var(--usu); text-align: center; margin-top: 8px; line-height: 1.6; }
+.g-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.g-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 6px; background: rgba(246, 239, 223, .6);
+  border: 1px solid rgba(26, 23, 20, .2); border-top: 3px solid var(--rc); opacity: .5; }
+.g-tile.own { opacity: 1; background: rgba(246, 239, 223, .9); }
+.g-tile i { position: absolute; top: 3px; left: 5px; font-style: normal; font-size: 9px; color: var(--rc); font-family: 'Noto Serif JP', serif; }
+.g-tile img { height: 44px; }
+.g-tile em { font-style: normal; height: 44px; display: flex; align-items: center; font-size: 11px; color: var(--usu); }
+.g-tile span { font-size: 12px; text-align: center; }
+.g-tile small { font-size: 10px; color: var(--shu); }
+
+/* 記録 */
+.rec-stats { display: grid; grid-template-columns: repeat(3, 1fr); border: 1.5px solid var(--sumi); background: rgba(246, 239, 223, .85); }
+.rec-stats div { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; }
+.rec-stats div + div { border-left: 1px solid rgba(26, 23, 20, .25); }
+.rec-stats small { font-size: 11px; color: var(--usu); letter-spacing: .08em; }
+.rec-stats b { font-weight: 400; font-family: 'Noto Serif JP', serif; font-size: 22px; }
+.rec-stats b small { font-size: 11px; margin-left: 2px; }
+.yokai { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.yk { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 22px 8px 10px; background: rgba(246, 239, 223, .85); border: 1px solid rgba(26, 23, 20, .3); }
+.yk.big { grid-column: 1 / -1; border-color: var(--shu); }
+.yk-n { position: absolute; top: 5px; left: 8px; font-size: 10px; color: var(--usu); }
+.yk img { height: 78px; }
+.yk.big img { height: 110px; }
+.yk b { font-weight: 400; font-family: 'Yuji Boku', serif; font-size: 18px; }
+.yk small { font-size: 11px; color: var(--usu); line-height: 1.5; }
+.yk em { font-style: normal; font-size: 10px; color: var(--shu); margin-top: 2px; }
+.yk.lock img { filter: brightness(0); opacity: .12; }
+.yk.lock b { color: var(--usu); }
+
+/* 設定 */
+.opt-list { border-top: 1px solid rgba(26, 23, 20, .25); }
+.opt-row { width: 100%; display: flex; align-items: center; justify-content: space-between; min-height: 58px; font-size: 15px; border-bottom: 1px solid rgba(26, 23, 20, .25); text-align: left; }
+.opt-row em { font-style: normal; font-size: 12px; color: var(--usu); }
+.opt-foot { margin-top: 28px; text-align: center; font-size: 11px; color: var(--usu); line-height: 1.9; letter-spacing: .08em; }
+
+/* 一時停止・結果・遊び方：掛軸のカード */
+.sheet { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(26, 23, 20, .45); }
+.sheet[hidden] { display: none; }
+.card { width: min(320px, 100%); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 30px 22px 22px; position: relative;
+  background: var(--washi) center / cover, var(--paper); border: 1.5px solid var(--sumi); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.card::before { content: ''; position: absolute; left: -8px; right: -8px; top: -8px; height: 10px; background: linear-gradient(#3a2414, #8a5a34 50%, #3a2414); border-radius: 4px; }
+.card::after { content: ''; position: absolute; left: -12px; right: -12px; bottom: -9px; height: 12px; background: linear-gradient(#3a2414, #8a5a34 50%, #3a2414); border-radius: 6px; }
+.card.tall { max-height: 86vh; }
+.card-title { font-family: 'Yuji Boku', serif; font-size: 30px; letter-spacing: .12em; }
+.res-m { font-family: 'Yuji Syuku', serif; font-size: 50px; line-height: 1; }
+.res-m small { font-size: 20px; margin-left: 4px; }
+.res-sub { font-size: 12px; color: var(--usu); text-align: center; }
+.res-get { display: flex; gap: 18px; font-size: 18px; margin: 4px 0 6px; min-height: 24px; }
+.btn-line { width: 100%; height: 44px; font-size: 14px; letter-spacing: .12em; border: 1.5px solid var(--sumi); background: rgba(246, 239, 223, .8); }
+.btn-line:active { background: rgba(26, 23, 20, .08); }
+.help { display: flex; flex-direction: column; gap: 10px; text-align: left; overflow-y: auto; touch-action: pan-y; }
+.help-row { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.6; }
+.help-row b { color: var(--shu); font-weight: 400; letter-spacing: .05em; }
 
 #count { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; pointer-events: none;
   font-family: 'Yuji Boku', serif; font-size: 120px; color: var(--sumi); }
@@ -49,13 +215,6 @@ html, body { margin: 0; height: 100%; background: #2b2621; color: var(--sumi); o
 .boot-notice ul { text-align: left; padding-left: 18px; font-size: 13px; line-height: 1.8; color: var(--sumi); margin: 0 0 18px; }
 .boot-ok { font: inherit; color: var(--paper2); background: var(--shu); border: 2px solid var(--sumi); padding: 10px 34px; letter-spacing: 4px; cursor: pointer; box-shadow: 3px 3px 0 rgba(26, 23, 20, .75); }
 
-/* 遊び方 */
-.help { display: flex; flex-direction: column; gap: 10px; max-width: 340px; text-align: left; }
-.help-row { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.6; }
-.help-row b { color: var(--shu); font-weight: 400; letter-spacing: 1px; }
-.help-row span { color: var(--sumi); }
-#help { z-index: 8; }
-
 /* チュートリアル：短冊のような吹き出し（下は空けておく） */
 #tut { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); z-index: 6; width: min(340px, 90vw);
   background: rgba(246, 239, 223, .97); border: 2px solid var(--sumi); padding: 10px 14px 12px; box-shadow: 4px 4px 0 rgba(26, 23, 20, .6);
@@ -66,37 +225,13 @@ html, body { margin: 0; height: 100%; background: #2b2621; color: var(--sumi); o
 #tut button { font: inherit; font-size: 12px; color: var(--usu); background: none; border: 1px solid var(--usu); padding: 3px 10px; cursor: pointer; }
 #tut p { margin: 8px 0 0; font-size: 15px; line-height: 1.7; color: var(--sumi); white-space: pre-line; }
 
-/* 銭・真珠 */
-.coins { font-size: 18px; color: var(--shu); letter-spacing: 2px; }
 
-/* ガチャ */
-.layer#gacha, .layer#equip { justify-content: flex-start; padding-top: 48px; overflow-y: auto; }
-.tabs2 .btn.on { background: var(--sumi); color: var(--paper2); }
-.g-result { min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-.g-result b { font-weight: 400; font-size: 22px; letter-spacing: 3px; }
-.g-result span { font-family: 'Yuji Boku', serif; font-size: 22px; color: var(--sumi); }
-.g-result small { font-size: 12px; color: var(--usu); }
-.g-result.pop { animation: gpop .5s ease-out; }
-.g-result.r-SSR.pop { animation: gpop .5s ease-out, gshine 1.2s ease-out; }
-@keyframes gpop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
-@keyframes gshine { 0% { filter: drop-shadow(0 0 0 #c8321e); } 30% { filter: drop-shadow(0 0 16px #c8321e); } 100% { filter: none; } }
-.g-icon { width: 44px; height: 72px; object-fit: contain; }
-.g-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 340px; }
-.g-chip { font-size: 12px; border: 1px solid; padding: 3px 7px; color: var(--usu); opacity: .55; background: var(--paper2); }
-.g-chip.own { color: var(--sumi); opacity: 1; }
-.g-chip i { font-style: normal; margin-right: 4px; }
-
-/* 装備・強化 */
-.eq-head { font-size: 15px; color: var(--shu); letter-spacing: 3px; align-self: center; }
-.eq-list { display: flex; flex-direction: column; gap: 6px; width: min(340px, 92vw); }
-.eq-row { display: flex; align-items: stretch; gap: 6px; background: var(--paper2); border: 1.5px solid rgba(26, 23, 20, .35); }
-.eq-row.on { border-color: var(--sumi); box-shadow: 3px 3px 0 rgba(26, 23, 20, .6); }
-.eq-pick { flex: 1; display: flex; align-items: center; gap: 8px; font: inherit; color: var(--sumi); background: none; border: 0; padding: 7px 10px; text-align: left; cursor: pointer; }
-.eq-pick > span { display: flex; flex-direction: column; gap: 2px; }
-.eq-pick img { width: 28px; height: 46px; object-fit: contain; }
-.eq-name { font-size: 15px; } .eq-name i { font-style: normal; font-size: 11px; } .eq-name small { color: var(--shu); font-size: 12px; }
-.eq-stat { font-size: 12px; color: var(--usu); }
-.eq-up { font: inherit; font-size: 13px; color: var(--paper2); background: var(--shu); border: 0; border-left: 1.5px solid var(--sumi); min-width: 62px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
-.eq-up small { font-size: 12px; }
-.eq-up:disabled { background: #cfc6b2; color: var(--usu); cursor: default; }
+/* 英語のときは筆の英字を使わない（くずれて幼く見えるため）。見出しは明朝の太字に */
+html[lang=en] .btn-go, html[lang=en] .btn-cont, html[lang=en] .btn-pull, html[lang=en] .h-title, html[lang=en] .gear-now b,
+html[lang=en] .g-result span, html[lang=en] .yk b, html[lang=en] .card-title, html[lang=en] .h-sec, html[lang=en] #count {
+  font-family: 'Noto Serif JP', serif; font-weight: 600; }
+html[lang=en] .btn-go { font-size: 26px; letter-spacing: .25em; }
+html[lang=en] .h-title, html[lang=en] .card-title { letter-spacing: .2em; font-size: 18px; }
+html[lang=en] .card-title { font-size: 24px; }
+html[lang=en] .eq-wp { font-size: 8.5px; letter-spacing: 0; }
+html[lang=en] .g-wp { font-size: 11px; letter-spacing: 0; }

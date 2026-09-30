@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.16.0';
+const VERSION = '0.17.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -129,6 +129,17 @@ const I18N = {
     stageClear: n => `第${n}段 突破`, stageName: n => (n > STAGES ? `続 第${n}段` : `第${n}段／${STAGES}`), hit: '被弾',
     mods: { normal: '', school: '魚の群れ', current: '急流', golden: '朱の魚（食べると銭）', minus: '逆さ札', rush: '札の雨', dark: '夜の海' },
     attacks: { plain: '', bubble: '墨玉を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
+    tabs: { rec: '記録', gear: '装備', home: 'ホーム', gacha: 'ガチャ', opt: '設定' },
+    go: '出陣', skinTab: '墨の色', equipped: '装備中', collection: '集めたもの',
+    nextClear: (n, p) => `次の初突破　第${kan(n)}段　真珠 +${p}`, allClear: '十段 すべて突破',
+    yokai: '海の怪異 絵巻', unknown: '？？？', notMet: 'まだ出会っていない',
+    recStat: { best: '最高到達', runs: '挑んだ回数', stage: '突破した段' },
+    opt: { lang: '言語', sound: '音', light: '軽量モード', how: '遊び方', open: 'ひらく' },
+    home: 'ホームへ', version: v => `版 ${v}`,
+    bossDesc: ['ふくれて墨玉を撃つ、大きなふぐ', '漂いながら魚の群れを呼び寄せる', '墨を吐いて札を隠す',
+      '寺に現れて問答をしかけ、正体は大蟹だったと伝わる妖怪', '長い吻で一直線に突っこんでくる', '墨を吐き、魚も呼ぶ',
+      'うねりながら墨玉を撃つ', '西日本の海に伝わる怪魚。尾で船の人をなでるようにさらうという',
+      '背に砂が積もり、島と見まちがえられたと伝わる巨大なエイ', '各地の海に伝わる、黒く大きな坊主頭の怪。第十段の主'],
     coinRush: n => `銭 +${n}`, gameClear: '十段 踏破', coinRushSub: '続きは 銭稼ぎの段',
     lifeUp: '命 +1', crewUp: '仲間 +1', hpUp: '命 +1', powerUp: '威力 ×1.3',
     start: 'スタート', newRun: '新しく始める', cont: 'つづきから', light: '軽量', sound: '音', slot: 'スロット',
@@ -178,6 +189,17 @@ const I18N = {
     stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}/${STAGES}`), hit: 'HIT!',
     mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'RED FISH (coins)', minus: 'REVERSED TAGS', rush: 'TAG RAIN', dark: 'NIGHT SEA' },
     attacks: { plain: '', bubble: 'INK SHOTS', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK CLOUD' },
+    tabs: { rec: 'RECORD', gear: 'GEAR', home: 'HOME', gacha: 'GACHA', opt: 'OPTION' },
+    go: 'START', skinTab: 'INK', equipped: 'EQUIPPED', collection: 'COLLECTION',
+    nextClear: (n, p) => `Next first clear: stage ${n}  ·  +${p} pearls`, allClear: 'All 10 stages cleared',
+    yokai: 'SCROLL OF SEA YOKAI', unknown: '???', notMet: 'Not met yet',
+    recStat: { best: 'BEST', runs: 'RUNS', stage: 'CLEARED' },
+    opt: { lang: 'Language', sound: 'Sound', light: 'Light mode', how: 'How to play', open: 'OPEN' },
+    home: 'HOME', version: v => `v${v}`,
+    bossDesc: ['A giant puffer that swells and spits ink balls', 'Drifts along and calls schools of fish', 'Spits ink to hide the tags',
+      'A yokai said to appear at a temple posing riddles — really a giant crab', 'Charges straight in with its long bill', 'Spits ink and calls fish',
+      'Winds about and spits ink balls', 'A sea monster of western Japan, said to sweep people off boats with its tail',
+      'A ray so huge that sailors mistook its sandy back for an island', 'A great black sea spirit told of along many coasts. Lord of stage 10'],
     coinRush: n => `+${n} COINS`, gameClear: 'GAME CLEAR!', coinRushSub: 'COIN RUSH continues',
     lifeUp: '+1 LIFE', crewUp: '+1 CREW', hpUp: '+1 LIFE', powerUp: 'DMG ×1.3',
     start: 'START', newRun: 'NEW RUN', cont: 'CONTINUE', light: 'LIGHT', sound: 'SOUND', slot: 'SLOT',
@@ -870,31 +892,105 @@ function applyStatic() {
   $('btnResume').textContent = l.resume;
   $('btnQuit').textContent = l.quit;
   $('btnRetry').textContent = l.retry;
-  $('btnHome').textContent = l.title;
+  $('btnHome').textContent = l.home;
   $('tutSkip').textContent = l.skip;
   $('helpTitle').textContent = l.how;
   $('btnHelpClose').textContent = l.close;
   $('helpBody').innerHTML = l.help.map(([h, d]) => `<div class="help-row"><b>${h}</b><span>${d}</span></div>`).join('');
 }
-function showMenu() {
+
+// ---------- ホーム：下のタブで 記録・装備・ホーム・ガチャ・設定 を切り替える ----------
+const TABS = ['rec', 'gear', 'home', 'gacha', 'opt'];
+let tab = 'home', gearTab = 'weapon', gachaTab = 'weapon', heroTimer = 0;
+const crocURL = (skin, f, mood) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.croc(f, mood, skinInk(skin)));
+const bossURL = i => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.boss(i, 0, 'normal'));
+function showMenu() { showHome('home'); }
+function showHome(t) {
   state = 'menu';
   show('result', false); show('pause', false);
-  const l = L();
-  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs) + `  ·  ${l.coins} ${fmt(SLOT.coins)}  ·  ${l.pearl} ${fmt(SLOT.pearls)}`;
-  show('btnContinue', !!SLOT.run);
-  $('btnContinue').textContent = SLOT.run ? `${l.cont}  ${fmt(Math.floor(SLOT.run.m * METER))} m` : l.cont;
-  $('btnStart').textContent = SLOT.run ? l.newRun : l.start;
-  $('btnLight').textContent = `${l.light}: ${OPT.light ? l.on : l.off}`;
-  $('btnSound').textContent = `${l.sound}: ${OPT.sound ? l.on : l.off}`;
-  $('btnHow').textContent = l.how;
-  $('btnGacha').textContent = l.gacha;
-  $('btnEquip').textContent = `${l.equip}：${l.wname[SLOT.weapon] || ''}`;
-  $('btnLang').textContent = l.lang;
   applyStatic();
-  show('menu', true);
+  show('home', true);
+  setTab(t || tab, 0);
 }
-// ---------- ガチャ（武器 / スキン） ----------
-let gachaTab = 'weapon';
+function setTab(t, dir) {
+  const prev = tab; tab = t;
+  const l = L();
+  $('hNav').querySelectorAll('button').forEach(b => {
+    b.classList.toggle('on', b.dataset.tab === t);
+    b.querySelector('span').textContent = l.tabs[b.dataset.tab];
+  });
+  TABS.forEach(k => {
+    const el = $('p-' + k);
+    el.classList.toggle('on', k === t);
+    el.classList.remove('from-l', 'from-r');
+  });
+  if (dir == null) dir = TABS.indexOf(t) - TABS.indexOf(prev);
+  if (dir) { const el = $('p-' + t); void el.offsetWidth; el.classList.add(dir > 0 ? 'from-r' : 'from-l'); }
+  $('hTitle').textContent = t === 'home' ? '' : l.tabs[t];
+  $('p-' + t).scrollTop = 0;
+  renderTab();
+}
+function renderTab() {
+  $('hCoins').textContent = fmt(SLOT.coins);
+  $('hPearls').textContent = fmt(SLOT.pearls);
+  // 印：強化できるものがある／ガチャが引ける
+  const canUp = WEAPON_DEF.some(w => SLOT.weapons[w.id] && SLOT.weapons[w.id] < WLV_MAX && SLOT.coins >= wUpCost(w, SLOT.weapons[w.id]))
+    || SKIN_DEF.some(k => SLOT.skins[k.id] && SLOT.skins[k.id] < SLV_MAX && SLOT.coins >= sUpCost(k, SLOT.skins[k.id]));
+  $('dotGear').hidden = !canUp;
+  $('dotGacha').hidden = SLOT.pearls < GACHA_COST;
+  clearInterval(heroTimer);
+  ({ rec: renderRec, gear: renderEquip, home: renderHomePanel, gacha: renderGacha, opt: renderOpt })[tab]();
+}
+function renderHomePanel() {
+  const l = L();
+  // 装備中のワニが歩く
+  let f = 0; const img = $('hmCroc');
+  img.src = crocURL(SLOT.skin, 0, 'normal');
+  heroTimer = setInterval(() => { f = (f + 1) % 4; img.src = crocURL(SLOT.skin, f, 'normal'); }, 260);
+  const w = weaponOf(SLOT.weapon);
+  $('hmGear').innerHTML = `<span>${l.wname[w.id]} <small>Lv${SLOT.weapons[w.id]}</small></span><span>${l.sname[SLOT.skin]} <small>Lv${SLOT.skins[SLOT.skin]}</small></span>`;
+  // 十段の道のり：突破した段は朱、次の段は点滅
+  const done = Math.min(SLOT.maxStage, STAGES);
+  $('hmRoad').innerHTML = Array.from({ length: STAGES }, (_, i) => {
+    const n = i + 1, cls = n <= done ? 'done' : n === done + 1 ? 'next' : '';
+    return `<i class="${cls} ${n === STAGES ? 'big' : ''}">${OPT.lang === 'ja' ? kan(n) : n}</i>`;
+  }).join('');
+  $('hmNext').textContent = done >= STAGES ? l.allClear : l.nextClear(done + 1, done + 1 === STAGES ? FIRST_CLEAR.big : FIRST_CLEAR.normal);
+  show('btnContinue', !!SLOT.run);
+  $('btnContinue').textContent = SLOT.run ? `${l.cont}　${fmt(Math.floor(SLOT.run.m * METER))} ${l.meter}` : '';
+  $('btnStart').textContent = SLOT.run ? l.newRun : l.go;
+  $('btnStart').classList.toggle('sub', !!SLOT.run);
+  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs);
+}
+function renderRec() {
+  const l = L();
+  $('recStats').innerHTML = [[l.recStat.best, `${fmt(Math.floor(SLOT.best * METER))}<small>${l.meter}</small>`],
+    [l.recStat.runs, fmt(SLOT.runs)], [l.recStat.stage, `${Math.min(SLOT.maxStage, STAGES)}<small>/${STAGES}</small>`]]
+    .map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join('');
+  $('recHead').textContent = l.yokai;
+  $('recYokai').innerHTML = Ink.BOSS_IDS.map((id, i) => {
+    const met = SLOT.maxStage >= i + 1, atk = (BOSS_ATTACK[id] || []).map(x => l.attacks[x]).join('・');
+    return `<div class="yk ${met ? '' : 'lock'} ${i === 9 ? 'big' : ''}"><div class="yk-n">${OPT.lang === 'ja' ? '第' + kan(i + 1) + '段' : 'STAGE ' + (i + 1)}</div>
+      <img src="${bossURL(i)}" alt=""><b>${met ? bossName(i) : l.unknown}</b><small>${met ? l.bossDesc[i] : l.notMet}</small>${met && i > 0 ? `<em>${atk}</em>` : ''}</div>`;
+  }).join('');
+}
+function renderOpt() {
+  const l = L();
+  const seg = (id, a, b, on) => `<div class="seg mini no-swipe" id="${id}"><button class="${on ? 'on' : ''}">${a}</button><button class="${on ? '' : 'on'}">${b}</button></div>`;
+  $('optList').innerHTML = `
+    <div class="opt-row"><span>${l.opt.lang}</span>${seg('optLang', '日本語', 'English', OPT.lang === 'ja')}</div>
+    <div class="opt-row"><span>${l.opt.sound}</span>${seg('optSound', 'ON', 'OFF', OPT.sound)}</div>
+    <div class="opt-row"><span>${l.opt.light}</span>${seg('optLight', 'ON', 'OFF', OPT.light)}</div>
+    <button class="opt-row link" id="optHow"><span>${l.opt.how}</span><em>${l.opt.open} ›</em></button>`;
+  $('optFoot').innerHTML = `GATE VADER　${l.version(VERSION)}<br>A GAME BY MASU01`;
+  const bind = (id, fn) => $(id).querySelectorAll('button').forEach((b, i) => { b.onclick = () => { fn(i === 0); saveOpt(); sfx('gate'); showHome('opt'); }; });
+  bind('optLang', v => { OPT.lang = v ? 'ja' : 'en'; });
+  bind('optSound', v => { OPT.sound = v; });
+  bind('optLight', v => { OPT.light = v; OPT.lightAsked = true; resize(); });
+  $('optHow').onclick = () => { applyStatic(); show('help', true); };
+}
+
+// ---------- ガチャ（武器 / 墨の色） ----------
 function rollRarity() {
   let r = Math.random() * 100;
   for (const k of ['SSR', 'SR', 'R', 'N']) { r -= RARITY[k].w; if (r < 0) return k; }
@@ -916,66 +1012,69 @@ function pull(kind) {
   writeSlot();
   sfx(rar === 'SSR' || rar === 'SR' ? 'boss' : 'gate');
   const name = kind === 'weapon' ? l.wname[got.id] : l.sname[got.id];
-  const icon = kind === 'skin' ? `<img class="g-icon" src="${skinIconURL(got.id)}" alt="">` : '';
+  const w = kind === 'weapon' ? got : null;
+  const icon = kind === 'skin' ? `<img class="g-icon" src="${crocURL(got.id, 0, 'happy')}" alt="">`
+    : `<div class="g-wp">${l.wp[w.pat]}</div>`;
   const el = $('gachaResult');
   el.className = 'g-result r-' + rar;
-  el.innerHTML = `${icon}<b style="color:${RARITY[rar].col}">${rar}</b><span>${name}</span><small>${note}</small>`;
+  el.innerHTML = `<b class="g-rar" style="color:${RARITY[rar].col}">${rar}</b>${icon}<span>${name}</span><small>${note}</small>`;
   void el.offsetWidth; el.classList.add('pop');
-  renderGacha();
+  renderTab();
 }
-function openGacha() { state = 'menu'; show('menu', false); $('gachaResult').innerHTML = ''; renderGacha(); show('gacha', true); }
+function renderSeg(id, cur, fn) {
+  const l = L();
+  $(id).querySelectorAll('button').forEach(b => {
+    b.textContent = b.dataset.k === 'weapon' ? l.gWeapon : l.skinTab;
+    b.classList.toggle('on', b.dataset.k === cur);
+    b.onclick = () => { fn(b.dataset.k); sfx('gate'); };
+  });
+}
 function renderGacha() {
   const l = L(), kind = gachaTab;
-  $('gachaTitle').textContent = l.gacha;
-  $('gachaCoins').textContent = `${l.pearl} ${fmt(SLOT.pearls)}`;
-  $('tabWeapon').textContent = l.gWeapon; $('tabSkin').textContent = l.gSkin;
-  $('tabWeapon').classList.toggle('on', kind === 'weapon'); $('tabSkin').classList.toggle('on', kind === 'skin');
-  $('btnPull').textContent = `${l.pull}  🦪${GACHA_COST}`;
+  renderSeg('gachaSeg', kind, k => { gachaTab = k; $('gachaResult').innerHTML = ''; $('gachaResult').className = 'g-result'; renderGacha(); });
+  if (!$('gachaResult').innerHTML) $('gachaResult').innerHTML = `<div class="g-idle">${kind === 'weapon' ? '武' : '墨'}</div><small>${l.pity(PITY - (SLOT.pity[kind] || 0))}</small>`;
+  $('btnPull').innerHTML = `${l.pull}<span><i class="ic-pearl"></i>${GACHA_COST}</span>`;
   $('btnPull').disabled = SLOT.pearls < GACHA_COST;
-  $('gachaRates').textContent = `N 60%  ·  R 28%  ·  SR 10%  ·  SSR 2%  ·  ${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
+  $('gachaRates').textContent = `N 60%　R 28%　SR 10%　SSR 2%　·　${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
   $('gachaHow').textContent = l.pearlHow;
+  $('gachaListHead').textContent = l.collection;
   const list = kind === 'weapon' ? WEAPON_DEF : SKIN_DEF;
   $('gachaList').innerHTML = list.map(x => {
     const own = kind === 'weapon' ? SLOT.weapons[x.id] : SLOT.skins[x.id];
-    const name = own ? (kind === 'weapon' ? l.wname[x.id] : l.sname[x.id]) : '？？？';
-    const extra = own ? ` Lv${own}` : '';
-    return `<span class="g-chip ${own ? 'own' : ''}" style="border-color:${RARITY[x.r].col}"><i style="color:${RARITY[x.r].col}">${x.r}</i>${name}${extra}</span>`;
+    const name = own ? (kind === 'weapon' ? l.wname[x.id] : l.sname[x.id]) : l.unknown;
+    const pic = kind === 'skin' ? `<img src="${crocURL(x.id, 0, 'normal')}" alt="">` : `<em>${own ? l.wp[x.pat] : '？'}</em>`;
+    return `<div class="g-tile ${own ? 'own' : ''}" style="--rc:${RARITY[x.r].col}"><i>${x.r}</i>${pic}<span>${name}</span>${own ? `<small>Lv${own}</small>` : ''}</div>`;
   }).join('');
-  $('btnGachaBack').textContent = l.back;
 }
-// ---------- 装備 ----------
-function openEquip() { state = 'menu'; show('menu', false); renderEquip(); show('equip', true); }
+
+// ---------- 装備・強化 ----------
 function renderEquip() {
-  const l = L();
-  $('equipTitle').textContent = l.equip;
-  $('equipCoins').textContent = `${l.coins} ${fmt(SLOT.coins)}`;
-  $('equipWHead').textContent = l.gWeapon; $('equipSHead').textContent = l.gSkin;
-  $('equipWeapons').innerHTML = WEAPON_DEF.filter(w => SLOT.weapons[w.id]).map(w => {
-    const lv = SLOT.weapons[w.id], on = SLOT.weapon === w.id, max = lv >= WLV_MAX, cost = wUpCost(w, lv);
-    return `<div class="eq-row ${on ? 'on' : ''}">
-      <button class="eq-pick" data-w="${w.id}"><span><span class="eq-name"><i style="color:${RARITY[w.r].col}">${w.r}</i> ${l.wname[w.id]} <small>Lv${lv}</small></span>
-      <span class="eq-stat">${l.wp[w.pat]} · ${l.stat.rate}${wRate(w, lv)} · ${l.stat.lines}${w.lines} · ${l.stat.dmg}${fmt(Math.round(wDmg(w, lv) * 10) / 10)}</span></span></button>
-      <button class="eq-up" data-wu="${w.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
-  }).join('');
-  $('equipSkins').innerHTML = SKIN_DEF.filter(k => SLOT.skins[k.id]).map(k => {
-    const lv = SLOT.skins[k.id], on = SLOT.skin === k.id, max = lv >= SLV_MAX, cost = sUpCost(k, lv);
-    return `<div class="eq-row ${on ? 'on' : ''}">
-      <button class="eq-pick" data-s="${k.id}"><img src="${skinIconURL(k.id)}" alt="">
-      <span><span class="eq-name"><i style="color:${RARITY[k.r].col}">${k.r}</i> ${l.sname[k.id]} <small>Lv${lv}</small></span>
-      <span class="eq-stat">${l.pas[k.pas](k.v * lv)}</span></span></button>
-      <button class="eq-up" data-su="${k.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
-  }).join('');
-  $('equipWeapons').querySelectorAll('[data-w]').forEach(b => { b.onclick = () => { SLOT.weapon = b.dataset.w; writeSlot(); sfx('gate'); renderEquip(); }; });
-  $('equipSkins').querySelectorAll('[data-s]').forEach(b => { b.onclick = () => { SLOT.skin = b.dataset.s; writeSlot(); sfx('gate'); renderEquip(); }; });
-  $('equipWeapons').querySelectorAll('[data-wu]').forEach(b => { b.onclick = () => {
-    const w = weaponOf(b.dataset.wu), lv = SLOT.weapons[w.id], cost = wUpCost(w, lv);
-    if (lv >= WLV_MAX || SLOT.coins < cost) return;
-    SLOT.coins -= cost; SLOT.weapons[w.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
-  $('equipSkins').querySelectorAll('[data-su]').forEach(b => { b.onclick = () => {
-    const k = skinOf(b.dataset.su), lv = SLOT.skins[k.id], cost = sUpCost(k, lv);
-    if (lv >= SLV_MAX || SLOT.coins < cost) return;
-    SLOT.coins -= cost; SLOT.skins[k.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
-  $('btnEquipBack').textContent = l.back;
+  const l = L(), isW = gearTab === 'weapon';
+  renderSeg('gearSeg', gearTab, k => { gearTab = k; renderEquip(); });
+  // いま装備しているもの
+  const w = weaponOf(SLOT.weapon), wl = SLOT.weapons[w.id], sk = skinOf(SLOT.skin), sl = SLOT.skins[sk.id];
+  $('gearNow').innerHTML = `<img src="${crocURL(SLOT.skin, 0, 'normal')}" alt="">
+    <div><small>${l.equipped}</small><b>${isW ? l.wname[w.id] : l.sname[sk.id]} <em>Lv${isW ? wl : sl}</em></b>
+    <span>${isW ? `${l.wp[w.pat]}　${l.stat.rate} ${wRate(w, wl)}　${l.stat.lines} ${w.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(w, wl) * 10) / 10)}` : l.pas[sk.pas](sk.v * sl)}</span></div>`;
+  const rows = isW ? WEAPON_DEF.filter(x => SLOT.weapons[x.id]).map(x => {
+    const lv = SLOT.weapons[x.id], max = lv >= WLV_MAX, cost = wUpCost(x, lv);
+    return { id: x.id, r: x.r, on: SLOT.weapon === x.id, lv, max, cost, name: l.wname[x.id], pic: `<em class="eq-wp">${l.wp[x.pat]}</em>`,
+      stat: `${l.stat.rate} ${wRate(x, lv)}　${l.stat.lines} ${x.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(x, lv) * 10) / 10)}` };
+  }) : SKIN_DEF.filter(x => SLOT.skins[x.id]).map(x => {
+    const lv = SLOT.skins[x.id], max = lv >= SLV_MAX, cost = sUpCost(x, lv);
+    return { id: x.id, r: x.r, on: SLOT.skin === x.id, lv, max, cost, name: l.sname[x.id], pic: `<img src="${crocURL(x.id, 0, 'normal')}" alt="">`, stat: l.pas[x.pas](x.v * lv) };
+  });
+  $('gearList').innerHTML = rows.map(x => `<div class="eq-row ${x.on ? 'on' : ''}" style="--rc:${RARITY[x.r].col}">
+      <button class="eq-pick" data-id="${x.id}">${x.pic}<span><span class="eq-name"><i>${x.r}</i>${x.name}<small>Lv${x.lv}</small></span><span class="eq-stat">${x.stat}</span></span>${x.on ? `<b class="eq-on">${l.equipped}</b>` : ''}</button>
+      <button class="eq-up" data-up="${x.id}" ${x.max || SLOT.coins < x.cost ? 'disabled' : ''}>${x.max ? 'MAX' : `${l.up}<small><i class="ic-zeni"></i>${fmt(x.cost)}</small>`}</button></div>`).join('');
+  $('gearList').querySelectorAll('[data-id]').forEach(b => { b.onclick = () => {
+    if (isW) SLOT.weapon = b.dataset.id; else SLOT.skin = b.dataset.id;
+    writeSlot(); sfx('gate'); renderTab(); }; });
+  $('gearList').querySelectorAll('[data-up]').forEach(b => { b.onclick = () => {
+    const id = b.dataset.up;
+    if (isW) { const x = weaponOf(id), lv = SLOT.weapons[id], cost = wUpCost(x, lv); if (lv >= WLV_MAX || SLOT.coins < cost) return; SLOT.coins -= cost; SLOT.weapons[id] = lv + 1; }
+    else { const x = skinOf(id), lv = SLOT.skins[id], cost = sUpCost(x, lv); if (lv >= SLV_MAX || SLOT.coins < cost) return; SLOT.coins -= cost; SLOT.skins[id] = lv + 1; }
+    writeSlot(); sfx('boss'); renderTab(); }; });
 }
 function preloadArt() {
   for (let f = 0; f < 4; f++) for (const m of ['normal', 'happy', 'hurt']) { heroImg(f, m, false); heroImg(f, m, true); }
@@ -986,7 +1085,7 @@ function preloadArt() {
 }
 function startRun(resume) {
   preloadArt();
-  show('menu', false); show('result', false); show('pause', false);
+  clearInterval(heroTimer); show('home', false); show('result', false); show('pause', false); show('help', false);
   if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; enterStage(1); if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
   countdown(() => { state = 'play'; });
@@ -1032,9 +1131,9 @@ function gameOver() {
   const l = L();
   tutHide();
   $('resTitle').textContent = R.starved ? l.starved : l.over;
-  $('resM').textContent = fmt(Math.floor(m * METER)) + ' m';
-  $('resSub').textContent = (R.newBest ? l.newBest + '  ' : `${l.best} ${fmt(Math.floor(SLOT.best * METER))} m  ·  `) + `${R.cleared ? '∞ MODE  ·  ' : ''}${l.eaten(R.kills)}`;
-  $('resCoins').textContent = l.earned(gain) + (R.pearls ? `  ·  ${l.pearlGot(R.pearls)}` : '');
+  $('resM').innerHTML = `${fmt(Math.floor(m * METER))}<small>${l.meter}</small>`;
+  $('resSub').textContent = (R.newBest ? l.newBest + '　' : `${l.best} ${fmt(Math.floor(SLOT.best * METER))}${l.meter}　·　`) + `${R.cleared ? l.gameClear + '　·　' : ''}${l.eaten(R.kills)}`;
+  $('resCoins').innerHTML = `<span><i class="ic-zeni"></i>+${fmt(gain)}</span>` + (R.pearls ? `<span><i class="ic-pearl"></i>+${fmt(R.pearls)}</span>` : '');
   setTimeout(() => { if (state === 'result') show('result', true); }, 700);
 }
 
@@ -1076,24 +1175,29 @@ document.addEventListener('visibilitychange', () => {
 addEventListener('pagehide', () => { if (state === 'play' || state === 'pause') persist(); });
 
 $('btnStart').onclick = () => startRun(false);
-$('btnGacha').onclick = openGacha;
-$('btnEquip').onclick = openEquip;
-$('tabWeapon').onclick = () => { gachaTab = 'weapon'; $('gachaResult').innerHTML = ''; renderGacha(); };
-$('tabSkin').onclick = () => { gachaTab = 'skin'; $('gachaResult').innerHTML = ''; renderGacha(); };
-$('btnPull').onclick = () => pull(gachaTab);
-$('btnGachaBack').onclick = () => { show('gacha', false); showMenu(); };
-$('btnEquipBack').onclick = () => { show('equip', false); showMenu(); };
 $('btnContinue').onclick = () => startRun(true);
+$('btnPull').onclick = () => pull(gachaTab);
 $('btnResume').onclick = resumeGame;
-$('btnQuit').onclick = () => { persist(); tutHide(); showMenu(); };
+$('btnQuit').onclick = () => { persist(); tutHide(); showHome('home'); };
 $('btnRetry').onclick = () => startRun(false);
-$('btnHome').onclick = showMenu;
-$('btnLight').onclick = () => { OPT.light = !OPT.light; OPT.lightAsked = true; saveOpt(); resize(); showMenu(); };
-$('btnHow').onclick = () => { applyStatic(); show('help', true); };
+$('btnHome').onclick = () => showHome('home');
 $('btnHelpClose').onclick = () => show('help', false);
-$('btnLang').onclick = () => { OPT.lang = OPT.lang === 'ja' ? 'en' : 'ja'; saveOpt(); showMenu(); };
 $('tutSkip').onclick = e => { e.stopPropagation(); if (R && R.tut) tutEnd(); };
-$('btnSound').onclick = () => { OPT.sound = !OPT.sound; saveOpt(); showMenu(); };
+$('hNav').querySelectorAll('button').forEach(b => { b.onclick = () => { if (b.dataset.tab !== tab) { sfx('gate'); setTab(b.dataset.tab); } }; });
+// 左右スワイプでタブを移る（切り替えボタンの上は除く）
+(() => {
+  let sx = 0, sy = 0, on = false;
+  const P = $('hPanels');
+  P.addEventListener('pointerdown', e => { on = !e.target.closest('.no-swipe'); sx = e.clientX; sy = e.clientY; });
+  P.addEventListener('pointerup', e => {
+    if (!on) return; on = false;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+    const i = TABS.indexOf(tab) + (dx < 0 ? 1 : -1);
+    if (i >= 0 && i < TABS.length) { sfx('gate'); setTab(TABS[i]); }
+  });
+  P.addEventListener('pointercancel', () => { on = false; });
+})();
 
 // ---------- 描画 ----------
 function resize() {
@@ -1120,8 +1224,9 @@ function inkCol(c) {
   if (/^#(66e6ff|39a0ff)$/i.test(c)) return AI;
   return SUMI;
 }
+// 筆（Yuji Boku）の数字・英字はくずれて読みにくいので、数字や英字を含むときは楷書寄りの書体にする
 function text(t, x, y, size, col, align = 'left', brush = false) {
-  ctx.font = `${size}px ${brush ? BRUSH : FONT}`; ctx.textAlign = align; ctx.fillStyle = col; ctx.fillText(t, x, y);
+  ctx.font = `${size}px ${brush && !/[0-9A-Za-z]/.test(t) ? BRUSH : FONT}`; ctx.textAlign = align; ctx.fillStyle = col; ctx.fillText(t, x, y);
 }
 // 縦書き（右の列から左へ）。絵巻の詞書のように
 function vtext(lines, xRight, yTop, size, col, gap = 1.25) {
