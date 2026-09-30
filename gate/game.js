@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.6.0';
+const VERSION = '0.7.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -81,15 +81,15 @@ const I18N = {
       '画面をドラッグして、ワニを左右に動かそう',
       '左の魚を撃って食べよう。\n逃すと左上の🍖が減り、空になると餓死',
       '右のゲートを撃つと、数値が良くなっていく。\nマイナスも撃てばプラスに変わる',
-      'ゲートは、ワニに届いた瞬間に効果が決まる',
-      '点線のアイテムは、壊すと手に入る。\n壊せずに当たると負け（ライフは1つ）',
+      'ゲートは、くぐると効果が決まる。\n欲しいゲートの下へ動いて、くぐろう',
+      '点線のアイテムは、壊すと手に入る。\n壊さずにぶつかると負け（ライフは1つ）',
       'ライフ・武器のゲートは、たまにだけ出る。\nできるだけ遠くまで進もう！',
     ],
     help: [
       ['動かす', '画面のどこでもドラッグすると、ワニが左右に動く。弾はまっすぐ上に飛ぶ'],
       ['左：エサ', '魚を撃つと食べられる。逃すと🍖が減り、空になると餓死'],
-      ['右：ゲート', '撃つと数値が良くなる。ワニに届いた瞬間に 威力・段数・仲間 が変わる'],
-      ['アイテム', '点線の箱は壊すと手に入る。壊せずに当たるとライフ-1（0で負け）'],
+      ['右：ゲート', '撃つと数値が良くなる。くぐると 威力・段数・仲間 が変わる。くぐらなければ何も起きない'],
+      ['アイテム', '点線の箱は壊すと手に入る。壊さずにぶつかるとライフ-1（0で負け）。避けてもいい'],
       ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
       ['ボス', '12.5%ごとに大きな魚。下まで来られたら負け'],
       ['ゴール', '100%で GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
@@ -113,15 +113,15 @@ const I18N = {
       'Drag anywhere to move the croc left and right',
       'Shoot the fish on the left to eat them.\nMiss them and the meat gauge drops — empty means starving',
       'Shoot the gates on the right to improve their numbers.\nNegatives turn positive if you keep shooting',
-      'A gate takes effect the moment it reaches you',
-      'Break dashed items to get them.\nIf one hits you, you lose (you have 1 life)',
+      'A gate takes effect when you pass through it.\nMove under the one you want',
+      'Break dashed items to get them.\nRun into an unbroken one and you lose (you have 1 life)',
       'LIFE and WEAPON gates show up only now and then.\nGo as far as you can!',
     ],
     help: [
       ['Move', 'Drag anywhere to move the croc. Shots fly straight up'],
       ['Left: food', 'Shoot fish to eat them. Missed fish drain the meat gauge; empty = starved'],
-      ['Right: gates', 'Shooting improves the number. It changes DMG / LINE / CREW when it reaches you'],
-      ['Items', 'Break dashed boxes to get them. If one hits you, -1 life (0 = game over)'],
+      ['Right: gates', 'Shooting improves the number. Pass through it to change DMG / LINE / CREW; skip it and nothing happens'],
+      ['Items', 'Break dashed boxes to get them. Run into an unbroken one: -1 life (0 = game over). You can dodge'],
       ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
       ['Boss', 'A big fish every 12.5%. If it reaches the bottom, you lose'],
       ['Goal', '100% = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
@@ -528,7 +528,7 @@ function step(dt) {
   }
   if (any) R.mobs = R.mobs.filter(mo => !mo.d);
 
-  // ゲート・アイテム：前進。届いたら確定（ゲートは効果、アイテムは壊せなかったらHP-1）
+  // ゲート・アイテム：前進。くぐったら確定（ゲートは効果、壊せなかったアイテムにぶつかったらライフ-1）
   R.gateAcc += GATE_VY * s * dt;
   if (R.gateAcc >= GATE_GAP) { R.gateAcc -= GATE_GAP; spawnGateRow(); }
   for (const o of R.objs) {
@@ -537,6 +537,9 @@ function step(dt) {
     o.y += GATE_VY * s * dt * (R.tut ? 2.5 : 1);   // チュートリアル中は早めに届く
     if (o.y + o.h >= PY - 6) {
       o.dead = true;
+      // 自分がくぐった時だけ効く。避ければ何も起きない
+      const inside = R.x > o.x - 10 && R.x < o.x + o.w + 10;
+      if (!inside) continue;
       if (o.cls === 'gate') applyGate(o);
       else { damage(); pop(o.x + o.w / 2, PY - 30, L().hit, true, '#ff5a5a'); }
     }
@@ -562,6 +565,12 @@ function damage() {
 
 // 開発用の自動操縦：ワニが詰まってきたら左へ、そうでなければ右のゲートとアイテムを撃つ
 function botControl() {
+  const near = R.objs.filter(o => !o.dead && o.y + o.h > PY - 90);
+  if (near.length) {
+    const good = near.find(o => o.cls === 'gate' && isGood(o));
+    if (good) { R.tx = good.x + good.w / 2; return; }
+    if (near.some(o => R.x > o.x - 12 && R.x < o.x + o.w + 12)) { R.tx = MID / 2; return; }   // 悪いゲート・壊れていないアイテムは避ける
+  }
   // 壊さないと当たるアイテムが近づいたら最優先
   const it = R.objs.find(o => o.cls === 'item' && !o.dead && o.y > 260);
   if (it) { R.tx = it.x + it.w / 2; return; }
