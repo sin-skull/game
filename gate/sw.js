@@ -1,6 +1,6 @@
 // オフラインでも起動できるように、ゲーム本体をキャッシュする。
 // 更新がすぐ届くよう「まずネット、だめならキャッシュ」で返す。
-const CACHE = 'gate-vader-v0.6.0';
+const CACHE = 'gate-vader-v0.7.0';
 const SHELL = [
   './', 'index.html', 'style.css', 'boot.js', 'game.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
@@ -22,7 +22,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   e.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' })   // ブラウザの HTTP キャッシュも毎回確かめて、古い版が残らないように
       .then(res => {
         if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
         return res;
