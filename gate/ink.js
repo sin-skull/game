@@ -196,6 +196,64 @@ const Ink = (() => {
   const BOSS_IDS = BOSSES.map(b => b.id);
   const BOSS_NAME = { ja: BOSSES.map(b => b.ja), en: BOSSES.map(b => b.en) };
 
+
+  // ---------- 武器（道具）の絵：ガチャ・装備で見せる。墨の道具と、海の道具 ----------
+  const WEAPON_ART = {
+    pea: (k) => `<g transform="rotate(-35 60 64)"><rect x="22" y="54" width="72" height="18" rx="6" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/>
+      <path d="M44 54v18M68 54v18" stroke="${SUMI}" stroke-width="2.4"/><ellipse cx="94" cy="63" rx="4" ry="9" fill="${SUMI}"/></g>
+      <g fill="${SUMI}"><circle cx="92" cy="26" r="4.5"/><circle cx="104" cy="14" r="3.5"/><circle cx="80" cy="36" r="2.5" opacity=".6"/></g>`,
+    twin: (k) => `${[-1, 1].map(d => `<g transform="rotate(${d * 28} 60 60)"><rect x="56" y="14" width="8" height="62" rx="3" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="2.4"/>
+      <path d="M56 76 q4 30 4 30 q0 0 4 -30z" fill="${SUMI}"/><path d="M56 22h8" stroke="${SHU}" stroke-width="3"/></g>`).join('')}`,
+    fan: (k) => `<path d="M60 100 L14 44 A72 72 0 0 1 106 44 Z" fill="#efe7d4" stroke="${SUMI}" stroke-width="3"/>
+      <path d="M60 100 L14 44 A72 72 0 0 1 106 44 Z" fill="url(#${k}r)" opacity=".35"/>
+      ${[0, 1, 2, 3, 4, 5, 6].map(i => { const a = (-129.4 + i * 13.13) * Math.PI / 180; return `<path d="M60 100 L${60 + Math.cos(a) * 72} ${100 + Math.sin(a) * 72}" stroke="${SUMI}" stroke-width="1.6"/>`; }).join('')}
+      <path d="M26 58 q16 -10 34 -2 q18 8 34 -4" stroke="${SUMI}" stroke-width="3" fill="none"/><circle cx="60" cy="100" r="4" fill="${SHU}"/>`,
+    rapid: (k) => `${[-16, 0, 16].map((d, i) => `<rect x="${52 + d}" y="${24 + i * 4}" width="14" height="70" rx="5" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="2.6"/><path d="M${52 + d} ${50 + i * 4}h14" stroke="${SUMI}" stroke-width="2"/>`).join('')}
+      <path d="M36 70 h48" stroke="${SHU}" stroke-width="5"/>`,
+    bouncer: (k) => `<rect x="20" y="66" width="80" height="34" rx="10" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/><ellipse cx="60" cy="76" rx="26" ry="6" fill="${SUMI}"/>
+      <path d="M40 60 L58 26 L76 50 L96 16" stroke="${SUMI}" stroke-width="2.6" fill="none" stroke-dasharray="5 5"/><circle cx="96" cy="16" r="5" fill="${SUMI}"/>`,
+    wave: (k) => `<g transform="rotate(20 60 60)"><rect x="56" y="10" width="9" height="56" rx="3" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="2.4"/><path d="M56 66 q4 24 5 24 q1 0 4 -24z" fill="${SUMI}"/></g>
+      <path d="M12 100 q10 -12 20 0 t20 0 t20 0 t20 0 t20 0" stroke="${SUMI}" stroke-width="3.2" fill="none"/>`,
+    shotgun: (k) => `<g transform="rotate(-30 50 70)"><path d="M26 60 q0 -18 24 -18 q24 0 24 18 v22 q0 12 -24 12 q-24 0 -24 -12z" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/><ellipse cx="50" cy="44" rx="14" ry="4" fill="${SUMI}"/></g>
+      <g fill="${SUMI}">${[[70, 26, 4], [84, 18, 3], [92, 34, 5], [104, 22, 3], [80, 40, 2.5], [100, 48, 3.5], [110, 36, 2]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>`,
+    homing: (k) => `<g transform="rotate(-20 40 80)"><rect x="34" y="50" width="9" height="54" rx="3" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="2.4"/><path d="M34 50 q4 -22 5 -22 q1 0 4 22z" fill="${SUMI}"/></g>
+      <path d="M44 30 q30 -24 50 0 q16 22 -8 32 q-18 6 -20 -10 q0 -12 14 -10" stroke="${SUMI}" stroke-width="3" fill="none"/><circle cx="82" cy="42" r="4" fill="${SHU}"/>`,
+    beam: (k) => `<rect x="52" y="6" width="16" height="50" rx="4" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/><path d="M50 56 q10 30 10 30 q0 0 10 -30z" fill="${SUMI}"/>
+      <path d="M60 86 v30" stroke="${SUMI}" stroke-width="12" stroke-linecap="round" filter="url(#${k}d)"/><path d="M52 16h16" stroke="${SHU}" stroke-width="3"/>`,
+    trident: () => `<path d="M60 116 V40" stroke="${SUMI}" stroke-width="6" stroke-linecap="round"/><path d="M34 44 V20 M60 40 V8 M86 44 V20 M34 44 q26 14 52 0" stroke="${SUMI}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M28 24 l6 -10 l6 10 M54 12 l6 -10 l6 10 M80 24 l6 -10 l6 10" fill="${SUMI}" stroke="${SUMI}" stroke-width="2"/><path d="M52 70h16" stroke="${SHU}" stroke-width="4"/>`,
+    jaws: (k) => `<path d="M10 56 Q60 18 110 50 L104 58 Q60 36 16 62 Z" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/>
+      <path d="M12 70 Q60 100 110 66 L104 60 Q60 86 18 64 Z" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/>
+      <path d="M22 60 l4 8 l4 -8 l4 8 l4 -8 l4 7 l4 -7 l4 7 l4 -7 l4 7 l4 -7 l4 6 l4 -6 l4 6 l4 -6 l4 6 l4 -6 l4 5 l4 -5" stroke="#efe7d4" stroke-width="2" fill="none"/><circle cx="92" cy="44" r="3.5" fill="${SHU}"/>`,
+    bamboo: (k) => `<rect x="42" y="8" width="36" height="104" rx="8" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/><path d="M42 40 h36 M42 76 h36" stroke="${SUMI}" stroke-width="3"/>
+      <path d="M78 36 q16 -8 24 -24 M78 72 q14 -4 20 -16" stroke="${SUMI}" stroke-width="2.4" fill="none"/>`,
+    reed: (k) => `<g transform="rotate(-40 60 60)"><rect x="20" y="54" width="80" height="12" rx="5" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="2.6"/>${[36, 50, 64, 78].map(x => `<circle cx="${x}" cy="60" r="2.4" fill="${SUMI}"/>`).join('')}</g>
+      <path d="M70 90 q8 -8 16 0 t16 0 M78 104 q8 -8 16 0" stroke="${SUMI}" stroke-width="2.4" fill="none"/>`,
+    kasa: (k) => `<path d="M12 64 Q60 -4 108 64 Q96 56 84 64 Q72 56 60 64 Q48 56 36 64 Q24 56 12 64Z" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/>
+      ${[24, 42, 60, 78, 96].map(x => `<path d="M60 18 L${x} 62" stroke="${SUMI}" stroke-width="1.4" opacity=".7"/>`).join('')}<path d="M60 64 V108 q0 8 -8 6" stroke="${SUMI}" stroke-width="4" fill="none"/><circle cx="60" cy="40" r="7" fill="${SHU}" opacity=".85"/>`,
+    oar: (k) => `<g transform="rotate(35 60 60)"><rect x="56" y="4" width="8" height="70" rx="3" fill="${SUMI}"/><path d="M50 74 h20 l-2 40 q-8 6 -16 0z" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/></g>
+      <path d="M8 104 q10 -8 20 0 t20 0" stroke="${SUMI}" stroke-width="2.4" fill="none"/>`,
+    net: () => `<circle cx="60" cy="62" r="46" fill="none" stroke="${SUMI}" stroke-width="3"/>
+      ${[-30, -15, 0, 15, 30].map(d => `<path d="M${60 + d} 16 Q${60 + d * 1.6} 62 ${60 + d} 108" stroke="${SUMI}" stroke-width="1.6" fill="none"/><path d="M14 ${62 + d} Q60 ${62 + d * 1.6} 106 ${62 + d}" stroke="${SUMI}" stroke-width="1.6" fill="none"/>`).join('')}
+      ${[[20, 90], [34, 104], [86, 104], [100, 90], [60, 110]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4" fill="${SUMI}"/>`).join('')}`,
+    kite: (k) => `<rect x="24" y="10" width="60" height="76" fill="#efe7d4" stroke="${SUMI}" stroke-width="3" transform="rotate(-8 54 48)"/><path d="M28 14 L80 82 M80 14 L28 82" stroke="${SUMI}" stroke-width="1.4" transform="rotate(-8 54 48)"/>
+      <rect x="44" y="32" width="24" height="24" fill="${SHU}" transform="rotate(-8 54 48)" filter="url(#${k}w)"/><path d="M60 86 q-10 12 4 18 q14 6 2 16" stroke="${SUMI}" stroke-width="2.2" fill="none"/>`,
+    drum: (k) => `<ellipse cx="60" cy="30" rx="40" ry="12" fill="#efe7d4" stroke="${SUMI}" stroke-width="3"/><path d="M20 30 q-4 30 0 60 q40 20 80 0 q4 -30 0 -60" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3"/>
+      ${[30, 45, 60, 75, 90].map(x => `<circle cx="${x}" cy="${x === 60 ? 44 : 42}" r="2.2" fill="#efe7d4"/>`).join('')}<path d="M88 12 L112 -4 M96 20 L116 8" stroke="${SUMI}" stroke-width="4" stroke-linecap="round"/>`,
+    anchor: () => `<circle cx="60" cy="16" r="8" fill="none" stroke="${SUMI}" stroke-width="4"/><path d="M60 24 V104 M38 40 H82" stroke="${SUMI}" stroke-width="6" stroke-linecap="round"/>
+      <path d="M18 76 Q24 108 60 106 Q96 108 102 76" stroke="${SUMI}" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M12 80 l6 -12 l8 10z M108 80 l-6 -12 l-8 10z" fill="${SUMI}"/>`,
+    suzuri: (k) => `<rect x="14" y="30" width="92" height="70" rx="12" fill="url(#${k}g)" stroke="${SUMI}" stroke-width="3.4"/><rect x="26" y="40" width="68" height="36" rx="8" fill="#efe7d4" opacity=".35"/>
+      <path d="M26 84 q34 16 68 0 v6 q-34 14 -68 0z" fill="${SUMI}"/><rect x="80" y="4" width="14" height="40" rx="3" fill="${SUMI}" transform="rotate(20 87 24)"/><circle cx="40" cy="58" r="5" fill="${SHU}"/>`,
+    aranami: (k) => `<path d="M8 108 C16 60 50 30 84 36 C104 40 110 60 96 70 C86 76 76 66 82 58 C88 50 98 58 94 64" stroke="${SUMI}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M8 108 C16 60 50 30 84 36 C60 44 40 70 36 108Z" fill="url(#${k}g)"/><path d="M40 108 q10 -18 26 -14 q16 4 10 14" stroke="${SUMI}" stroke-width="3" fill="none"/>
+      ${[[70, 28], [80, 22], [92, 26], [62, 34]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3" fill="${SUMI}"/>`).join('')}<circle cx="104" cy="20" r="7" fill="${SHU}" opacity=".9"/>`,
+  };
+  function weapon(wid) {
+    const k = id(), draw = WEAPON_ART[wid] || WEAPON_ART.pea;
+    return svg(120, 120, addDefs(defs(k, 2.4, 13 + wid.length * 3), sumiGrad(k, .9, .35)) +
+      `<circle cx="60" cy="62" r="50" fill="${USU}" opacity=".12" filter="url(#${k}w)"/><g filter="url(#${k}f)" stroke-linejoin="round">${draw(k)}</g>`);
+  }
+
   // ---------- 和紙（背景）：繊維とムラ ----------
   function washi(w, h, seed = 2) {
     const k = id();
@@ -220,7 +278,7 @@ const Ink = (() => {
     return svg(size, size, `${defs(k, 1.5, 41)}<rect x="2" y="2" width="${size - 4}" height="${size - 4}" rx="3" fill="${SHU}" filter="url(#${k}f)"/><text x="${size / 2}" y="${size * .7}" text-anchor="middle" font-size="${size * .6}" font-family="'Yuji Boku', serif" fill="#f6efdf">${text}</text>`);
   }
 
-  return { croc, fish, octo, boss, BOSS_IDS, BOSS_NAME, washi, fuda, hanko, SUMI, USU, SHU, PAPER };
+  return { croc, fish, octo, boss, weapon, WEAPON_IDS: Object.keys(WEAPON_ART), BOSS_IDS, BOSS_NAME, washi, fuda, hanko, SUMI, USU, SHU, PAPER };
 })();
 if (typeof window !== 'undefined') window.Ink = Ink;
 if (typeof module !== 'undefined') module.exports = Ink;
