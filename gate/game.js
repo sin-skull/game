@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.20.0';
+const VERSION = '0.21.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -99,23 +99,23 @@ const SKIN_DEF = [
   { id: 'green', r: 'N', ink: '#1a1714', pas: 'food', v: 1 },      // 墨
   { id: 'olive', r: 'N', ink: '#3d4a2a', pas: 'coin', v: 0.08 },   // 松葉色
   { id: 'sky', r: 'N', ink: '#1f3a5a', pas: 'eat', v: 0.1 },       // 藍色
-  { id: 'pink', r: 'R', ink: '#7a2e3c', pas: 'food', v: 2 },       // 臙脂
-  { id: 'gold', r: 'R', ink: '#8a6a1a', pas: 'coin', v: 0.15 },    // 金茶
-  { id: 'snow', r: 'R', ink: '#6a6a70', pas: 'dmg', v: 0.1 },      // 銀鼠
-  { id: 'violet', r: 'SR', ink: '#4a2a5a', pas: 'dmg', v: 0.2 },   // 江戸紫
-  { id: 'crimson', r: 'SR', ink: '#c8321e', pas: 'rate', v: 0.5 }, // 朱色
-  { id: 'shadow', r: 'SSR', ink: '#0a0806', pas: 'coin', v: 0.3 }, // 漆黒
-  { id: 'neon', r: 'SSR', ink: '#3a6a5a', pas: 'dmg', v: 0.4 },    // 青磁色（濃いめ）
+  { id: 'pink', r: 'N', ink: '#7a2e3c', pas: 'food', v: 1 },       // 臙脂
+  { id: 'gold', r: 'N', ink: '#8a6a1a', pas: 'coin', v: 0.08 },    // 金茶
+  { id: 'snow', r: 'N', ink: '#6a6a70', pas: 'dmg', v: 0.08 },      // 銀鼠
+  { id: 'violet', r: 'N', ink: '#4a2a5a', pas: 'dmg', v: 0.08 },   // 江戸紫
+  { id: 'crimson', r: 'N', ink: '#c8321e', pas: 'rate', v: 0.3 }, // 朱色
+  { id: 'shadow', r: 'N', ink: '#0a0806', pas: 'coin', v: 0.08 }, // 漆黒
+  { id: 'neon', r: 'N', ink: '#3a6a5a', pas: 'dmg', v: 0.08 },    // 青磁色（濃いめ）
   { id: 'tobi', r: 'N', ink: '#6b3a2a', pas: 'coin', v: 0.08 },    // 鳶色
   { id: 'kon', r: 'N', ink: '#223a70', pas: 'food', v: 1 },        // 紺色
-  { id: 'moegi', r: 'R', ink: '#006e54', pas: 'eat', v: 0.15 },    // 萌葱色
-  { id: 'kuri', r: 'R', ink: '#762f07', pas: 'dmg', v: 0.1 },      // 栗色
-  { id: 'ebicha', r: 'R', ink: '#6d3c32', pas: 'coin', v: 0.15 },  // 海老茶
-  { id: 'rurikon', r: 'SR', ink: '#19448e', pas: 'eat', v: 0.3 },  // 瑠璃紺
-  { id: 'yamabuki', r: 'SR', ink: '#b8862b', pas: 'coin', v: 0.25 }, // 山吹色
-  { id: 'kokiake', r: 'SR', ink: '#8a2b2b', pas: 'food', v: 3 },   // 深緋（こきあけ）
-  { id: 'kindei', r: 'SSR', ink: '#9a7a2a', pas: 'rate', v: 0.7 }, // 金泥
-  { id: 'shinku', r: 'SSR', ink: '#a22041', pas: 'dmg', v: 0.35 }, // 真紅
+  { id: 'moegi', r: 'N', ink: '#006e54', pas: 'eat', v: 0.1 },    // 萌葱色
+  { id: 'kuri', r: 'N', ink: '#762f07', pas: 'dmg', v: 0.08 },      // 栗色
+  { id: 'ebicha', r: 'N', ink: '#6d3c32', pas: 'coin', v: 0.08 },  // 海老茶
+  { id: 'rurikon', r: 'N', ink: '#19448e', pas: 'eat', v: 0.1 },  // 瑠璃紺
+  { id: 'yamabuki', r: 'N', ink: '#b8862b', pas: 'coin', v: 0.08 }, // 山吹色
+  { id: 'kokiake', r: 'N', ink: '#8a2b2b', pas: 'food', v: 1 },   // 深緋（こきあけ）
+  { id: 'kindei', r: 'N', ink: '#9a7a2a', pas: 'rate', v: 0.3 }, // 金泥
+  { id: 'shinku', r: 'N', ink: '#a22041', pas: 'dmg', v: 0.08 }, // 真紅
   // ここから：ワニ以外の生き物や、小物（笠・鉢巻・蓑・風呂敷・羽織）で見た目が変わる
   { id: 'turtle', r: 'N', body: 'turtle', acc: '', ink: '#1a1714', pas: 'food', v: 1 },
   { id: 'frog', r: 'N', body: 'frog', acc: '', ink: '#3d4a2a', pas: 'eat', v: 0.1 },
@@ -188,7 +188,7 @@ const I18N = {
     crewMore: n => `後ろに仲間 +${n}（段数に）`,
     loginT: '今日のおまけ', loginLead: '毎日ひらくと、おまけがもらえる（7日でひと回り）。', loginToBox: 'おまけは「贈り物」に届いています。', dayN: n => `${n}日目`,
     getAll: 'まとめて受け取る', getOne: '受け取る', noGift: 'いま届いている贈り物はありません。', gotToast: (p, c) => `受け取った　${p ? `真珠 +${p}　` : ''}${c ? `銭 +${c}` : ''}`,
-    gift: { welcome: () => 'ようこそ GATE VADER へ', update: v => `更新のお礼（版 ${v}）`, login: n => `ログインのおまけ ${n}日目` },
+    gift: { demote: () => '色違いのワニを N にしたお返し', welcome: () => 'ようこそ GATE VADER へ', update: v => `更新のお礼（版 ${v}）`, login: n => `ログインのおまけ ${n}日目` },
     dailyLead: '毎日0時に新しくなる。ぜんぶ終えると、さらに真珠。', taskAll: 'ぜんぶ終える',
     task: { eat: n => `魚を${n}匹食べる`, tags: n => `札を${n}枚くぐる`, boss: n => `ボスを${n}体倒す`, m: n => `合わせて${n}米すすむ` },
     side: { news: 'お知らせ', gift: '贈り物', daily: '日課', road: '道のり', how: '遊び方' }, road: '十段の道のり', contShort: '続きから', fromStart: 'はじめから',
@@ -197,7 +197,8 @@ const I18N = {
     rankName: n => (n >= STAGES ? '十段 踏破' : n > 0 ? `第${kan(n)}段 突破` : '見習い'),
     says: n => ['腹がへった…', `次は第${kan(Math.min(n, STAGES))}段だ`, '札は、くぐってこそ', '墨が乾く前に行こう', '海坊主…いつか会う'],
     tapStart: 'タップしてはじめる', plusCoin: '銭は、進んだ距離と突破した段でたまる', plusPearl: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。ガチャ1回10、各ガチャの最初の10連は無料',
-    news: [['版 0.20.0', 'スキンを50種に（亀・蛙・鯉・蟹・山椒魚・鯰・鮫・河童・兎、笠・鉢巻・蓑・風呂敷・羽織）。各ガチャの最初の10連が無料。贈り物・ログインのおまけ・日課を追加。仲間は上限なし（見えるのは前7・後ろ8、それより多い分は段数に）。'],
+    news: [['版 0.21.0', '色が違うだけのワニのスキンは、すべて N に。SR・SSR は姿が変わるスキンだけ。前に SR / SSR として引いていた人には真珠でお返し（贈り物へ）。'],
+      ['版 0.20.0', 'スキンを50種に（亀・蛙・鯉・蟹・山椒魚・鯰・鮫・河童・兎、笠・鉢巻・蓑・風呂敷・羽織）。各ガチャの最初の10連が無料。贈り物・ログインのおまけ・日課を追加。仲間は上限なし（見えるのは前7・後ろ8、それより多い分は段数に）。'],
       ['版 0.19.0', 'ガチャに注目の品と絵つきのラインナップ、10連（SR以上1つ確定）、各ガチャの初回無料。武器と墨の色を20種ずつに。真珠は600米ごとに1つ（1回10）。武器の札は、今の武器に撃ち方を外側2本足す形に。仲間は20人まで。'],
       ['版 0.18.0', 'タイトル画面を追加。ホームを作り直し（左右のアイコン、下の角の大きな丸ボタン、バナー）。'],
       ['版 0.17.0', '下のタブ（装備・ガチャ・ホーム・絵巻・設定）。アイコンを一新。'],
@@ -274,7 +275,7 @@ const I18N = {
     crewMore: n => `+${n} crew behind (→ lines)`,
     loginT: 'LOGIN BONUS', loginLead: 'Open the game every day for a bonus (7-day cycle).', loginToBox: 'Your bonus is waiting in Gifts.', dayN: n => `Day ${n}`,
     getAll: 'CLAIM ALL', getOne: 'CLAIM', noGift: 'No gifts right now.', gotToast: (p, c) => `Claimed ${p ? `+${p} pearls ` : ''}${c ? `+${c} coins` : ''}`,
-    gift: { welcome: () => 'Welcome to GATE VADER', update: v => `Thanks for updating (v${v})`, login: n => `Login bonus, day ${n}` },
+    gift: { demote: () => 'Refund: color-only crocs are now N', welcome: () => 'Welcome to GATE VADER', update: v => `Thanks for updating (v${v})`, login: n => `Login bonus, day ${n}` },
     dailyLead: 'Resets every day at midnight. Finish them all for extra pearls.', taskAll: 'Finish all tasks',
     task: { eat: n => `Eat ${n} fish`, tags: n => `Pass ${n} tags`, boss: n => `Defeat ${n} bosses`, m: n => `Travel ${n} m in total` },
     side: { news: 'News', gift: 'Gifts', daily: 'Daily', road: 'Road', how: 'How to' }, road: 'ROAD OF 10', contShort: 'CONTINUE', fromStart: 'NEW RUN',
@@ -283,7 +284,8 @@ const I18N = {
     rankName: n => (n >= STAGES ? 'All cleared' : n > 0 ? `Stage ${n} cleared` : 'Novice'),
     says: n => ['So hungry…', `Stage ${Math.min(n, STAGES)} next`, 'Tags count only when you pass', "Let's go before the ink dries", 'Umibozu… someday'],
     tapStart: 'TAP TO START', plusCoin: 'Coins come from distance and stages cleared', plusPearl: '1 pearl per 600 m + first-time stage clears. A pull costs 10; the first ×10 of each gacha is free',
-    news: [['v0.20.0', '50 skins (turtle, frog, carp, crab, salamander, catfish, shark, kappa, rabbit, with straw hats, headbands, straw capes, bundles and haori). First ×10 pull of each gacha is free. Gifts, login bonus and daily tasks. Crew is unlimited (7 in front, 8 behind, the rest add lines).'],
+    news: [['v0.21.0', 'Color-only croc skins are now all N; SR and SSR are only skins that change your look. If you pulled them as SR/SSR before, pearls are refunded in Gifts.'],
+      ['v0.20.0', '50 skins (turtle, frog, carp, crab, salamander, catfish, shark, kappa, rabbit, with straw hats, headbands, straw capes, bundles and haori). First ×10 pull of each gacha is free. Gifts, login bonus and daily tasks. Crew is unlimited (7 in front, 8 behind, the rest add lines).'],
       ['v0.19.0', 'Gacha now shows a pick-up with pictures, a full lineup with rates, ×10 pulls (1 SR+ guaranteed) and a free first pull. 21 weapons and 20 inks. 1 pearl per 600 m (a pull costs 10). Weapon gates now add 2 outer shots to your weapon. Crew up to 20.'],
       ['v0.18.0', 'New title screen. Rebuilt home (side icons, big round buttons, banner).'],
       ['v0.17.0', 'Bottom tabs (Gear, Gacha, Home, Scroll, Option). New icon.'],
@@ -1181,6 +1183,11 @@ function grantGift(id, k, r, n) { if (SLOT.giftIds[id]) return; SLOT.giftIds[id]
 function checkGifts() {
   grantGift('welcome', 'welcome', { p: 50, c: 300 });
   grantGift('update-0.20', 'update', { p: 30 }, '0.20');
+  // 色違いだけのワニは N に。前に SR / SSR として引いていた分は真珠でお返し
+  const DEMOTED = { pink: 'R', gold: 'R', snow: 'R', violet: 'SR', crimson: 'SR', shadow: 'SSR', neon: 'SSR', moegi: 'R', kuri: 'R', ebicha: 'R', rurikon: 'SR', yamabuki: 'SR', kokiake: 'SR', kindei: 'SSR', shinku: 'SSR' };
+  const back = Object.keys(DEMOTED).reduce((t, id) => t + (SLOT.skins[id] ? (DEMOTED[id] === 'SSR' ? 50 : DEMOTED[id] === 'SR' ? 20 : 5) : 0), 0);
+  if (back) grantGift('demote-0.21', 'demote', { p: back });
+  else SLOT.giftIds['demote-0.21'] = 1;
   dailyCheck();
   let loginNew = false;
   if (SLOT.login.last !== today()) {
