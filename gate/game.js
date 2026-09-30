@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.14.0';
+const VERSION = '0.15.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -250,6 +250,33 @@ const BOSS_ROWS = ['.##..........##.', '..##........##..', '....##....##....', '
 const BOSS_MID = spr(BOSS_ROWS, { '#': '#cfe0ff', e: '#fff', K: '#000' }, 7);
 const BOSS_BIG = spr(BOSS_ROWS, { '#': '#ff6a5a', e: '#ffe14a', K: '#000' }, 9);
 const HELPER_ROWS = ['.....w.....', '....###....', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#..#####..#', '...##.##...'];
+// ---------- キャラ絵（art.js の SVG）を、一度だけ画像にして使い回す ----------
+// 読み込みが終わるまでは古いドット絵で描く
+const imgCache = new Map();
+function artImg(key, make, w, h) {
+  let e = imgCache.get(key);
+  if (!e) {
+    e = { cv: null };
+    imgCache.set(key, e);
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = Math.ceil(w * 2); c.height = Math.ceil(h * 2);   // 2倍で描いておき、縮めて使う（くっきり）
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      e.cv = c;
+    };
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(make());
+  }
+  return e.cv;
+}
+const lighten = (hex, k = 0.55) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = v => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0'); return '#' + f(r) + f(g) + f(b); };
+const skinArt = id => { const k = skinOf(id); return { c: k.c, d: k.d, l: lighten(k.c), e: k.id === 'shadow' ? k.e : undefined }; };
+const skinIconURL = id => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Art.croc(0, skinArt(id)));
+const HERO_W = 40, HERO_H = 59, HELP_W = 26, HELP_H = 38, FISH_W = 18, FISH_H = 22;
+const heroImg = (f, mood, small) => artImg(`croc:${SLOT.skin}:${f}:${mood}:${small ? 1 : 0}`, () => Art.croc(f, skinArt(SLOT.skin), mood), small ? HELP_W : HERO_W, small ? HELP_H : HERO_H);
+const fishImg = (k, f, gold) => artImg(`fish:${gold ? 'g' : k}:${f}`, () => Art.fish(f, gold ? Art.GOLD : Art.FISH_COLORS[k]), FISH_W, FISH_H);
+const bossSize = big => (big ? 150 : 116);
+const bossImg = (art, f, mood, big) => artImg(`boss:${art}:${f}:${mood}:${big ? 1 : 0}`, () => Art.boss(art, f, mood), bossSize(big), bossSize(big));
 const skinCache = {};
 function crocSprites(id) {
   if (!skinCache[id]) {
@@ -451,9 +478,10 @@ function applyGate(o) {
   const stack = R.pops.filter(p => p.big && p.y > PY - 130).length;   // 同時に確定したら縦にずらす
   pop(R.x, PY - 50 - stack * 20, msg, true, good ? '#39ff88' : '#ff5a5a');
   burst(o.x + o.w / 2, PY, 14, good ? '#39ff88' : '#ff5a5a');
-  if (!good) { R.hurt = 0.3; sfx('hurt'); } else sfx('gate');
+  if (!good) { R.hurt = 0.3; sfx('hurt'); } else { sfx('gate'); R.happy = 0.9; }
 }
 function breakItem(o) {
+  R.happy = 1;
   if (o.kind === 'crew') { R.st.crew = Math.min(crewCap() + 1, CMAX, R.st.crew + 1); pop(o.x + o.w / 2, o.y, L().crewUp, true, '#66e6ff'); }
   else if (o.kind === 'heal') { R.hp = Math.min(HP_MAX, R.hp + 1); pop(o.x + o.w / 2, o.y, L().hpUp, true, '#ff8da1'); }
   else { R.st.dmg = Math.min(DMG_CAP, R.st.dmg * 1.3); pop(o.x + o.w / 2, o.y, L().powerUp, true, '#ffd84a'); }
@@ -487,7 +515,9 @@ function buildGrid() {
 // normal：ふつう / school：魚の群れ（多い）/ current：急流（速い）/ golden：金の魚（食べるとコイン）
 // minus：逆流（マイナスゲートが多い）/ rush：ゲートラッシュ（ゲートが多い）/ dark：深海（上が見えにくい）
 const MODS = ['school', 'current', 'golden', 'minus', 'rush', 'dark'];
-function modOf(n) { if (n <= 1) return 'normal'; return MODS[(n * 5 + 3) % MODS.length]; }
+// 本編は やさしい変化 → きつい変化 の順。11 から先は順番に回す
+const MOD_ORDER = ['golden', 'rush', 'school', 'minus', 'current', 'dark', 'school', 'rush', 'current'];
+function modOf(n) { if (n <= 1) return 'normal'; return n <= STAGES ? MOD_ORDER[n - 2] : MODS[(n * 5 + 3) % MODS.length]; }
 const mod = () => (R ? R.mod || 'normal' : 'normal');
 function curSpeed() { return Math.min(SPEED_CAP * 1.2, stageSpeed(R.stage) * (mod() === 'current' ? 1.25 : 1)); }
 function enterStage(n) {
@@ -497,11 +527,16 @@ function enterStage(n) {
 
 // ---------- ボス：攻撃してくる ----------
 // plain：何もしない / bubble：泡を撃つ / charge：突進 / summon：魚を呼ぶ / ink：墨でゲートを隠す。大ボスは2つ組み合わせ
-const BOSS_ATTACKS = ['bubble', 'charge', 'summon', 'ink'];
+// ボスは10種類（art.js）。ステージ n のボスは n 番目。11 から先は順番にまた出て、攻撃が1つ増える
+const BOSS_ATTACK = { puffer: ['bubble'], jelly: ['summon'], octo: ['ink'], crab: ['bubble'], marlin: ['charge'],
+  squid: ['ink', 'summon'], eel: ['bubble'], shark: ['charge'], manta: ['bubble'], angler: ['bubble', 'charge'] };
+const EXTRA = ['bubble', 'charge', 'summon', 'ink'];
+const bossArtOf = k => (k - 1) % Art.BOSS_IDS.length;
 function bossKinds(k, big) {
-  if (k <= 1) return ['plain'];
-  const a = BOSS_ATTACKS[(k - 2) % 4];
-  return big ? [a, BOSS_ATTACKS[(k + 1) % 4]] : [a];
+  if (k <= 1) return ['plain'];   // 最初のボスは攻撃しない（慣れるため）
+  const kinds = [...BOSS_ATTACK[Art.BOSS_IDS[bossArtOf(k)]]];
+  if (k > STAGES) { const x = EXTRA[k % EXTRA.length]; if (!kinds.includes(x)) kinds.push(x); }
+  return kinds;
 }
 function bossAct(bo, dt, s) {
   const lvl = 1 + Math.max(0, bo.k - 2) * 0.12;   // 先のステージほど激しく
@@ -519,8 +554,8 @@ function bossAct(bo, dt, s) {
       bo.charge = 0.9;   // 0.9秒の予告のあと突進
       bo.cd[kind] = 5.5 / lvl;
     } else if (kind === 'summon') {
-      for (let i = 0; i < 8; i++) R.mobs.push({ x: ZX0 + Math.floor(Math.random() * ZSLOTS) * ZDX, y: bo.y + rnd(-10, 20), k: 2, ph: Math.random() * 6.28, d: 0 });
-      bo.cd[kind] = 3.5 / lvl;
+      for (let i = 0, n = Math.round(3 * lvl); i < n; i++) R.mobs.push({ x: ZX0 + Math.floor(Math.random() * ZSLOTS) * ZDX, y: bo.y + rnd(-10, 20), k: 2, ph: Math.random() * 6.28, d: 0 });
+      bo.cd[kind] = 4 / lvl;
     } else if (kind === 'ink') {
       R.ink.push({ x: MID + rnd(10, MID - 90), y: rnd(150, 420), r: 70, t: 3.2 });
       bo.cd[kind] = 5 / lvl;
@@ -540,13 +575,15 @@ function spawnBoss() {
   const k = R.stage, big = k % 10 === 0;
   // HP は今の火力に合わせる（数字はインフレするが、戦う時間は変わらない）
   const max = Math.max(20, dpsOf(R.st) * 0.35 * bossFightSec(k, big));
-  R.boss = { k, big, hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0, kinds: bossKinds(k, big), cd: { bubble: 1.5, charge: 3, summon: 1, ink: 2 } };
+  R.boss = { k, big, art: bossArtOf(k), hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0, kinds: bossKinds(k, big), cd: { bubble: 1.5, charge: 3, summon: 1, ink: 2 } };
   R.fightKills = 0;
   R.banner = { text: big ? L().bigBoss : L().boss, t: 2, sub: R.boss.kinds.map(x => L().attacks[x]).join(' ＋ ') };
   sfx('boss');
 }
 function killBoss() {
   const b = R.boss;
+  R.deadBoss = { art: b.art, big: b.big, x: b.x, y: b.y, t: 1.4 };
+  R.happy = 1.6;
   burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#cfe0ff');
   R.stage++; R.stageM = 0;
   R.boss = null;
@@ -681,7 +718,7 @@ function step(dt) {
     // ボス
     const bo = R.boss;
     if (!dead && bo) {
-      const hw = bo.big ? 72 : 56, hh = bo.big ? 50 : 40;
+      const hw = bo.big ? 66 : 50, hh = bo.big ? 58 : 46;
       if (Math.abs(b.x - bo.x) < hw && Math.abs(b.y - bo.y) < hh) { bo.hp -= b.d; R.bossAcc += b.d; bo.hit = 0.08; dead = true; }
     }
     if (dead) { R.b[i] = R.b[R.b.length - 1]; R.b.pop(); }
@@ -739,7 +776,8 @@ function step(dt) {
   if (R.objs.some(o => o.dead)) R.objs = R.objs.filter(o => !o.dead);
 
   // 演出
-  R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt); R.inv = Math.max(0, (R.inv || 0) - dt); R.hungry = Math.max(0, (R.hungry || 0) - dt);
+  R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt); R.happy = Math.max(0, (R.happy || 0) - dt);
+  if (R.deadBoss) { R.deadBoss.t -= dt; R.deadBoss.y += 60 * dt; if (R.deadBoss.t <= 0) R.deadBoss = null; } R.inv = Math.max(0, (R.inv || 0) - dt); R.hungry = Math.max(0, (R.hungry || 0) - dt);
   for (let i = R.pops.length - 1; i >= 0; i--) { const p = R.pops[i]; p.t -= dt; p.y -= 34 * dt; if (p.t <= 0) R.pops.splice(i, 1); }
   for (let i = R.parts.length - 1; i >= 0; i--) { const p = R.parts[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.life <= 0) R.parts.splice(i, 1); }
   if (R.banner) { R.banner.t -= dt; if (R.banner.t <= 0) R.banner = null; }
@@ -751,6 +789,7 @@ function step(dt) {
 // 当たった：ハートが1つ減る（0で負け）。直後は少し無敵
 function damage() {
   if (R.inv > 0 || R.tut) return;
+  R.happy = 0;
   R.hp--; R.inv = 1.5; R.hurt = 0.6;
   sfx('hurt');
 }
@@ -872,7 +911,7 @@ function pull(kind) {
   writeSlot();
   sfx(rar === 'SSR' || rar === 'SR' ? 'boss' : 'gate');
   const name = kind === 'weapon' ? l.wname[got.id] : l.sname[got.id];
-  const icon = kind === 'skin' ? `<img class="g-icon" src="${crocSprites(got.id).icon.toDataURL()}" alt="">` : '';
+  const icon = kind === 'skin' ? `<img class="g-icon" src="${skinIconURL(got.id)}" alt="">` : '';
   const el = $('gachaResult');
   el.className = 'g-result r-' + rar;
   el.innerHTML = `${icon}<b style="color:${RARITY[rar].col}">${rar}</b><span>${name}</span><small>${note}</small>`;
@@ -916,7 +955,7 @@ function renderEquip() {
   $('equipSkins').innerHTML = SKIN_DEF.filter(k => SLOT.skins[k.id]).map(k => {
     const lv = SLOT.skins[k.id], on = SLOT.skin === k.id, max = lv >= SLV_MAX, cost = sUpCost(k, lv);
     return `<div class="eq-row ${on ? 'on' : ''}">
-      <button class="eq-pick" data-s="${k.id}"><img src="${crocSprites(k.id).icon.toDataURL()}" alt="">
+      <button class="eq-pick" data-s="${k.id}"><img src="${skinIconURL(k.id)}" alt="">
       <span><span class="eq-name"><i style="color:${RARITY[k.r].col}">${k.r}</i> ${l.sname[k.id]} <small>Lv${lv}</small></span>
       <span class="eq-stat">${l.pas[k.pas](k.v * lv)}</span></span></button>
       <button class="eq-up" data-su="${k.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
@@ -933,7 +972,14 @@ function renderEquip() {
     SLOT.coins -= cost; SLOT.skins[k.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
   $('btnEquipBack').textContent = l.back;
 }
+function preloadArt() {
+  for (let f = 0; f < 4; f++) for (const m of ['normal', 'happy', 'hurt']) { heroImg(f, m, false); heroImg(f, m, true); }
+  for (let k = 0; k < 3; k++) for (let f = 0; f < 4; f++) fishImg(k, f, false);
+  for (let f = 0; f < 4; f++) fishImg(0, f, true);
+  for (let i = 0; i < Art.BOSS_IDS.length; i++) for (const m of ['normal', 'hurt', 'dead']) for (let f = 0; f < 2; f++) bossImg(i, f, m, i === 9);
+}
 function startRun(resume) {
+  preloadArt();
   show('menu', false); show('result', false); show('pause', false);
   if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; enterStage(1); if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
@@ -1113,8 +1159,11 @@ function render(now) {
   // ワニ（小さく大量に）
   const fr = Math.floor(now / 380) % 2;
   for (const mo of R.mobs) {
-    const im = mo.gold ? GOLD_FISH[(fr + (mo.ph > 3.14 ? 1 : 0)) % 2] : FISH[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
-    ctx.drawImage(im, Math.round(mo.x + Math.sin(now / 500 + mo.ph) * 1.5 - 7), Math.round(mo.y - 6));
+    const sf = (Math.floor(now / 110 + mo.ph * 2)) % 4;   // 泳ぎのコマ（1匹ずつずらす）
+    const art = fishImg(mo.k, sf, mo.gold);
+    const sx = mo.x + Math.sin(now / 420 + mo.ph) * 2;
+    if (art) ctx.drawImage(art, Math.round(sx - FISH_W / 2), Math.round(mo.y - FISH_H / 2), FISH_W, FISH_H);
+    else { const im = mo.gold ? GOLD_FISH[(fr + (mo.ph > 3.14 ? 1 : 0)) % 2] : FISH[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2]; ctx.drawImage(im, Math.round(sx - 7), Math.round(mo.y - 6)); }
   }
 
   // ゲートとアイテム
@@ -1145,14 +1194,23 @@ function render(now) {
   // ボス
   const bo = R.boss;
   if (bo) {
-    const im = bo.big ? BOSS_BIG : BOSS_MID;
-    const j = bo.hit > 0 ? 2 : 0;
-    ctx.drawImage(im, Math.round(bo.x - im.width / 2 + rnd(-j, j)), Math.round(bo.y - im.height / 2));
-    const bw = 120, bx = bo.x - bw / 2, by = bo.y - im.height / 2 - 18;
+    const bsz = bossSize(bo.big), j = bo.hit > 0 ? 2 : 0;
+    const bmood = bo.hit > 0 && Math.floor(now / 120) % 2 ? 'hurt' : 'normal';
+    const bart = bossImg(bo.art || 0, (bo.charge > 0 || Math.floor(now / 400) % 2) ? 1 : 0, bmood, bo.big);
+    const im = bart || (bo.big ? BOSS_BIG : BOSS_MID);
+    const iw = bart ? bsz : im.width, ih = bart ? bsz : im.height;
+    ctx.drawImage(im, Math.round(bo.x - iw / 2 + rnd(-j, j)), Math.round(bo.y - ih / 2), iw, ih);
+    const bw = 120, bx = bo.x - bw / 2, by = bo.y - ih / 2 - 14;
     ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, 7);
     ctx.fillStyle = bo.big ? '#ff6a5a' : '#cfe0ff'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, 8);
     text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
+  }
+
+  // 倒したボス：目を回して沈んでいく
+  if (R.deadBoss) {
+    const d = R.deadBoss, sz = bossSize(d.big), im = bossImg(d.art, 0, 'dead', d.big);
+    if (im) { ctx.save(); ctx.globalAlpha = Math.min(1, d.t); ctx.translate(d.x, d.y); ctx.rotate((1.4 - d.t) * 1.2); ctx.drawImage(im, -sz / 2, -sz / 2, sz, sz); ctx.restore(); }
   }
 
   // ボスの弾（泡）と、突進の予告
@@ -1186,9 +1244,17 @@ function render(now) {
   if (!R.over) {
     const n = Math.min(R.st.crew, 8);
     const cs = crocSprites(SLOT.skin), HELPER = cs.helper, PLAYER = cs.player;
-    for (let si = 1; si < n; si++) ctx.drawImage(HELPER, Math.round(shooterX(si) - HELPER.width / 2), PY - 12);
+    const wf = Math.floor(now / 130) % 4;   // 歩きのコマ
+    const mood = R.hurt > 0 ? 'hurt' : R.happy > 0 ? 'happy' : 'normal';
+    for (let si = 1; si < n; si++) {
+      const h = heroImg((wf + si) % 4, R.happy > 0 ? 'happy' : 'normal', true), hx = shooterX(si);
+      if (h) ctx.drawImage(h, Math.round(hx - HELP_W / 2), PY + 10 - HELP_H, HELP_W, HELP_H);
+      else ctx.drawImage(HELPER, Math.round(hx - HELPER.width / 2), PY - 12);
+    }
     if (R.hurt > 0 && Math.floor(R.hurt * 20) % 2) ctx.globalAlpha = 0.35;
-    ctx.drawImage(PLAYER, Math.round(R.x - PLAYER.width / 2), PY - 16);
+    const hero = heroImg(wf, mood, false);
+    if (hero) ctx.drawImage(hero, Math.round(R.x - HERO_W / 2), PY + 14 - HERO_H, HERO_W, HERO_H);
+    else ctx.drawImage(PLAYER, Math.round(R.x - PLAYER.width / 2), PY - 16);
     ctx.globalAlpha = 1;
   }
 
