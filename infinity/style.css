@@ -700,3 +700,28 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .rk { grid-template-columns: 30px 32px 1fr auto; }
 .rk.pinned { margin-top: 12px; border-top: 1px dashed var(--faint); }
 .rk-val sup { font-size: 0.62em; margin-left: 1px; letter-spacing: 0; vertical-align: 0.7em; line-height: 0; }
+
+/* ---------- v1.2：COIN の使い道・ステージ ---------- */
+.coin-use { border: 1px solid var(--line); padding: 12px 14px; margin-bottom: 8px; }
+.coin-use-t { font-size: 10px; letter-spacing: 0.3em; color: var(--dim); margin-bottom: 6px; }
+.coin-use ol { margin: 0; padding-left: 1.3em; font-family: var(--jp); font-weight: 300; font-size: 11px; line-height: 1.8; color: rgba(255, 255, 255, 0.75); }
+
+.stage { border: 1px solid rgba(255, 255, 255, 0.4); padding: 14px; margin-bottom: 8px; }
+.stage-head { display: flex; align-items: center; gap: 10px; }
+.stage-nav { width: 36px; height: 36px; border: 1px solid var(--faint); font-size: 18px; line-height: 1; }
+.stage-nav:disabled { opacity: 0.2; }
+.stage-title { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+.stage-title small { font-size: 9px; letter-spacing: 0.3em; color: var(--dim); }
+.stage-title b { font-weight: 100; font-size: 34px; line-height: 1.1; }
+.stage-skin { margin-left: auto; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.stage-skin svg { overflow: visible; }
+.stage-dots { display: flex; gap: 2px; margin: 12px 0; }
+.stage-dots i { flex: 1; height: 3px; background: rgba(255, 255, 255, 0.15); }
+.stage-dots i.on { background: var(--fg); }
+.stage-dots i.cur { background: var(--fg); opacity: 0.5; animation: blink 1.2s steps(2) infinite; }
+.stage-info { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stage-info div { display: flex; flex-direction: column; gap: 2px; }
+.stage-info small { font-size: 9px; letter-spacing: 0.2em; color: var(--dim); }
+.stage-info b { font-weight: 300; font-size: 20px; }
+.stage-hint { font-family: var(--jp); font-weight: 300; font-size: 11px; color: var(--dim); margin: 10px 0 12px; }
+.stage-info .unit { font-style: normal; font-size: 10px; letter-spacing: 0.2em; color: var(--dim); }

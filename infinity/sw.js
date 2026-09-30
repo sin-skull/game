@@ -1,6 +1,6 @@
 // オフラインでも起動できるように、ゲーム本体をキャッシュする。
 // 更新がすぐ届くよう「まずネット、だめならキャッシュ」で返す。
-const CACHE = 'beyond-infinity-v1.1.0';
+const CACHE = 'beyond-infinity-v1.2.0';
 const SHELL = [
   './', 'index.html', 'style.css', 'skins.js', 'game.js', 'online.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',

@@ -4,7 +4,7 @@
 //  無限の次へ / Beyond ∞ — モノクロ合成インクリメンタル
 // =====================================================
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const SLOT_KEYS = ['infinity-merge-v2', 'infinity-merge-v2-s1', 'infinity-merge-v2-s2'];
 const OLD_SAVE_KEY = 'infinity-merge-v1';
 const BACKUP_KEY = 'infinity-merge-backup';
@@ -21,6 +21,11 @@ const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 // ---------- 言語 ----------
 const I18N = {
   ja: {
+    coinUse: ['COIN の使い道', [
+      '強化を買う（このページ）',
+      '今回稼いだコインの合計が、転生で「魂」になる。強化に使っても魂は減らない',
+      'コインは、オブジェクトを売る・生成ボーナス・ステージで勝つ、で手に入る',
+    ]],
     shopSub: 'ステータス強化', menuSub: 'アカウント・スキン・記録・設定', vsSub: 'バトルとランキング',
     rebirthSub: '今の周回を終えて「魂」を得る。次元とスキルは残る。',
     soulSub: '魂で買う永続スキル。転生しても消えない。',
@@ -75,13 +80,12 @@ const I18N = {
       soul: '魂で永続スキルを買える。<br>転生しても消えない。',
       versus: 'VERSUS：相手のセーブデータの「分身」と全自動で戦う。<br>魂を賭けて、勝てば BP でスキンを解放。',
     },
-    whatsNewTitle: 'アップデート v1.1',
+    whatsNewTitle: 'アップデート v1.2',
     whatsNew: [
-      '強化・スキルの名前をタップすると、何が起こるかの説明が出る',
-      '転生の魂を大幅に増量。到達ランクと次元に応じて倍率がかかる（内訳も表示）',
-      'バトルがタイムアタックに。先に GOAL に届いた方の勝ち',
-      'ランキングを REACH（到達した数）／BP／Ω TIME に',
-      'ポップアップの「あとで」「やめる」ボタンが消えていた不具合を修正',
+      'ステージバトルを追加。勝つとコイン。負けても何も失わない',
+      'バトルに運が絡むように。同じ強さなら五分五分',
+      '挑む前に勝率の目安を表示',
+      '強化のページに「COIN の使い道」を表示',
     ],
     slot: {
       title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
@@ -107,6 +111,11 @@ const I18N = {
     },
   },
   en: {
+    coinUse: ['WHAT COINS ARE FOR', [
+      'Buy upgrades (this page)',
+      'Coins earned this run turn into Souls when you rebirth. Spending them does not lower your Souls',
+      'Get coins by selling objects, from Spawn Bonus, and by winning stages',
+    ]],
     shopSub: 'Status upgrades', menuSub: 'Account, skins, records and settings', vsSub: 'Battle & ranking',
     rebirthSub: 'End this run to earn Souls. Dimension and skills stay.',
     soulSub: 'Permanent skills bought with Souls. They survive rebirth.',
@@ -161,13 +170,12 @@ const I18N = {
       soul: 'Spend Souls on permanent skills.<br>They survive every rebirth.',
       versus: 'VERSUS: an automatic battle against a copy of another player’s save.<br>Bet Souls, win BP, unlock skins.',
     },
-    whatsNewTitle: 'Update v1.1',
+    whatsNewTitle: 'Update v1.2',
     whatsNew: [
-      'Tap any upgrade or skill name to see what it does',
-      'Far more Souls from rebirth, scaled by the rank and dimension you reached (with a breakdown)',
-      'Battles are now a time attack: first to the GOAL wins',
-      'Rankings are now REACH (largest number), BP and Ω TIME',
-      'Fixed popups hiding their Later / Cancel buttons',
+      'Stage battles: win coins, lose nothing',
+      'Battles now include luck: equal builds are about 50/50',
+      'See your win chance before you fight',
+      'The upgrade page explains what coins are for',
     ],
     slot: {
       title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
@@ -214,13 +222,13 @@ const L = () => I18N[OPT.lang] || I18N.ja;
 
 // ---------- プロフィール（アカウント共通：BP・スキン・戦績） ----------
 function normalizeProfile(p) {
-  const def = { bp: 0, bpTotal: 0, skins: ['CIRCLE'], skin: 'CIRCLE', wins: 0, losses: 0, name: '', updated: 0, history: [] };
+  const def = { bp: 0, bpTotal: 0, stage: 0, skins: ['CIRCLE'], skin: 'CIRCLE', wins: 0, losses: 0, name: '', updated: 0, history: [] };
   p = { ...def, ...(p || {}) };
   if (!Array.isArray(p.skins)) p.skins = ['CIRCLE'];
   p.skins = [...new Set(['CIRCLE', ...p.skins.filter(id => SKIN_LIST.some(s => s.id === id))])];
   if (!p.skins.includes(p.skin)) p.skin = 'CIRCLE';
   if (!Array.isArray(p.history)) p.history = [];
-  ['bp', 'bpTotal', 'wins', 'losses', 'updated'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  ['bp', 'bpTotal', 'stage', 'wins', 'losses', 'updated'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
   p.bpTotal = Math.max(p.bpTotal, p.bp);   // 以前のデータは今の BP から
   return p;
 }
@@ -983,7 +991,8 @@ function toggleHelp(e) {
 
 function renderShop() {
   const ja = OPT.lang === 'ja';
-  els.upgrades.innerHTML = UPGRADES.map((u, i) => {
+  const [cTitle, cLines] = L().coinUse;
+  els.upgrades.innerHTML = `<div class="coin-use"><div class="coin-use-t">${cTitle}</div><ol>${cLines.map(x => `<li>${x}</li>`).join('')}</ol></div>` + UPGRADES.map((u, i) => {
     const lv = S.up[u.id], cost = upCost(u);
     return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv}`, u.desc(lv),
       lv, u.max, fmt(cost), S.coins >= cost, lv >= u.max, `data-id="${u.id}"`, u.id);
