@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=0.12.0">
+  <link rel="stylesheet" href="style.css?v=0.13.0">
 </head>
 <body>
   <div id="stage">
@@ -51,6 +51,7 @@
       <div class="g-result" id="gachaResult"></div>
       <button class="btn big" id="btnPull">PULL</button>
       <div class="sub" id="gachaRates"></div>
+      <div class="sub" id="gachaHow"></div>
       <div class="g-list" id="gachaList"></div>
       <button class="btn sm ghost" id="btnGachaBack">BACK</button>
     </div>
@@ -58,10 +59,11 @@
     <!-- 装備 -->
     <div class="layer" id="equip" hidden>
       <div class="title" id="equipTitle">GEAR</div>
+      <div class="coins" id="equipCoins"></div>
       <div class="eq-head" id="equipWHead">WEAPON</div>
       <div class="eq-list" id="equipWeapons"></div>
       <div class="eq-head" id="equipSHead">SKIN</div>
-      <div class="eq-skins" id="equipSkins"></div>
+      <div class="eq-list" id="equipSkins"></div>
       <button class="btn sm ghost" id="btnEquipBack">BACK</button>
     </div>
 
@@ -105,7 +107,7 @@
     <div class="boot-skip" id="bootSkip">TAP</div>
   </div>
 
-  <script src="boot.js?v=0.12.0"></script>
-  <script src="game.js?v=0.12.0"></script>
+  <script src="boot.js?v=0.13.0"></script>
+  <script src="game.js?v=0.13.0"></script>
 </body>
 </html>

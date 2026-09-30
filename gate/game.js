@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.12.0';
+const VERSION = '0.13.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -55,13 +55,16 @@ function readSlot(i) {
     const d = JSON.parse(localStorage.getItem(SLOT_KEYS[i]) || 'null');
     if (!d) return null;
     const f = freshSlot();
+    const skins = Object.assign(f.skins, d.skins || {});
+    for (const k in skins) if (skins[k] === true) skins[k] = 1;   // 旧形式（持っているだけ）→ Lv1
     return { best: +d.best || 0, runs: +d.runs || 0, run: d.run && typeof d.run === 'object' ? d.run : null, coins: +d.coins || 0,
-      weapons: Object.assign(f.weapons, d.weapons || {}), weapon: d.weapon || f.weapon,
-      skins: Object.assign(f.skins, d.skins || {}), skin: d.skin || f.skin };
+      pearls: d.pearls == null ? f.pearls : +d.pearls, maxStage: +d.maxStage || 0, pity: Object.assign(f.pity, d.pity || {}),
+      weapons: Object.assign(f.weapons, d.weapons || {}), weapon: d.weapon || f.weapon, skins, skin: d.skin || f.skin };
   } catch (e) { return null; }
 }
-// ---------- 装備（武器）とスキン：ガチャで手に入れ、ずっと使える ----------
-// 武器：撃ち方と、最初の連射・段数・威力が決まる。同じ武器が出たらレベルアップ（威力×1.5、最大Lv5）
+// ---------- 装備（武器）とスキン ----------
+// 手に入れるのは ガチャ（パール）。強くするのは コイン。どちらもずっと使える
+// 武器：撃ち方と、最初の連射・段数・威力が決まる
 const WEAPON_DEF = [
   { id: 'pea', r: 'N', pat: 'normal', rate: 1, lines: 1, dmg: 1 },
   { id: 'twin', r: 'N', pat: 'normal', rate: 1, lines: 2, dmg: 1 },
@@ -75,26 +78,38 @@ const WEAPON_DEF = [
   { id: 'trident', r: 'SSR', pat: 'trident', rate: 3, lines: 3, dmg: 6 },
   { id: 'jaws', r: 'SSR', pat: 'beam', rate: 4, lines: 4, dmg: 10 },
 ];
-// スキン：見た目だけ（体・影・目の色）
+// スキン：見た目（体・影・目の色）と、レベルで伸びる小さな効果（pas × Lv）
 const SKIN_DEF = [
-  { id: 'green', r: 'N', c: '#39ff88', d: '#1f9d54', e: '#ffe14a' },
-  { id: 'olive', r: 'N', c: '#a6d13a', d: '#5f7d1c', e: '#ffffff' },
-  { id: 'sky', r: 'N', c: '#4ab3ff', d: '#1f5f9d', e: '#ffe14a' },
-  { id: 'pink', r: 'R', c: '#ff7ab8', d: '#a8406f', e: '#ffffff' },
-  { id: 'gold', r: 'R', c: '#ffd84a', d: '#a8841c', e: '#ff4d4d' },
-  { id: 'snow', r: 'R', c: '#e8f4ff', d: '#8aa0b8', e: '#39a0ff' },
-  { id: 'violet', r: 'SR', c: '#b07aff', d: '#5a3a9d', e: '#ffe14a' },
-  { id: 'crimson', r: 'SR', c: '#ff5a5a', d: '#8d1f1f', e: '#ffe14a' },
-  { id: 'shadow', r: 'SSR', c: '#2f3642', d: '#141920', e: '#39ff88' },
-  { id: 'neon', r: 'SSR', c: '#00fff0', d: '#008a80', e: '#ff3df0' },
+  { id: 'green', r: 'N', c: '#39ff88', d: '#1f9d54', e: '#ffe14a', pas: 'food', v: 1 },
+  { id: 'olive', r: 'N', c: '#a6d13a', d: '#5f7d1c', e: '#ffffff', pas: 'coin', v: 0.08 },
+  { id: 'sky', r: 'N', c: '#4ab3ff', d: '#1f5f9d', e: '#ffe14a', pas: 'eat', v: 0.1 },
+  { id: 'pink', r: 'R', c: '#ff7ab8', d: '#a8406f', e: '#ffffff', pas: 'food', v: 2 },
+  { id: 'gold', r: 'R', c: '#ffd84a', d: '#a8841c', e: '#ff4d4d', pas: 'coin', v: 0.15 },
+  { id: 'snow', r: 'R', c: '#e8f4ff', d: '#8aa0b8', e: '#39a0ff', pas: 'dmg', v: 0.1 },
+  { id: 'violet', r: 'SR', c: '#b07aff', d: '#5a3a9d', e: '#ffe14a', pas: 'dmg', v: 0.2 },
+  { id: 'crimson', r: 'SR', c: '#ff5a5a', d: '#8d1f1f', e: '#ffe14a', pas: 'rate', v: 0.5 },
+  { id: 'shadow', r: 'SSR', c: '#2f3642', d: '#141920', e: '#39ff88', pas: 'coin', v: 0.3 },
+  { id: 'neon', r: 'SSR', c: '#00fff0', d: '#008a80', e: '#ff3df0', pas: 'dmg', v: 0.4 },
 ];
 const RARITY = { N: { w: 60, col: '#cfd8d2' }, R: { w: 28, col: '#4ab3ff' }, SR: { w: 10, col: '#b07aff' }, SSR: { w: 2, col: '#ffd84a' } };
-const GACHA_COST = { weapon: 100, skin: 60 };
-const WLV_MAX = 5;
-const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, weapons: { pea: 1 }, weapon: 'pea', skins: { green: true }, skin: 'green' });
+// ガチャはパールで引く。パールはステージの初回クリアでもらえる（大ボスは多め）。50回目は SSR 確定（天井）
+const GACHA_COST = 50;
+const PITY = 50;
+const FIRST_CLEAR = { normal: 5, big: 30 };
+const DUP_COINS = { N: 60, R: 150, SR: 400, SSR: 1000 };   // もう持っているものが出たらコインに
+// 強化：コインでレベルを上げる
+const WLV_MAX = 10, SLV_MAX = 5;
+const W_UP_BASE = { N: 40, R: 80, SR: 160, SSR: 300 }, S_UP_BASE = { N: 60, R: 120, SR: 240, SSR: 480 };
+const wUpCost = (w, lv) => Math.round(W_UP_BASE[w.r] * Math.pow(1.7, lv - 1));
+const sUpCost = (k, lv) => Math.round(S_UP_BASE[k.r] * Math.pow(1.8, lv - 1));
+const wDmg = (w, lv) => w.dmg * Math.pow(1.35, lv - 1);          // レベルで威力 ×1.35
+const wRate = (w, lv) => w.rate + Math.floor((lv - 1) / 3);      // 3レベルごとに連射+1
+const skinBonus = (pas) => { const k = skinOf(SLOT.skin); return k.pas === pas ? k.v * (SLOT.skins[k.id] || 1) : 0; };
+const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, pearls: GACHA_COST, maxStage: 0, pity: { weapon: 0, skin: 0 },
+  weapons: { pea: 1 }, weapon: 'pea', skins: { green: 1 }, skin: 'green' });
 const weaponOf = id => WEAPON_DEF.find(w => w.id === id) || WEAPON_DEF[0];
 const skinOf = id => SKIN_DEF.find(k => k.id === id) || SKIN_DEF[0];
-const coinsFor = (m, bosses) => Math.floor(m * METER / 10) + bosses * 25;   // 10m で1コイン、ボス1体で25
+const coinsFor = (m, bosses) => Math.floor((Math.floor(m * METER / 10) + bosses * 25) * (1 + skinBonus('coin')));   // 10m で1コイン、ボス1体で25（スキンで増える）
 let SLOT = readSlot(OPT.slot) || freshSlot();
 function writeSlot() { try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(SLOT)); } catch (e) { /* 保存不可 */ } }
 function selectSlot(i) { OPT.slot = i; saveOpt(); SLOT = readSlot(i) || freshSlot(); }
@@ -116,8 +131,12 @@ const I18N = {
     menuSub: (b, r) => `ベスト ${b} m ・ ${r} 回`,
     lightToast: '軽量モードにしました（タイトルで切り替えできます）',
     skip: 'スキップ', close: 'とじる',
-    coins: 'コイン', back: 'もどる', gacha: 'ガチャ', equip: '装備', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
-    gNew: 'NEW!', gLvUp: n => `レベルアップ！ Lv${n}`, gRefund: n => `もう持っている（${n} コイン返却）`,
+    coins: 'コイン', back: 'もどる', gacha: 'ガチャ', equip: '装備・強化', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
+    gNew: 'NEW!', gDup: n => `もう持っている → ${n} コイン`, pearl: 'パール', up: '強化',
+    pity: n => `SSR確定まで あと${n}回`, pearlHow: 'パールは、ステージを初めてクリアするともらえる（大ボスは多め）',
+    firstClear: n => `初回クリア！ パール+${n}`, pearlGot: n => `パール +${n}`,
+    pas: { food: v => `満腹 +${v}`, coin: v => `コイン +${Math.round(v * 100)}%`, eat: v => `食べて回復 +${Math.round(v * 100)}%`,
+      dmg: v => `威力 +${Math.round(v * 100)}%`, rate: v => `連射 +${Math.floor(v)}` },
     earned: n => `+${n} コイン`,
     wname: { pea: '豆鉄砲', twin: 'ツイン', fan: 'ファン', rapid: 'ラピッド', bouncer: 'バウンサー', wave: 'ウェーブ',
       shotgun: 'ショットガン', homing: 'ホーミング', beam: 'ビームキャノン', trident: 'トライデント', jaws: 'ジョーズ' },
@@ -139,7 +158,7 @@ const I18N = {
       ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
       ['ボス', '毎ステージの最後に大きな魚。10の倍数は大ボス。下まで来られたら負け'],
       ['ゴール', '100ステージで GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
-      ['コイン・ガチャ', '旅が終わると、進んだ距離がコインになる。ガチャで武器とスキンを手に入れ、装備で選ぶ'],
+      ['コイン・パール', '進んだ距離はコインになり、装備の強化に使う。ステージを初めてクリアするとパールがもらえ、ガチャで武器とスキンが手に入る'],
     ],
   },
   en: {
@@ -158,7 +177,11 @@ const I18N = {
     lightToast: 'LIGHT MODE ON — change it on the title screen',
     skip: 'SKIP', close: 'CLOSE',
     coins: 'COINS', back: 'BACK', gacha: 'GACHA', equip: 'GEAR', gWeapon: 'WEAPON', gSkin: 'SKIN', pull: 'PULL',
-    gNew: 'NEW!', gLvUp: n => `LEVEL UP! Lv${n}`, gRefund: n => `Duplicate (${n} coins back)`,
+    gNew: 'NEW!', gDup: n => `Duplicate → ${n} coins`, pearl: 'PEARLS', up: 'UP',
+    pity: n => `SSR guaranteed in ${n}`, pearlHow: 'Earn pearls by clearing a stage for the first time (more for big bosses)',
+    firstClear: n => `FIRST CLEAR! +${n} PEARLS`, pearlGot: n => `+${n} PEARLS`,
+    pas: { food: v => `FULL +${v}`, coin: v => `COINS +${Math.round(v * 100)}%`, eat: v => `EAT +${Math.round(v * 100)}%`,
+      dmg: v => `DMG +${Math.round(v * 100)}%`, rate: v => `RATE +${Math.floor(v)}` },
     earned: n => `+${n} COINS`,
     wname: { pea: 'Pea Shooter', twin: 'Twin', fan: 'Fan', rapid: 'Rapid', bouncer: 'Bouncer', wave: 'Wave',
       shotgun: 'Shotgun', homing: 'Homing', beam: 'Beam Cannon', trident: 'Trident', jaws: 'Jaws' },
@@ -180,7 +203,7 @@ const I18N = {
       ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
       ['Boss', 'A big fish ends every stage; every 10th is a big boss. If it reaches the bottom, you lose'],
       ['Goal', 'Stage 100 = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
-      ['Coins & gacha', 'Distance turns into coins. Pull weapons and skins in GACHA, pick them in GEAR'],
+      ['Coins & pearls', 'Distance becomes coins for upgrading gear. First-time stage clears give pearls for the weapon / skin gacha'],
     ],
   },
 };
@@ -278,7 +301,8 @@ function newRun() {
   };
   R = r;
   const wd = weaponOf(SLOT.weapon), lv = SLOT.weapons[wd.id] || 1;
-  r.st.rate = wd.rate; r.st.lines = wd.lines; r.st.dmg = wd.dmg * Math.pow(1.5, lv - 1); r.st.wp = wd.pat;
+  r.st.rate = wRate(wd, lv) + Math.floor(skinBonus('rate')); r.st.lines = wd.lines; r.st.dmg = wDmg(wd, lv) * (1 + skinBonus('dmg')); r.st.wp = wd.pat;
+  r.foodMax = r.food = FOOD_MAX + Math.floor(skinBonus('food'));
   r.base = { ...r.st };   // 装備の強さは、ステージの上限より下がらない
   return r;
 }
@@ -466,6 +490,12 @@ function killBoss() {
   burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#cfe0ff');
   R.stage++; R.stageM = 0;
   R.boss = null;
+  if (b.k > SLOT.maxStage) {   // 初めてクリアしたステージ：パール
+    SLOT.maxStage = b.k;
+    const p = b.big ? FIRST_CLEAR.big : FIRST_CLEAR.normal;
+    SLOT.pearls += p; R.pearls = (R.pearls || 0) + p; writeSlot();
+    pop(W / 2, 330, L().firstClear(p), true, '#ffc6f0');
+  }
   sfx('boss');
   if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
   else R.banner = { text: L().stageClear(b.k), t: 1.8, sub: b.big ? L().bigDown : '' };
@@ -573,7 +603,7 @@ function step(dt) {
           for (let j = head[xx + yy * GCOLS]; j !== -1; j = nxt[j]) {
             const mo = R.mobs[j];
             if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
-            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; R.food = Math.min(R.foodMax, R.food + FOOD_EAT);
+            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; R.food = Math.min(R.foodMax, R.food + FOOD_EAT * (1 + skinBonus('eat')));
             if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: FCOL[mo.k] });
             if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
             sfx('kill');
@@ -727,7 +757,7 @@ function showMenu() {
   state = 'menu';
   show('result', false); show('pause', false);
   const l = L();
-  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs) + `  ·  ${l.coins} ${fmt(SLOT.coins)}`;
+  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs) + `  ·  ${l.coins} ${fmt(SLOT.coins)}  ·  ${l.pearl} ${fmt(SLOT.pearls)}`;
   show('btnContinue', !!SLOT.run);
   $('btnContinue').textContent = SLOT.run ? `${l.cont}  ${fmt(Math.floor(SLOT.run.m * METER))} m` : l.cont;
   $('btnStart').textContent = SLOT.run ? l.newRun : l.start;
@@ -748,23 +778,18 @@ function rollRarity() {
   return 'N';
 }
 function pull(kind) {
-  const cost = GACHA_COST[kind];
-  if (SLOT.coins < cost) return;
-  SLOT.coins -= cost;
-  const rar = rollRarity();
+  if (SLOT.pearls < GACHA_COST) return;
+  SLOT.pearls -= GACHA_COST;
+  SLOT.pity[kind] = (SLOT.pity[kind] || 0) + 1;
+  let rar = rollRarity();
+  if (SLOT.pity[kind] >= PITY) rar = 'SSR';   // 天井
+  if (rar === 'SSR') SLOT.pity[kind] = 0;
   const pool = (kind === 'weapon' ? WEAPON_DEF : SKIN_DEF).filter(x => x.r === rar);
   const got = pool[Math.floor(Math.random() * pool.length)];
-  const l = L();
+  const l = L(), owned = kind === 'weapon' ? SLOT.weapons : SLOT.skins;
   let note;
-  if (kind === 'weapon') {
-    const lv = SLOT.weapons[got.id] || 0;
-    if (!lv) { SLOT.weapons[got.id] = 1; note = l.gNew; }
-    else if (lv < WLV_MAX) { SLOT.weapons[got.id] = lv + 1; note = l.gLvUp(lv + 1); }
-    else { const back = Math.round(cost / 2); SLOT.coins += back; note = l.gRefund(back); }
-  } else {
-    if (!SLOT.skins[got.id]) { SLOT.skins[got.id] = true; note = l.gNew; }
-    else { const back = Math.round(cost / 2); SLOT.coins += back; note = l.gRefund(back); }
-  }
+  if (!owned[got.id]) { owned[got.id] = 1; note = l.gNew; }
+  else { SLOT.coins += DUP_COINS[rar]; note = l.gDup(DUP_COINS[rar]); }
   writeSlot();
   sfx(rar === 'SSR' || rar === 'SR' ? 'boss' : 'gate');
   const name = kind === 'weapon' ? l.wname[got.id] : l.sname[got.id];
@@ -779,18 +804,18 @@ function openGacha() { state = 'menu'; show('menu', false); $('gachaResult').inn
 function renderGacha() {
   const l = L(), kind = gachaTab;
   $('gachaTitle').textContent = l.gacha;
-  $('gachaCoins').textContent = `${l.coins} ${fmt(SLOT.coins)}`;
+  $('gachaCoins').textContent = `${l.pearl} ${fmt(SLOT.pearls)}`;
   $('tabWeapon').textContent = l.gWeapon; $('tabSkin').textContent = l.gSkin;
   $('tabWeapon').classList.toggle('on', kind === 'weapon'); $('tabSkin').classList.toggle('on', kind === 'skin');
-  const cost = GACHA_COST[kind];
-  $('btnPull').textContent = `${l.pull}  ${cost}`;
-  $('btnPull').disabled = SLOT.coins < cost;
-  $('gachaRates').textContent = 'N 60%  ·  R 28%  ·  SR 10%  ·  SSR 2%';
+  $('btnPull').textContent = `${l.pull}  🦪${GACHA_COST}`;
+  $('btnPull').disabled = SLOT.pearls < GACHA_COST;
+  $('gachaRates').textContent = `N 60%  ·  R 28%  ·  SR 10%  ·  SSR 2%  ·  ${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
+  $('gachaHow').textContent = l.pearlHow;
   const list = kind === 'weapon' ? WEAPON_DEF : SKIN_DEF;
   $('gachaList').innerHTML = list.map(x => {
     const own = kind === 'weapon' ? SLOT.weapons[x.id] : SLOT.skins[x.id];
     const name = own ? (kind === 'weapon' ? l.wname[x.id] : l.sname[x.id]) : '？？？';
-    const extra = own && kind === 'weapon' ? ` Lv${own}` : '';
+    const extra = own ? ` Lv${own}` : '';
     return `<span class="g-chip ${own ? 'own' : ''}" style="border-color:${RARITY[x.r].col}"><i style="color:${RARITY[x.r].col}">${x.r}</i>${name}${extra}</span>`;
   }).join('');
   $('btnGachaBack').textContent = l.back;
@@ -800,18 +825,33 @@ function openEquip() { state = 'menu'; show('menu', false); renderEquip(); show(
 function renderEquip() {
   const l = L();
   $('equipTitle').textContent = l.equip;
+  $('equipCoins').textContent = `${l.coins} ${fmt(SLOT.coins)}`;
   $('equipWHead').textContent = l.gWeapon; $('equipSHead').textContent = l.gSkin;
   $('equipWeapons').innerHTML = WEAPON_DEF.filter(w => SLOT.weapons[w.id]).map(w => {
-    const lv = SLOT.weapons[w.id], on = SLOT.weapon === w.id;
-    const dmg = w.dmg * Math.pow(1.5, lv - 1);
-    return `<button class="eq-row ${on ? 'on' : ''}" data-w="${w.id}">
-      <span class="eq-name"><i style="color:${RARITY[w.r].col}">${w.r}</i> ${l.wname[w.id]} <small>Lv${lv}</small></span>
-      <span class="eq-stat">${l.wp[w.pat]} · ${l.stat.rate}${w.rate} · ${l.stat.lines}${w.lines} · ${l.stat.dmg}${fmt(dmg)}</span></button>`;
+    const lv = SLOT.weapons[w.id], on = SLOT.weapon === w.id, max = lv >= WLV_MAX, cost = wUpCost(w, lv);
+    return `<div class="eq-row ${on ? 'on' : ''}">
+      <button class="eq-pick" data-w="${w.id}"><span><span class="eq-name"><i style="color:${RARITY[w.r].col}">${w.r}</i> ${l.wname[w.id]} <small>Lv${lv}</small></span>
+      <span class="eq-stat">${l.wp[w.pat]} · ${l.stat.rate}${wRate(w, lv)} · ${l.stat.lines}${w.lines} · ${l.stat.dmg}${fmt(Math.round(wDmg(w, lv) * 10) / 10)}</span></span></button>
+      <button class="eq-up" data-wu="${w.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
   }).join('');
-  $('equipSkins').innerHTML = SKIN_DEF.filter(k => SLOT.skins[k.id]).map(k =>
-    `<button class="eq-skin ${SLOT.skin === k.id ? 'on' : ''}" data-s="${k.id}" title="${l.sname[k.id]}"><img src="${crocSprites(k.id).icon.toDataURL()}" alt=""><small>${l.sname[k.id]}</small></button>`).join('');
+  $('equipSkins').innerHTML = SKIN_DEF.filter(k => SLOT.skins[k.id]).map(k => {
+    const lv = SLOT.skins[k.id], on = SLOT.skin === k.id, max = lv >= SLV_MAX, cost = sUpCost(k, lv);
+    return `<div class="eq-row ${on ? 'on' : ''}">
+      <button class="eq-pick" data-s="${k.id}"><img src="${crocSprites(k.id).icon.toDataURL()}" alt="">
+      <span><span class="eq-name"><i style="color:${RARITY[k.r].col}">${k.r}</i> ${l.sname[k.id]} <small>Lv${lv}</small></span>
+      <span class="eq-stat">${l.pas[k.pas](k.v * lv)}</span></span></button>
+      <button class="eq-up" data-su="${k.id}" ${max || SLOT.coins < cost ? 'disabled' : ''}>${max ? 'MAX' : `${l.up}<small>${fmt(cost)}</small>`}</button></div>`;
+  }).join('');
   $('equipWeapons').querySelectorAll('[data-w]').forEach(b => { b.onclick = () => { SLOT.weapon = b.dataset.w; writeSlot(); sfx('gate'); renderEquip(); }; });
   $('equipSkins').querySelectorAll('[data-s]').forEach(b => { b.onclick = () => { SLOT.skin = b.dataset.s; writeSlot(); sfx('gate'); renderEquip(); }; });
+  $('equipWeapons').querySelectorAll('[data-wu]').forEach(b => { b.onclick = () => {
+    const w = weaponOf(b.dataset.wu), lv = SLOT.weapons[w.id], cost = wUpCost(w, lv);
+    if (lv >= WLV_MAX || SLOT.coins < cost) return;
+    SLOT.coins -= cost; SLOT.weapons[w.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
+  $('equipSkins').querySelectorAll('[data-su]').forEach(b => { b.onclick = () => {
+    const k = skinOf(b.dataset.su), lv = SLOT.skins[k.id], cost = sUpCost(k, lv);
+    if (lv >= SLV_MAX || SLOT.coins < cost) return;
+    SLOT.coins -= cost; SLOT.skins[k.id] = lv + 1; writeSlot(); sfx('boss'); renderEquip(); }; });
   $('btnEquipBack').textContent = l.back;
 }
 function startRun(resume) {
@@ -863,7 +903,7 @@ function gameOver() {
   $('resTitle').textContent = R.starved ? l.starved : l.over;
   $('resM').textContent = fmt(Math.floor(m * METER)) + ' m';
   $('resSub').textContent = (R.newBest ? l.newBest + '  ' : `${l.best} ${fmt(Math.floor(SLOT.best * METER))} m  ·  `) + `${R.cleared ? '∞ MODE  ·  ' : ''}${l.eaten(R.kills)}`;
-  $('resCoins').textContent = l.earned(gain);
+  $('resCoins').textContent = l.earned(gain) + (R.pearls ? `  ·  ${l.pearlGot(R.pearls)}` : '');
   setTimeout(() => { if (state === 'result') show('result', true); }, 700);
 }
 
