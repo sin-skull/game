@@ -2,11 +2,11 @@
 
 // =====================================================
 //  GATE VADER — 撃つか、育てるか。数字のインフレが止まらないゲートシューター
-//  v0.1 土台：canvas / 弾 / ゲート（＋ × ÷）/ モブ / 中ボス・大ボス / 進行バー /
-//             加速 / メートル / 途中離脱 → カウントダウン再開 / 軽量モード
+//  v0.2  左＝ゾンビの大群 / 右＝迫ってくるゲートとアイテム。据え置きの自機で狙い撃つ。
+//        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const TS = Math.min(60, Math.max(0.1, +Q.get('ts') || 1));   // 開発用：時間の倍率
@@ -23,12 +23,13 @@ const FIGHT_LEN = G / 32;                    // ボス戦の間に進行バー�
 const speed = m => (m <= G ? 1 + K * m / G : (1 + K) * (1 + 1.8 * (m - G) / G));   // 100% 以降はぐっと加速
 
 // ---------- 盤面 ----------
-const PY = 560;                              // 自機の高さ
-const BAND_Y = [440, 350], BAND_H = 44;      // ゲートの帯（手前・奥）
-const GATE_X = [10, 188], GATE_W = 162;
-const GATE_LIFE = 16;
-const ROW_GAP = 52, MOB_VY = 12, BULLET_VY = 720;
-const STAT = { lines: 3, rate: 7, dmg: 1 };  // 初期グレード（転生で買う要素は次の段階）
+const MID = W / 2;                           // 左半分＝ゾンビ、右半分＝ゲート
+const PX = MID, PY = 560;                    // 自機（据え置き）
+const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
+const GATE_GAP = 200;                        // ゲートの行の間隔（進んだ距離）
+const MOB_VY = 14, GATE_VY = 14, BULLET_V = 720, ROW_H = 14;
+const LMAX = 15, CMAX = 8;                   // 段数と人数の上限
+const ST0 = { dmg: 1, lines: 7, crew: 1, rate: 8 };   // 初期グレード（転生で買う要素は次の段階）
 
 // ---------- 設定・セーブ ----------
 const SETTINGS_KEY = 'gate-settings';
@@ -68,19 +69,19 @@ function spr(rows, pal, px) {
   rows.forEach((r, j) => [...r].forEach((ch, i) => { if (pal[ch]) { x.fillStyle = pal[ch]; x.fillRect(i * px, j * px, px, px); } }));
   return c;
 }
-const MOBS = [
-  [['..#.....#..', '...#...#...', '..#######..', '.##.###.##.', '###########', '#.#######.#', '#.#.....#.#', '...##.##...'],
-   ['..#.....#..', '#..#...#..#', '#.#######.#', '###.###.###', '###########', '.#########.', '..#.....#..', '.#.......#.'], '#e8e8e8'],
-  [['...#####...', '.#########.', '###########', '###..#..###', '###########', '..##...##..', '.##.###.##.', '##.......##'],
-   ['...#####...', '.#########.', '###########', '###..#..###', '###########', '...##.##...', '..#.....#..', '...#...#...'], '#9dffc4'],
-  [['...##...', '..####..', '.######.', '##.##.##', '########', '..#..#..', '.#.##.#.', '#.#..#.#'],
-   ['...##...', '..####..', '.######.', '##.##.##', '########', '.#.##.#.', '#......#', '.#....#.'], '#c8c8c8'],
-].map(([a, b, col]) => [spr(a, { '#': col }, 3), spr(b, { '#': col }, 3)]);
+const ZF = [
+  ['..###..', '..#.#..', '#######', '#.###.#', '..###..', '..#.#..', '.##.##.'],
+  ['..###..', '..#.#..', '#######', '#.###.#', '..###..', '.##.#..', '..#.##.'],
+];
+const ZCOL = ['#8ccf7a', '#c9d98a', '#e0806e'];
+const ZOMBIES = ZCOL.map(col => ZF.map(f => spr(f, { '#': col }, 2)));
 const PLAYER = spr(['.....w.....', '....###....', '...#####...', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#.#######.#', '#..#####..#', '...##.##...', '..##...##..'],
   { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 3);
 const BOSS_ROWS = ['....########....', '..############..', '.##############.', '.#ee########ee#.', '.#eK########Ke#.', '################', '################', '#####.####.#####', '################', '#w#w#w#ww#w#w#w#', '.#.#.#.##.#.#.#.'];
 const BOSS_MID = spr(BOSS_ROWS, { '#': '#39ff88', e: '#ffe14a', K: '#000', w: '#fff' }, 7);
 const BOSS_BIG = spr(BOSS_ROWS, { '#': '#ff6a5a', e: '#ffe14a', K: '#000', w: '#fff' }, 9);
+const HELPER = spr(['.....w.....', '....###....', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#..#####..#', '...##.##...'],
+  { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 2);
 const HEART = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#ff4d6d' }, 2);
 const HEART_OFF = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#3a3a3a' }, 2);
 
@@ -121,27 +122,28 @@ let R = null;           // 今回の旅
 let kScale = 1;
 let autoResume = false;
 const rnd = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function newRun() {
   const r = {
-    m: 0, hp: 3, x: W / 2, tx: W / 2, t: 0, fire: 0, rowAcc: 30, uid: 0,
-    mobs: [], b: [], gates: [[], []], gateAge: [0, GATE_LIFE / 2],
+    m: 0, hp: 3, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, breach: 0,
+    st: { ...ST0 }, aim: MID + 70,
+    mobs: [], b: [], objs: [],
     boss: null, nextBoss: 1, cleared: false, fightKills: 0, kills: 0,
-    pops: [], parts: [], popT: 0, bossAcc: 0, bossAccT: 0, hurt: 0, banner: null, atk: STAT.dmg, over: false, newBest: false,
+    pops: [], parts: [], popT: 0, bossAcc: 0, bossAccT: 0, hurt: 0, banner: null, over: false, newBest: false,
   };
   R = r;
-  r.gates[0] = makePair(0); r.gates[1] = makePair(1);
   return r;
 }
 function snapshot() {
   if (!R || R.over) return null;
-  const { m, hp, x, t, rowAcc, uid, mobs, gates, gateAge, boss, nextBoss, cleared, fightKills, kills } = R;
-  return JSON.parse(JSON.stringify({ m, hp, x, t, rowAcc, uid, mobs, gates, gateAge, boss, nextBoss, cleared, fightKills, kills }));
+  const { m, hp, t, rowAcc, gateAcc, uid, breach, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
+  return JSON.parse(JSON.stringify({ m, hp, t, rowAcc, gateAcc, uid, breach, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
 }
 function loadRun(snap) {
   const r = newRun();
   Object.assign(r, snap);
-  r.tx = r.x;
+  r.st = Object.assign({ ...ST0 }, snap.st);
   R = r;
   return r;
 }
@@ -151,57 +153,111 @@ function persist() {
   writeSlot();
 }
 
+const dpsOf = st => st.dmg * st.lines * st.crew * st.rate;
 // 進行バーと表示用のメートル。ボス戦中は、ボスとモブの片付き具合で進む
 function clearFrac() {
   const b = R.boss;
   return 0.85 * (1 - b.hp / b.max) + 0.15 * Math.min(1, R.fightKills / 40);
 }
 const mEff = () => (R.boss ? R.boss.startM + FIGHT_LEN * clearFrac() : R.m);
+const linesCap = () => (OPT.light ? 9 : LMAX);
 
-// ---------- ゲート ----------
-function makePair(band) {
-  const lvl = R.m / 100, p = R.m / G;
-  const pick = () => { const r = Math.random(); return r < 0.45 ? '+' : r < 0.75 ? '×' : '÷'; };
-  let types;
-  if (p < 0.06) types = ['+', '+'];
-  else if (p < 0.16) types = ['+', Math.random() < 0.5 ? '+' : '×'];
-  else { types = [pick(), pick()]; if (types[0] === '÷' && types[1] === '÷') types[rnd(0, 1) < 0.5 ? 0 : 1] = '+'; }
-  if (Math.random() < 0.5) types.reverse();
-  return types.map((type, i) => {
-    let v;
-    if (type === '+') v = Math.max(2, Math.round(2 * Math.pow(1.5, lvl) * rnd(0.85, 1.15)));
-    else if (type === '×') v = 2 + Math.floor(lvl / 4) * 0.5;
-    else v = 2 + Math.floor(lvl / 6) * 0.5;
-    return { uid: ++R.uid, x: GATE_X[i], w: GATE_W, type, v, age: 0, pulse: 0 };
-  });
+// ---------- ゲート・アイテム ----------
+// 数値ゲート：撃つと数値が動き、自機に届いた瞬間に効果が確定する（良くも悪くも）
+function makeGate(slot, safe) {
+  const st = R.st, p = Math.min(1, R.m / G);
+  const q = Math.random();
+  let stat, type = 'add', v;
+  if (q < 0.45 || (st.lines >= linesCap() && q < 0.7)) {
+    stat = 'dmg';
+    if (Math.random() < 0.15) { type = 'mul'; v = Math.random() < 0.3 ? 0.5 : 1.5 + Math.floor(Math.random() * 2 * (0.4 + p)) * 0.5; }
+    else v = Math.max(1, st.dmg * rnd(0.02, 0.04));
+  } else if (q < 0.75 && st.lines < linesCap()) { stat = 'lines'; v = 1 + Math.floor(Math.random() * 2); }
+  else if (st.crew < CMAX) { stat = 'crew'; v = 1; }
+  else { stat = 'dmg'; v = Math.max(1, st.dmg * rnd(0.02, 0.04)); }
+  let bad = !safe && Math.random() < 0.3;
+  if (bad) { if (type === 'add') v = -v; else if (v >= 1) v = 0.5; }
+  return { id: ++R.uid, cls: 'gate', stat, type, v, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
-function gateLabel(g) {
-  if (g.type === '+') return '+' + fmt(Math.floor(g.v));
-  const s = g.v < 10 ? g.v.toFixed(1).replace(/\.0$/, '') : fmt(Math.floor(g.v));
-  return g.type + s;
+function makeItem(slot) {
+  const kind = ['crew', 'heal', 'power'][Math.floor(Math.random() * 3)];
+  const hp = Math.max(8, dpsOf(R.st) * rnd(0.8, 1.6));
+  return { id: ++R.uid, cls: 'item', kind, hp, max: hp, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
-// 弾がゲートを通る：弾を変化させ、ゲートも育つ（撃つほど育つ）
-function passGate(b, g) {
-  if (g.type === '+') { b.d += g.v; g.v = g.v * 1.004 + 0.02; }
-  else if (g.type === '×') { b.d *= g.v; g.v += 0.004 + g.v * 0.0004; }
-  else { b.d = Math.max(1, b.d / g.v); g.v = Math.max(1, g.v - 0.012); }
-  g.pulse = 1;
+function spawnGateRow() {
+  const p = R.m / G;
+  const early = p < 0.04;
+  const first = Math.random() < 0.15 && !early ? makeItem(0) : makeGate(0, early);
+  let second = Math.random() < 0.15 && !early && first.cls !== 'item' ? makeItem(1) : makeGate(1, early);
+  if (!isGood(first) && !isGood(second) && second.cls === 'gate') second = makeGate(1, true);
+  R.objs.push(first, second);
+}
+function isGood(o) { return o.cls === 'item' || (o.type === 'add' ? o.v >= 0 : o.v >= 1); }
+function gateLabel(o) {
+  if (o.type === 'add') return (o.v < 0 ? '-' : '+') + (o.stat === 'dmg' ? fmt(Math.floor(Math.abs(o.v))) : Math.max(0, Math.abs(Math.floor(o.v + 1e-6))));
+  if (o.v < 1) return '÷' + (1 / Math.max(0.05, o.v)).toFixed(1).replace(/\.0$/, '');
+  return '×' + (o.v < 10 ? o.v.toFixed(1).replace(/\.0$/, '') : fmt(Math.floor(o.v)));
+}
+const STAT_NAME = { dmg: 'DMG', lines: 'LINE', crew: 'CREW' };
+// 撃たれたとき：数値が「良い方向」に動く（マイナスも撃てばプラスに転じる）
+function growGate(o, b) {
+  // 弾が増えるほど当たる回数も増えるので、育つ速さは弾数に関わらず一定になるよう割り戻す
+  const w = b.w * 40 / (R.st.lines * R.st.crew * R.st.rate);
+  if (o.stat === 'dmg' && o.type === 'add') o.v += R.st.dmg * 0.00015 * w;
+  else if (o.type === 'mul') o.v += 0.0015 * w;
+  else if (o.stat === 'lines') o.v = Math.min(6, o.v + 0.012 * w);
+  else o.v = Math.min(4, o.v + 0.008 * w);
+  o.hit = 0.1;
+}
+function applyGate(o) {
+  const st = R.st; let msg;
+  const before = { ...st };
+  if (o.stat === 'dmg') { st.dmg = Math.max(1, o.type === 'add' ? st.dmg + o.v : st.dmg * o.v); }
+  else if (o.stat === 'lines') st.lines = clamp(Math.round(st.lines + o.v), 1, linesCap());
+  else st.crew = clamp(Math.round(st.crew + o.v), 1, CMAX);
+  const good = o.stat === 'dmg' ? st.dmg >= before.dmg : st[o.stat] >= before[o.stat];
+  msg = `${STAT_NAME[o.stat]} ${gateLabel(o)}`;
+  pop(PX, PY - 50, msg, true, good ? '#39ff88' : '#ff5a5a');
+  burst(o.x + o.w / 2, PY, 14, good ? '#39ff88' : '#ff5a5a');
+  if (!good) { R.hurt = 0.3; sfx('hurt'); } else sfx('gate');
+}
+function breakItem(o) {
+  if (o.kind === 'crew') { R.st.crew = Math.min(CMAX, R.st.crew + 1); pop(o.x + o.w / 2, o.y, '+1 CREW', true, '#66e6ff'); }
+  else if (o.kind === 'heal') { R.hp = Math.min(3, R.hp + 1); pop(o.x + o.w / 2, o.y, '+1 HP', true, '#ff8da1'); }
+  else { R.st.dmg *= 1.5; pop(o.x + o.w / 2, o.y, 'DMG ×1.5', true, '#ffd84a'); }
+  burst(o.x + o.w / 2, o.y + o.h / 2, 20, '#66e6ff');
   sfx('gate');
 }
 
-// ---------- 敵 ----------
+// ---------- ゾンビ ----------
+const ZSLOTS = 12, ZX0 = 9, ZDX = 14;
 function spawnRow() {
   const p = Math.min(1, R.m / G);
-  const n = Math.min(8, 4 + Math.floor(p * 5));
-  const slots = [0, 1, 2, 3, 4, 5, 6, 7, 8].sort(() => Math.random() - 0.5).slice(0, n);
-  const k = Math.floor(Math.random() * 3);
-  for (const sI of slots) R.mobs.push({ x: 28 + sI * 38, y: -16, k, f: Math.random() * 2 });
+  const dens = Math.min(0.92, 0.14 + 0.5 * p + (R.m > G ? 0.3 * Math.min(1, (R.m - G) / G) : 0));
+  const k = p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
+  for (let i = 0; i < ZSLOTS; i++) if (Math.random() < dens) R.mobs.push({ x: ZX0 + i * ZDX + rnd(-1, 1), y: -10, k: Math.random() < 0.85 ? k : Math.min(2, k + 1), ph: Math.random() * 6.28, d: 0 });
 }
-const bossMax = k => 700 * Math.pow(7, k);
+// 弾が当たる場所を素早く引くための格子
+const GC = 16, GCOLS = 23, GROWS = 44;
+const head = new Int32Array(GCOLS * GROWS);
+let nxt = new Int32Array(1024);
+const cellOf = (x, y) => clamp(Math.floor(x / GC), 0, GCOLS - 1) + clamp(Math.floor((y + 16) / GC), 0, GROWS - 1) * GCOLS;
+function buildGrid() {
+  head.fill(-1);
+  if (nxt.length < R.mobs.length) nxt = new Int32Array(R.mobs.length * 2);
+  for (let i = 0; i < R.mobs.length; i++) {
+    const mo = R.mobs[i]; if (mo.d) continue;
+    const c = cellOf(mo.x, mo.y); nxt[i] = head[c]; head[c] = i;
+  }
+}
+
+// ---------- ボス ----------
+const bossFightSec = k => 22 * (1 + 0.06 * k + Math.max(0, k - SEGS) * 0.25);
 function spawnBoss() {
   const k = R.nextBoss, big = k % 4 === 0;
-  const max = bossMax(k);
-  R.boss = { k, big, hp: max, max, x: W / 2, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0 };
+  // HP は今の火力に合わせる（数字はインフレするが、戦う時間は変わらない）
+  const max = Math.max(50, dpsOf(R.st) * 0.6 * bossFightSec(k));
+  R.boss = { k, big, hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0 };
   R.fightKills = 0;
   R.banner = { text: big ? 'BIG BOSS' : 'BOSS', t: 2 };
   sfx('boss');
@@ -224,14 +280,32 @@ function burst(x, y, n, col) {
     R.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(0.3, 0.7), col });
   }
 }
-function pop(x, y, text, big) {
+function pop(x, y, text, big, col) {
   if (R.pops.length > 22) return;
-  R.pops.push({ x, y, text, t: 0.8, big });
+  R.pops.push({ x, y, text, t: big ? 1.1 : 0.8, big, col });
+}
+
+// ---------- 発射 ----------
+// 見た目の弾数には上限を設け、超えた分は1発の重み（w）に乗せる（スマホが熱くならないように）
+function helperX(i) { return PX + (i % 2 ? 1 : -1) * (30 + Math.floor(i / 2) * 22); }
+function volley() {
+  const st = R.st, total = st.lines * st.crew, vis = OPT.light ? 14 : 32;
+  const n = Math.min(total, vis), w = total / n;
+  const shooters = Math.min(st.crew, 8), per = Math.ceil(n / shooters);
+  const pr = Math.max(1, Math.round(w)) + 1 + Math.floor(Math.log10(Math.max(1, st.dmg)));
+  for (let k = 0; k < n; k++) {
+    const si = k % shooters, line = Math.floor(k / shooters);
+    const sx = si === 0 ? PX : helperX(si - 1);
+    const tx = R.aim + ((line + 0.5) / per - 0.5) * st.lines * 14;   // 段数が増えるほど扇が広がる
+    const dx = tx - sx, dy = -(PY - 40), len = Math.hypot(dx, dy);
+    R.b.push({ x: sx, y: PY - 14, vx: dx / len * BULLET_V, vy: dy / len * BULLET_V, d: st.dmg * w, w, pr });
+  }
 }
 
 // ---------- 1コマ進める ----------
 function step(dt) {
   if (!R || R.over) return;
+  const st = R.st;
   const s = speed(R.boss ? R.boss.startM : R.m);
   R.t += dt;
 
@@ -240,91 +314,96 @@ function step(dt) {
     R.m += s * dt;
     if (R.m >= R.nextBoss * SEG - FIGHT_LEN) spawnBoss();
   }
-
-  // 自機
   if (BOT) botControl();
-  R.x += (R.tx - R.x) * Math.min(1, dt * 18);
-  R.x = Math.max(18, Math.min(W - 18, R.x));
+  R.aim = clamp(R.aim, 6, W - 6);
+  // しばらく無傷なら、ハートが1つ戻る（長い旅で削られ続けないように）
+  R.calm = (R.calm || 0) + dt;
+  if (R.calm >= 120 && R.hp < 3) { R.hp++; R.calm = 0; }
 
   // 発射
-  R.fire += dt * STAT.rate;
-  const cap = OPT.light ? 110 : 240;
-  while (R.fire >= 1) {
-    R.fire -= 1;
-    if (R.b.length >= cap) continue;
-    for (let i = 0; i < STAT.lines; i++) R.b.push({ x: R.x + (i - (STAT.lines - 1) / 2) * 11, y: PY - 16, d: STAT.dmg, p0: 0, p1: 0 });
-  }
+  R.fire += dt * st.rate;
+  while (R.fire >= 1) { R.fire -= 1; if (R.b.length < (OPT.light ? 160 : 420)) volley(); }
+
+  buildGrid();
 
   // 弾
-  let maxD = STAT.dmg;
   for (let i = R.b.length - 1; i >= 0; i--) {
     const b = R.b[i];
-    b.y -= BULLET_VY * dt;
-    let dead = b.y < -12;
-    if (!dead) {
-      for (let band = 0; band < 2 && !dead; band++) {
-        if (b.y <= BAND_Y[band] + BAND_H && b.y > BAND_Y[band]) {
-          for (const g of R.gates[band]) {
-            if (b.x >= g.x && b.x <= g.x + g.w && b['p' + band] !== g.uid) { b['p' + band] = g.uid; passGate(b, g); break; }
-          }
-        }
-      }
-      // モブ：一撃で倒れる（HPなし）
-      for (let j = R.mobs.length - 1; j >= 0; j--) {
-        const mo = R.mobs[j];
-        if (Math.abs(b.x - mo.x) < 15 && Math.abs(b.y - mo.y) < 13) {
-          R.mobs.splice(j, 1);
-          R.kills++; if (R.boss) R.fightKills++;
-          burst(mo.x, mo.y, 6, '#e8e8e8');
-          if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false); R.popT = 0.07; }
-          sfx('kill');
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    let dead = b.y < -12 || b.x < -10 || b.x > W + 10;
+    // 右：ゲートとアイテム（弾は通り抜けず、ぶつかって数値を動かす）
+    if (!dead && b.x > MID - 4) {
+      for (const o of R.objs) {
+        if (b.x > o.x && b.x < o.x + o.w && b.y > o.y && b.y < o.y + o.h) {
+          if (o.cls === 'gate') growGate(o, b);
+          else { o.hp -= b.d; o.hit = 0.1; if (o.hp <= 0) { o.dead = true; breakItem(o); } }
           dead = true; break;
         }
       }
-      // ボス
-      const bo = R.boss;
-      if (!dead && bo) {
-        const hw = bo.big ? 72 : 56, hh = bo.big ? 50 : 40;
-        if (Math.abs(b.x - bo.x) < hw && Math.abs(b.y - bo.y) < hh) {
-          bo.hp -= b.d; R.bossAcc += b.d; bo.hit = 0.08;
-          dead = true;
+    }
+    // 左：ゾンビ（一撃。強い弾は何体も貫く）
+    if (!dead && b.x < MID + 10) {
+      const cx = clamp(Math.floor(b.x / GC), 0, GCOLS - 1), cy = clamp(Math.floor((b.y + 16) / GC), 0, GROWS - 1);
+      for (let yy = Math.max(0, cy - 1); yy <= Math.min(GROWS - 1, cy + 1) && !dead; yy++) {
+        for (let xx = Math.max(0, cx - 1); xx <= Math.min(GCOLS - 1, cx + 1) && !dead; xx++) {
+          for (let j = head[xx + yy * GCOLS]; j !== -1; j = nxt[j]) {
+            const mo = R.mobs[j];
+            if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
+            mo.d = 1; R.kills++; if (R.boss) R.fightKills++;
+            if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: '#9fe08c' });
+            if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
+            sfx('kill');
+            if (--b.pr <= 0) { dead = true; break; }
+          }
         }
       }
     }
-    if (b.d > maxD) maxD = b.d;
+    // ボス
+    const bo = R.boss;
+    if (!dead && bo) {
+      const hw = bo.big ? 72 : 56, hh = bo.big ? 50 : 40;
+      if (Math.abs(b.x - bo.x) < hw && Math.abs(b.y - bo.y) < hh) { bo.hp -= b.d; R.bossAcc += b.d; bo.hit = 0.08; dead = true; }
+    }
     if (dead) { R.b[i] = R.b[R.b.length - 1]; R.b.pop(); }
   }
-  R.atk += (maxD - R.atk) * Math.min(1, dt * 6);
 
   // ボスの処理
   const bo = R.boss;
   if (bo) {
-    bo.ph += dt;
-    bo.hit = Math.max(0, bo.hit - dt);
-    if (bo.y < 96) bo.y += 130 * dt;
-    else bo.y += 7.5 * s * dt;
-    bo.x = W / 2 + Math.sin(bo.ph * 0.7) * 90;
+    bo.ph += dt; bo.hit = Math.max(0, bo.hit - dt);
+    if (bo.y < 96) bo.y += 130 * dt; else bo.y += 7.5 * s * dt;
+    bo.x = MID + Math.sin(bo.ph * 0.7) * 90;
     R.bossAccT -= dt;
-    if (R.bossAccT <= 0 && R.bossAcc > 0) { pop(bo.x + rnd(-30, 30), bo.y + 30, fmt(R.bossAcc), true); R.bossAcc = 0; R.bossAccT = 0.25; }
+    if (R.bossAccT <= 0 && R.bossAcc > 0) { pop(bo.x + rnd(-30, 30), bo.y + 30, fmt(R.bossAcc), true, '#b8ffd2'); R.bossAcc = 0; R.bossAccT = 0.25; }
     if (bo.hp <= 0) killBoss();
-    else if (bo.y > PY - 40) { R.hp = 0; }
+    else if (bo.y > PY - 40) R.hp = 0;
   }
 
-  // モブの前進と、到達
+  // ゾンビ：前進、到達（10体通すとHP1減る）
   R.rowAcc += MOB_VY * s * dt * (R.boss ? 0.4 : 1);
-  if (R.rowAcc >= ROW_GAP) { R.rowAcc -= ROW_GAP; spawnRow(); }
-  for (let j = R.mobs.length - 1; j >= 0; j--) {
-    const mo = R.mobs[j];
+  if (R.rowAcc >= ROW_H) { R.rowAcc -= ROW_H; if (R.mobs.length < 900) spawnRow(); }
+  let any = false;
+  for (const mo of R.mobs) {
+    if (mo.d) { any = true; continue; }
     mo.y += MOB_VY * s * dt;
-    if (mo.y > PY + 6) { R.mobs.splice(j, 1); R.hp--; R.hurt = 0.4; sfx('hurt'); burst(mo.x, PY, 10, '#ff4d6d'); }
+    if (mo.y > PY + 4) { mo.d = 1; any = true; R.breach++; if (R.breach >= 10) { R.breach = 0; R.hp--; R.hurt = 0.4; R.calm = 0; sfx('hurt'); burst(mo.x, PY, 10, '#ff4d6d'); } }
   }
+  if (any) R.mobs = R.mobs.filter(mo => !mo.d);
 
-  // ゲートの入れ替え
-  for (let band = 0; band < 2; band++) {
-    R.gateAge[band] += dt;
-    for (const g of R.gates[band]) { g.age += dt; g.pulse = Math.max(0, g.pulse - dt * 4); }
-    if (R.gateAge[band] >= GATE_LIFE) { R.gateAge[band] = 0; R.gates[band] = makePair(band); }
+  // ゲート・アイテム：前進。届いたら確定（ゲートは効果、アイテムは壊せなかったらHP-1）
+  R.gateAcc += GATE_VY * s * dt;
+  if (R.gateAcc >= GATE_GAP) { R.gateAcc -= GATE_GAP; spawnGateRow(); }
+  for (const o of R.objs) {
+    o.hit = Math.max(0, o.hit - dt);
+    if (o.dead) continue;
+    o.y += GATE_VY * s * dt;
+    if (o.y + o.h >= PY - 6) {
+      o.dead = true;
+      if (o.cls === 'gate') applyGate(o);
+      else { R.hp--; R.hurt = 0.4; R.calm = 0; sfx('hurt'); pop(o.x + o.w / 2, PY - 30, 'MISSED', true, '#ff5a5a'); }
+    }
   }
+  if (R.objs.some(o => o.dead)) R.objs = R.objs.filter(o => !o.dead);
 
   // 演出
   R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt);
@@ -335,21 +414,16 @@ function step(dt) {
   if (R.hp <= 0) gameOver();
 }
 
-// 開発用の自動操縦：モブを優先し、なければ良いゲートの下へ
+// 開発用の自動操縦：ゾンビが詰まってきたら左へ、そうでなければ右のゲートとアイテムを撃つ
 function botControl() {
-  let low = null;
-  for (const mo of R.mobs) if (mo.y > 470 && (!low || mo.y > low.y)) low = mo;
-  if (low) { R.tx = low.x; return; }
-  let bestSide = 0, bestD = -1;
-  for (let side = 0; side < 2; side++) {
-    let d = STAT.dmg;
-    for (let band = 0; band < 2; band++) {
-      const g = R.gates[band][side]; if (!g) continue;
-      d = g.type === '+' ? d + g.v : g.type === '×' ? d * g.v : Math.max(1, d / g.v);
-    }
-    if (d > bestD) { bestD = d; bestSide = side; }
-  }
-  R.tx = bestSide ? 269 : 91;
+  let low = 0, sum = 0;
+  for (const mo of R.mobs) if (mo.y > 120) { low++; sum += mo.x; }
+  if (low > 2) { R.aim = sum / low + Math.sin(R.t * 4) * 45; return; }
+  if (R.boss && R.boss.y > 20) { R.aim = R.boss.x; return; }
+  let tgt = null;
+  for (const o of R.objs) if (!o.dead && o.y > -10 && (!tgt || o.y > tgt.y)) tgt = o;
+  if (tgt) R.aim = tgt.x + tgt.w / 2;
+  else R.aim = MID / 2 + Math.sin(R.t * 3) * 60;
 }
 
 // ---------- 画面の流れ ----------
@@ -427,11 +501,12 @@ cv.addEventListener('pointerdown', e => {
   if (state === 'play' && p.x > MENU_RECT.x && p.y > MENU_RECT.y) { pauseGame(false); return; }
   if (state !== 'play' || !R) return;
   cv.setPointerCapture(e.pointerId);
-  drag = { px: p.x, tx: R.tx };
+  drag = true;
+  R.aim = clamp(p.x, 6, W - 6);
 });
 cv.addEventListener('pointermove', e => {
   if (!drag || state !== 'play' || !R) return;
-  R.tx = Math.max(18, Math.min(W - 18, drag.tx + (toLogical(e).x - drag.px) * 1.3));
+  R.aim = clamp(toLogical(e).x, 6, W - 6);
 });
 const endDrag = () => { drag = null; };
 cv.addEventListener('pointerup', endDrag);
@@ -473,8 +548,8 @@ addEventListener('resize', resize);
 
 const stars = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: Math.random() }));
 let starY = 0;
-const GC = { '+': '#39ff88', '×': '#ffd84a', '÷': '#ff5a5a' };
 const FONT = '"DotGothic16", "IBM Plex Mono", monospace';
+const ITEM = { crew: ['CREW', '#66e6ff'], heal: ['HEAL', '#ff8da1'], power: ['POWER', '#ffd84a'] };
 
 function bulletColor(d) {
   const e = Math.log10(Math.max(1, d));
@@ -489,38 +564,52 @@ function render(now) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   ctx.imageSmoothingEnabled = false;
   const s = R && !R.over ? speed(R.m) : 1;
-  // 星
   ctx.fillStyle = '#fff';
   for (const st of stars) {
     const y = (st.y + starY * (0.3 + st.z)) % H;
-    ctx.globalAlpha = 0.15 + st.z * 0.35; ctx.fillRect(st.x, y, 1.5, 1.5 + st.z * 3 * Math.min(2.5, s));
+    ctx.globalAlpha = 0.12 + st.z * 0.3; ctx.fillRect(st.x, y, 1.5, 1.5 + st.z * 3 * Math.min(2.5, s));
   }
   ctx.globalAlpha = 1;
   if (!R) return;
-
-  // ゲート
   const glow = !OPT.light;
-  for (let band = 0; band < 2; band++) {
-    for (const g of R.gates[band]) {
-      const y = BAND_Y[band];
-      const a = Math.min(1, g.age / 0.4, (GATE_LIFE - R.gateAge[band]) / 0.6 + 0.0001);
-      const col = g.type === '÷' && g.v <= 1 ? '#666' : GC[g.type];
-      ctx.globalAlpha = Math.max(0, a) * 0.9;
-      ctx.fillStyle = col; ctx.globalAlpha *= 0.08 + g.pulse * 0.22; ctx.fillRect(g.x, y, g.w, BAND_H);
-      ctx.globalAlpha = Math.max(0, a);
-      if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 8 + g.pulse * 10; }
-      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(g.x + 1, y + 1, g.w - 2, BAND_H - 2);
-      text(gateLabel(g), g.x + g.w / 2, y + 30, 24 + g.pulse * 3, '#fff', 'center');
-      ctx.shadowBlur = 0;
-    }
-  }
-  ctx.globalAlpha = 1;
 
-  // モブ
-  const fr = Math.floor(now / 420) % 2;
+  // 左右の地面
+  ctx.fillStyle = 'rgba(255,90,90,.05)'; ctx.fillRect(0, 0, MID, PY);
+  ctx.fillStyle = 'rgba(57,255,136,.045)'; ctx.fillRect(MID, 0, MID, PY);
+  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(MID, 0); ctx.lineTo(MID, PY); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.moveTo(0, PY + 0.5); ctx.lineTo(W, PY + 0.5); ctx.stroke();
+
+  // ゾンビ（小さく大量に）
+  const fr = Math.floor(now / 380) % 2;
   for (const mo of R.mobs) {
-    const im = MOBS[mo.k][(fr + Math.floor(mo.f)) % 2];
-    ctx.drawImage(im, Math.round(mo.x - im.width / 2), Math.round(mo.y - im.height / 2));
+    const im = ZOMBIES[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
+    ctx.drawImage(im, Math.round(mo.x + Math.sin(now / 500 + mo.ph) * 1.5 - 7), Math.round(mo.y - 7));
+  }
+
+  // ゲートとアイテム
+  for (const o of R.objs) {
+    if (o.y < -o.h || o.dead) continue;
+    if (o.cls === 'gate') {
+      const good = isGood(o);
+      const col = o.type === 'mul' && o.v >= 1 ? '#ffd84a' : good ? '#39ff88' : '#ff5a5a';
+      ctx.fillStyle = col; ctx.globalAlpha = 0.1 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.globalAlpha = 1;
+      if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 6 + o.hit * 40; }
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2);
+      ctx.shadowBlur = 0;
+      text(STAT_NAME[o.stat], o.x + o.w / 2, o.y + 14, 11, col, 'center');
+      text(gateLabel(o), o.x + o.w / 2, o.y + 38, 22, '#fff', 'center');
+    } else {
+      const [name, col] = ITEM[o.kind];
+      ctx.fillStyle = col; ctx.globalAlpha = 0.08 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2); ctx.setLineDash([]);
+      text(name, o.x + o.w / 2, o.y + 18, 14, col, 'center');
+      ctx.fillStyle = '#222'; ctx.fillRect(o.x + 8, o.y + 26, o.w - 16, 5);
+      ctx.fillStyle = col; ctx.fillRect(o.x + 8, o.y + 26, (o.w - 16) * clamp(o.hp / o.max, 0, 1), 5);
+      text(fmt(Math.max(0, Math.ceil(o.hp))), o.x + o.w / 2, o.y + 43, 11, '#fff', 'center');
+    }
   }
 
   // ボス
@@ -529,7 +618,6 @@ function render(now) {
     const im = bo.big ? BOSS_BIG : BOSS_MID;
     const j = bo.hit > 0 ? 2 : 0;
     ctx.drawImage(im, Math.round(bo.x - im.width / 2 + rnd(-j, j)), Math.round(bo.y - im.height / 2));
-    // 頭の上に HP
     const bw = 120, bx = bo.x - bw / 2, by = bo.y - im.height / 2 - 18;
     ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, 7);
     ctx.fillStyle = bo.big ? '#ff6a5a' : '#39ff88'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
@@ -537,29 +625,34 @@ function render(now) {
     text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
   }
 
-  // 弾
-  for (const b of R.b) {
-    const col = bulletColor(b.d);
-    ctx.fillStyle = col;
-    ctx.fillRect(b.x - 1.5, b.y - 6, 3, 12);
+  // 狙いの線
+  if (!R.over) {
+    ctx.strokeStyle = 'rgba(57,255,136,.18)'; ctx.lineWidth = 1; ctx.setLineDash([3, 7]);
+    ctx.beginPath(); ctx.moveTo(PX, PY - 20); ctx.lineTo(R.aim, 70); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(57,255,136,.55)'; ctx.fillRect(R.aim - 5, 66, 10, 2); ctx.fillRect(R.aim - 1, 62, 2, 10);
   }
 
-  // 自機
+  // 弾
+  for (const b of R.b) {
+    ctx.fillStyle = bulletColor(b.d);
+    ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8);
+  }
+
+  // 自機と仲間
   if (!R.over) {
+    const n = Math.min(R.st.crew, 8);
+    for (let i = 0; i < n - 1; i++) ctx.drawImage(HELPER, Math.round(helperX(i) - HELPER.width / 2), PY - 12);
     if (R.hurt > 0 && Math.floor(R.hurt * 20) % 2) ctx.globalAlpha = 0.35;
-    ctx.drawImage(PLAYER, Math.round(R.x - PLAYER.width / 2), PY - 16);
+    ctx.drawImage(PLAYER, Math.round(PX - PLAYER.width / 2), PY - 16);
     ctx.globalAlpha = 1;
   }
 
-  // 破片
   for (const p of R.parts) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, 3, 3); }
   ctx.globalAlpha = 1;
-  // ダメージ数
   for (const p of R.pops) {
     ctx.globalAlpha = Math.min(1, p.t * 2);
-    const sz = p.big ? 20 : 13;
-    if (glow && p.big) { ctx.shadowColor = '#39ff88'; ctx.shadowBlur = 8; }
-    text(p.text, p.x, p.y, sz, p.big ? '#b8ffd2' : '#fff', 'center');
+    if (glow && p.big) { ctx.shadowColor = p.col; ctx.shadowBlur = 8; }
+    text(p.text, p.x, p.y, p.big ? 18 : 12, p.col, 'center');
     ctx.shadowBlur = 0;
   }
   ctx.globalAlpha = 1;
@@ -577,7 +670,6 @@ function render(now) {
 
 function drawHUD() {
   const m = mEff(), p = m / G;
-  // 進行バー
   const bx = 10, by = 10, bw = 170, bh = 10;
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
   ctx.fillStyle = R.boss ? (R.boss.big ? '#ff6a5a' : '#ffd84a') : '#39ff88';
@@ -586,12 +678,14 @@ function drawHUD() {
   for (let i = 1; i < SEGS; i++) ctx.fillRect(bx + bw * i / SEGS - 0.5, by, 1, bh);
   text(R.cleared ? '∞' : Math.min(100, Math.floor(p * 100)) + '%', bx + bw + 8, by + 10, 12, '#fff');
   text('BEST ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, by + 10, 12, '#fff', 'right');
-  // メートルと速さ
   text(fmt(Math.floor(m)) + ' m', 10, 44, 18, '#fff');
   text('SPEED ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 60, 11, '#6b7a70');
-  // 下段
+  text('ZOMBIE', MID / 2, 84, 10, 'rgba(255,120,120,.6)', 'center');
+  text('GATE', MID + MID / 2, 84, 10, 'rgba(120,255,170,.6)', 'center');
+  // 下段：ハートと今の強さ
   for (let i = 0; i < 3; i++) ctx.drawImage(i < R.hp ? HEART : HEART_OFF, 10 + i * 18, H - 28);
-  text('ATK ' + fmt(Math.floor(R.atk)), W / 2, H - 14, 16, '#39ff88', 'center');
+  text('DMG ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
+  text(`LINE ${R.st.lines}  CREW ${R.st.crew}`, W / 2, H - 6, 11, '#9aa89f', 'center');
   ctx.strokeStyle = '#6b7a70'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
   text('MENU', MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 18, 12, '#9aa89f', 'center');
 }
@@ -603,9 +697,9 @@ function frame(now) {
   const raw = Math.min(0.1, (now - last) / 1000);
   last = now;
   if (state === 'play' && R) {
-    if (keys.ArrowLeft || keys.a) R.tx -= 380 * raw;
-    if (keys.ArrowRight || keys.d) R.tx += 380 * raw;
-    R.tx = Math.max(18, Math.min(W - 18, R.tx));
+    if (keys.ArrowLeft || keys.a) R.aim -= 300 * raw;
+    if (keys.ArrowRight || keys.d) R.aim += 300 * raw;
+    R.aim = clamp(R.aim, 6, W - 6);
     let dt = Math.min(0.05, raw) * TS;
     while (dt > 0 && state === 'play') { const d = Math.min(1 / 30, dt); step(d); dt -= d; }
     starY += speed(R.m) * 40 * raw * TS % H;
