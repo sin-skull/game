@@ -10,7 +10,8 @@
 const Gacha = (() => {
   const COST1 = 100, COST10 = 900, PITY = 30, DAILY_SP = 10, PAGE = 60, LOG_MAX = 50;
   const RATE_L = 0.03, RATE_R = 0.15, BG_SHARE = 0.15, PICK_RATE = 0.5;
-  const MAX_BOOST = 3;   // 1周に使える券の数
+  const MAX_BOOST = 3;   // 1周に使える券の数（以前のダブりでもらった券）
+  const DUP_SOUL = { C: 2, R: 5, L: 15, S: 15 };   // ダブりは魂に（永遠強化に使える）
   const TICKETS = ['x2', 'rank', 'jump'];
   const RANKS_PREVIEW = [1, 5, 10, 15, 99];   // 99 = ∞
   const T = {
@@ -29,7 +30,7 @@ const Gacha = (() => {
       all: 'ALL', showMissing: '未所持も表示', more: 'もっと見る', equip: '着ける', using: '使用中', close: '閉じる',
       missing: '未所持', ownedNow: '所持', special: 'Ω クリアでもらえる',
       comp: (a, b) => `${a} / ${b}`,
-      isNew: 'NEW', dup: k => `ダブり → ${k}`,
+      isNew: 'NEW', dup: n => `ダブり → 魂 +${n}`, inWeekly: '週間チャレンジ中はガチャを引けない', spDim: (a, b) => `この次元のプレイ SP ${a} / ${b}`,
       ticket: { x2: '2倍速券', rank: 'ランク券', jump: '跳躍券' },
       ticketDesc: { x2: '10分間、ゲームが2倍速', rank: 'この周回だけ生成ランク +1', jump: '次の5回の合成が2段階アップ' },
       ticketsNote: '券は UPGRADE → ∞ ETERNAL で使う',
@@ -38,7 +39,8 @@ const Gacha = (() => {
         `スキンと背景の割合は 85% : 15%。`,
         `${PITY}回 LEGEND が出なければ、次は LEGEND 確定（出た時点でカウントはリセット）。`,
         `10連は RARE 以上が必ず1つ入る。`,
-        `ダブりはブースト券に変わる（LEGEND のダブりは2枚）。`,
+        `ダブりは魂になる（COMMON +${DUP_SOUL.C} ／ RARE +${DUP_SOUL.R} ／ LEGEND +${DUP_SOUL.L}）。魂は永遠強化に使える。`,
+        `プレイで得る SP（ランク・∞・ステージ・対戦）は1次元あたり 900（10連分）まで。ログインと週間ランキングの報酬は別。`,
         `SP の入手：周回ごとに初めて届いたランク（2⁶以上）+1 ／ ∞ +30 ／ ステージ勝利 ／ オンライン対戦 勝ち+10・負け+2 ／ ログイン +10 ／ 週間ランキング 最大 +500`,
         `SP は COIN では買えず、課金もない。`,
       ],
@@ -63,7 +65,7 @@ const Gacha = (() => {
       all: 'ALL', showMissing: 'Show missing', more: 'Show more', equip: 'Wear', using: 'In use', close: 'Close',
       missing: 'Not owned', ownedNow: 'Owned', special: 'Reward for clearing Ω',
       comp: (a, b) => `${a} / ${b}`,
-      isNew: 'NEW', dup: k => `Duplicate → ${k}`,
+      isNew: 'NEW', dup: n => `Duplicate → Souls +${n}`, inWeekly: 'No gacha during the Weekly Challenge', spDim: (a, b) => `SP from play this dimension ${a} / ${b}`,
       ticket: { x2: 'Speed ×2', rank: 'Rank +1', jump: 'Leap' },
       ticketDesc: { x2: 'The game runs ×2 for 10 min', rank: 'Base Rank +1 for this run', jump: 'Next 5 merges climb two ranks' },
       ticketsNote: 'Use tickets in UPGRADE → ∞ ETERNAL',
@@ -72,7 +74,8 @@ const Gacha = (() => {
         'Skins and backgrounds split 85% : 15%.',
         `After ${PITY} pulls without a LEGEND, the next is a LEGEND (the count resets whenever one drops).`,
         '×10 always includes at least one RARE or better.',
-        'Duplicates turn into Boost tickets (two for a LEGEND duplicate).',
+        `Duplicates turn into Souls (COMMON +${DUP_SOUL.C} / RARE +${DUP_SOUL.R} / LEGEND +${DUP_SOUL.L}) for Eternal upgrades.`,
+        'SP from play (ranks, ∞, stages, battles) is capped at 900 (one ×10) per dimension. Login and weekly rewards are separate.',
         'Earning SP: each new rank per run (2⁶+) +1 / ∞ +30 / stage wins / online wins +10, losses +2 / daily login +10 / weekly ranking up to +500',
         'SP can’t be bought with coins, and there is no paid currency.',
       ],
@@ -115,13 +118,7 @@ const Gacha = (() => {
     const list = kind === 'bg' ? PROFILE.bgs : PROFILE.skins;
     const res = { kind, id, r, isNew: !list.includes(id), tickets: [] };
     if (res.isNew) list.push(id);
-    else {
-      for (let i = 0; i < (r === 'L' ? 2 : 1); i++) {
-        const k = pick(TICKETS);
-        PROFILE.tickets[k] = (PROFILE.tickets[k] || 0) + 1;
-        res.tickets.push(k);
-      }
-    }
+    else { res.souls = DUP_SOUL[r]; S.soul += res.souls; }
     PROFILE.gachaLog.unshift({ id, k: kind, r, n: res.isNew ? 1 : 0, at: Date.now() });
     if (PROFILE.gachaLog.length > LOG_MAX) PROFILE.gachaLog.length = LOG_MAX;
     return res;
@@ -156,6 +153,7 @@ const Gacha = (() => {
     const l = t();
     const free = n === 0;
     if (!unlocked() || revealing) return;
+    if (MODE) { sfx.deny(); toast(l.inWeekly); return; }
     if (free) {
       if (!freeReady()) return;
       PROFILE.dailyAt = dayNum();
@@ -186,8 +184,7 @@ const Gacha = (() => {
 
   function cardHTML(r, i, big) {
     const l = t();
-    const tix = r.tickets.map(k => l.ticket[k]).join(' / ');
-    const tag = r.isNew ? `<em class="g-new">${l.isNew}</em>` : `<em class="g-dup">${big ? l.dup(tix) : '→ ' + tix}</em>`;
+    const tag = r.isNew ? `<em class="g-new">${l.isNew}</em>` : `<em class="g-dup">${big ? l.dup(r.souls) : '→ ◇ +' + r.souls}</em>`;
     const pu = r.kind === 'skin' && r.id === pickup() ? ' · PICK UP' : '';
     return `<div class="gcard r-${r.r} ${r.kind === 'bg' ? 'is-bg' : ''} ${r.r === 'L' ? 'lg-card lg-' + r.id : ''}" style="--i:${i}">
       ${r.r === 'L' ? `<div class="g-sparks">${sparks(10)}</div>` : ''}
@@ -324,7 +321,9 @@ const Gacha = (() => {
     const l = t();
     const head = `<h2>GACHA</h2><p class="h-sub">${l.sub}</p>`;
     if (!unlocked()) { el.innerHTML = head + lockedHTML(); return; }
-    const tix = TICKETS.map(k => `<span>${l.ticket[k]} <b>${PROFILE.tickets[k] || 0}</b></span>`).join('');
+    const room = typeof spRoom === 'function' ? spRoom() : 0;
+    const tix = `<span>${l.spDim(fmt(SP_DIM_CAP - room), fmt(SP_DIM_CAP))}</span>` +
+      (TICKETS.some(k => PROFILE.tickets[k] > 0) ? TICKETS.map(k => `<span>${l.ticket[k]} <b>${PROFILE.tickets[k] || 0}</b></span>`).join('') : '');
     const left = PITY - PROFILE.pity;
     el.innerHTML = `${head}
       <div class="g-top"><div class="sp-now">${l.sp} <b>${fmt(PROFILE.bp)}</b></div><div class="g-tix" title="${l.ticketsNote}">${tix}</div></div>
