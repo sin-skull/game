@@ -89,8 +89,11 @@ const I18N = {
       gacha: 'ガチャが解放された。<br>GACHA タブで SP を使ってスキンと背景を集めよう。毎日1回無料。',
       weekly: '週間チャレンジが解放された。<br>VERSUS → RANKING で、全員同じ条件のタイムアタックに挑戦できる。',
     },
+    spCapped: 'この次元でプレイから得られる SP は上限（900）に達した。次の次元でまた貯まる',
     whatsNewTitle: 'アップデート v2.1',
     whatsNew: [
+      'プレイで得る SP は1次元あたり900（10連分）まで',
+      'ガチャのダブりは魂になる（永遠強化に使える）',
       'UPGRADE タブを「NORMAL / ∞ ETERNAL」に。転生と永遠強化はここへ',
       'GACHA タブを新設：今週のピックアップ・図鑑・排出率・履歴',
       '旧データの魂は新しい基準（今の次元までに得られる量）に置き換えた',
@@ -195,8 +198,11 @@ const I18N = {
       gacha: 'The Gacha is open.<br>Spend SP in the GACHA tab to collect skins and backgrounds. One free pull a day.',
       weekly: 'The Weekly Challenge is open.<br>In VERSUS → RANKING, race everyone under the same rules.',
     },
+    spCapped: 'You’ve hit this dimension’s SP cap from play (900). It refills in the next dimension',
     whatsNewTitle: 'Update v2.1',
     whatsNew: [
+      'SP from play is capped at 900 (one ×10) per dimension',
+      'Gacha duplicates now give Souls for Eternal upgrades',
       'UPGRADE now has NORMAL / ∞ ETERNAL. Rebirth and Eternal upgrades live there',
       'New GACHA tab: weekly pick-up, collection, rates and history',
       'Souls from old saves are converted to the new scale (what this dimension would have earned)',
@@ -442,6 +448,7 @@ function freshState(keep) {
     runRanks: 0,       // この周回で SP をもらった最高ランク
     clearTime: 0,
     boost: freshBoost(),
+    spDim: { d: 0, got: 0 },   // この次元でプレイから得た SP
     stats: {
       spawned: 0, merged: 0, sold: 0, earned: 0, maxTier: 0,
       infinities: 0, playTime: 0, taps: 0, bought: 0, rebirths: 0,
@@ -454,7 +461,7 @@ function freshState(keep) {
   if (keep) {
     Object.assign(s, {
       shards: keep.shards, soul: keep.soul, eternal: { ...eternal, ...keep.eternal },
-      stats: keep.stats, clearTime: keep.clearTime, created: keep.created, seenInf: keep.seenInf,
+      stats: keep.stats, clearTime: keep.clearTime, created: keep.created, seenInf: keep.seenInf, spDim: keep.spDim,
     });
   }
   if (dimOf(s) >= 2) s.up.autoSell = 1;   // 次元2からは最初から付いている
@@ -482,6 +489,7 @@ function normalize(d) {
     s.soul = v2;
   }
   delete s.skills;
+  if (!s.spDim || typeof s.spDim !== 'object') s.spDim = { d: s.shards, got: 0 };
   if (!Array.isArray(s.objs)) s.objs = [];
   const top = infTier(s);
   s.objs = s.objs.filter(o => o && Number.isFinite(o.t) && o.t >= 0)
@@ -723,11 +731,24 @@ function rollTier() {
 }
 
 // SP（スキンポイント）を得る
+// プレイで得る SP は1次元あたり10連分（900）まで。∞ が量産できるようになっても無限に増えない
+// （ログインボーナス・週間ランキングの報酬は対象外。同じ次元で転生してもリセットしない）
+const SP_DIM_CAP = 900;
+function spRoom() {
+  if (!S.spDim || S.spDim.d !== S.shards) S.spDim = { d: S.shards, got: 0 };
+  return Math.max(0, SP_DIM_CAP - S.spDim.got);
+}
+function gainSP(n) {
+  if (MODE || !(n > 0)) return 0;
+  const room = spRoom();
+  const got = Math.min(n, room);
+  if (got > 0) { S.spDim.got += got; addBP(got); saveProfile(); }
+  if (got < n && room > 0 && got === room) toast(L().spCapped);
+  return got;
+}
 function addSP(n, why) {
-  if (MODE || !n) return;
-  addBP(n);
-  saveProfile();
-  if (why) toast(`+${n} SP · ${why}`);
+  const got = gainSP(n);
+  if (got && why) toast(`+${got} SP · ${why}`);
 }
 
 function addCoins(n) {
@@ -941,7 +962,7 @@ function clearField() {
 function keepFrom(s, extra = {}) {
   return {
     shards: s.shards, soul: s.soul, eternal: s.eternal, stats: s.stats,
-    clearTime: s.clearTime, created: s.created, seenInf: s.seenInf, ...extra,
+    clearTime: s.clearTime, created: s.created, seenInf: s.seenInf, spDim: s.spDim, ...extra,
   };
 }
 

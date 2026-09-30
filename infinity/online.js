@@ -336,8 +336,7 @@ const Online = (() => {
       await f.F.deleteDoc(d.ref).catch(() => {});
     }
     if (n) {
-      addBP(bp);
-      saveProfile();
+      bp = gainSP(bp);   // 1次元あたりの上限あり
       setTimeout(() => toast(t().defense(n, bp)), 1200);
     }
   }
@@ -774,7 +773,7 @@ const Online = (() => {
       if (r === 'win') { bp = 10; PROFILE.wins++; sfx.win(); vibe([20, 30, 60]); }
       if (r === 'lose') { bp = 2; PROFILE.losses++; sfx.lose(); vibe(40); }
     }
-    addBP(bp);
+    bp = gainSP(bp);   // 1次元あたりの上限あり
     PROFILE.history.unshift({ name: bt.opp.name || '???', r, time: bt.ta || 0, at: Date.now() });
     PROFILE.history = PROFILE.history.slice(0, 20);
     save();
