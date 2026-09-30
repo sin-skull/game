@@ -1,111 +1,102 @@
-:root { --g: #39ff88; --w: #f2f2f2; --dim: #6b7a70; }
+/* 墨絵・和紙の見た目。色は 墨・うす墨・朱（ハンコ）・藍 だけ */
+:root { --sumi: #1a1714; --usu: #5a534b; --shu: #c8321e; --ai: #1f3a5a; --paper: #efe7d4; --paper2: #f6efdf; --washi: none; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; background: #021426; color: var(--w); overflow: hidden; overscroll-behavior: none;
-  font-family: 'DotGothic16', 'IBM Plex Mono', monospace; user-select: none; -webkit-user-select: none; touch-action: none; }
-#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #021426; }
-#cv { display: block; background: #021426; image-rendering: pixelated; }
+html, body { margin: 0; height: 100%; background: #2b2621; color: var(--sumi); overflow: hidden; overscroll-behavior: none;
+  font-family: 'Yuji Syuku', 'Noto Serif JP', serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #2b2621; }
+#cv { display: block; background: var(--paper); box-shadow: 0 0 24px rgba(0, 0, 0, .45); }
 
+/* 画面（タイトル・一時停止・結果など）：和紙を重ねる */
 .layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  background: rgba(2, 16, 32, .74); z-index: 5; padding: 24px; text-align: center; }
+  background: var(--washi) center / cover, rgba(239, 231, 212, .95); z-index: 5; padding: 24px; text-align: center; }
 .layer[hidden], #count[hidden], .boot[hidden] { display: none; }
-.logo { font-size: 54px; line-height: 1; color: var(--g); letter-spacing: 4px; text-shadow: 0 0 18px rgba(57, 255, 136, .7); margin-bottom: 4px; }
-.title { font-size: 34px; color: var(--g); text-shadow: 0 0 14px rgba(57, 255, 136, .6); letter-spacing: 3px; }
-.res-m { font-size: 44px; color: var(--w); }
-.sub { font-size: 13px; color: var(--dim); min-height: 18px; letter-spacing: 1px; }
-.row { display: flex; gap: 10px; }
+.logo { font-family: 'Yuji Boku', serif; font-size: 58px; line-height: 1.05; color: var(--sumi); letter-spacing: 2px; margin-bottom: 4px; position: relative; }
+.logo::after { content: '鰐'; position: absolute; right: -34px; bottom: -6px; width: 34px; height: 34px; font-size: 22px; line-height: 34px;
+  background: var(--shu); color: var(--paper2); border-radius: 3px; transform: rotate(-4deg); }
+.title { font-family: 'Yuji Boku', serif; font-size: 34px; color: var(--sumi); letter-spacing: 3px; }
+.res-m { font-family: 'Yuji Boku', serif; font-size: 44px; color: var(--sumi); }
+.sub { font-size: 13px; color: var(--usu); min-height: 18px; letter-spacing: 1px; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 
-.btn { font: inherit; color: var(--g); background: transparent; border: 2px solid var(--g); padding: 12px 26px; letter-spacing: 3px; cursor: pointer;
-  box-shadow: 0 0 10px rgba(57, 255, 136, .25); }
-.btn:active { background: rgba(57, 255, 136, .18); }
-.btn.big { font-size: 22px; min-width: 210px; padding: 14px 26px; }
-.btn.sm { font-size: 13px; padding: 8px 14px; letter-spacing: 2px; }
-.btn.ghost { border-color: var(--dim); color: var(--dim); box-shadow: none; }
+/* ボタン：墨の縁取りの札。押すと少し沈む */
+.btn { font: inherit; color: var(--sumi); background: var(--paper2); border: 2px solid var(--sumi); padding: 12px 26px; letter-spacing: 3px; cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(26, 23, 20, .75); transition: transform .06s, box-shadow .06s; }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(26, 23, 20, .75); }
+.btn.big { font-family: 'Yuji Boku', serif; font-size: 24px; min-width: 210px; padding: 12px 26px; background: var(--shu); color: var(--paper2); border-color: var(--sumi); }
+.btn.sm { font-size: 14px; padding: 8px 14px; letter-spacing: 2px; }
+.btn.ghost { color: var(--usu); border-color: var(--usu); box-shadow: 2px 2px 0 rgba(90, 83, 75, .5); }
+.btn:disabled { opacity: .45; cursor: default; }
 
 #count { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; pointer-events: none;
-  font-size: 120px; color: var(--g); text-shadow: 0 0 24px rgba(57, 255, 136, .8); }
+  font-family: 'Yuji Boku', serif; font-size: 120px; color: var(--sumi); }
 #count b { animation: pop .9s ease-out forwards; font-weight: 400; }
 @keyframes pop { 0% { transform: scale(1.7); opacity: 0; } 25% { opacity: 1; } 100% { transform: scale(.8); opacity: 0; } }
 
 #toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 7; padding: 8px 14px; font-size: 13px; letter-spacing: 1px;
-  background: rgba(0, 0, 0, .85); border: 1px solid var(--g); color: var(--g); opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+  background: var(--paper2); border: 1.5px solid var(--sumi); color: var(--sumi); opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
 #toast.on { opacity: 1; }
 
 /* 起動画面 */
-.boot { position: fixed; inset: 0; z-index: 20; background: #000; display: flex; align-items: center; justify-content: center; transition: opacity .4s; }
+.boot { position: fixed; inset: 0; z-index: 20; background: var(--washi) center / cover, var(--paper); display: flex; align-items: center; justify-content: center; transition: opacity .4s; }
 .boot.gone { opacity: 0; pointer-events: none; }
 .boot-stage { width: 100%; max-width: 420px; padding: 24px; text-align: center; opacity: 0; transition: opacity .26s; }
 .boot-stage.in { opacity: 1; }
 .boot-stage.out { opacity: 0; }
-.boot-skip { position: absolute; bottom: 36px; left: 0; right: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: #444; }
-.boot-logo svg { filter: drop-shadow(0 0 14px rgba(57, 255, 136, .5)); }
-.boot-credit small { display: block; font-size: 11px; letter-spacing: 4px; color: var(--dim); margin-bottom: 8px; }
-.boot-credit b { font-weight: 400; font-size: 28px; letter-spacing: 6px; color: var(--g); }
-.boot-title { font-size: 15px; letter-spacing: 5px; color: var(--g); margin-bottom: 18px; }
-.boot-notice ul { text-align: left; padding-left: 18px; font-size: 12px; line-height: 1.7; color: #bbb; margin: 0 0 18px; }
-.boot-ok { font: inherit; color: var(--g); background: transparent; border: 2px solid var(--g); padding: 10px 34px; letter-spacing: 4px; cursor: pointer; }
-.boot-slots { display: flex; flex-direction: column; gap: 10px; }
-.boot-slot { display: flex; align-items: center; gap: 12px; font: inherit; color: var(--w); background: transparent; border: 1px solid #2e3a33; padding: 12px; text-align: left; cursor: pointer; }
-.boot-slot.on { border-color: var(--g); }
-.boot-slot .bs-no { color: var(--g); font-size: 18px; }
-.boot-slot .bs-body { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
-.boot-slot small { color: var(--dim); font-size: 11px; }
-.boot-away p { font-size: 14px; line-height: 1.8; }
-.boot-away b { color: var(--g); font-weight: 400; }
+.boot-skip { position: absolute; bottom: 36px; left: 0; right: 0; text-align: center; font-size: 12px; letter-spacing: 4px; color: var(--usu); }
+.boot-credit small { display: block; font-size: 12px; letter-spacing: 4px; color: var(--usu); margin-bottom: 8px; }
+.boot-credit b { font-family: 'Yuji Boku', serif; font-weight: 400; font-size: 30px; letter-spacing: 6px; color: var(--sumi); }
+.boot-title { font-size: 16px; letter-spacing: 5px; color: var(--sumi); margin-bottom: 18px; }
+.boot-notice ul { text-align: left; padding-left: 18px; font-size: 13px; line-height: 1.8; color: var(--sumi); margin: 0 0 18px; }
+.boot-ok { font: inherit; color: var(--paper2); background: var(--shu); border: 2px solid var(--sumi); padding: 10px 34px; letter-spacing: 4px; cursor: pointer; box-shadow: 3px 3px 0 rgba(26, 23, 20, .75); }
 
 /* 遊び方 */
 .help { display: flex; flex-direction: column; gap: 10px; max-width: 340px; text-align: left; }
-.help-row { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; }
-.help-row b { color: var(--g); font-weight: 400; letter-spacing: 1px; }
-.help-row span { color: #cfd8d2; }
+.help-row { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.6; }
+.help-row b { color: var(--shu); font-weight: 400; letter-spacing: 1px; }
+.help-row span { color: var(--sumi); }
+#help { z-index: 8; }
 
-/* チュートリアル（上寄せの吹き出し。プレイの邪魔をしないよう下は空ける） */
+/* チュートリアル：短冊のような吹き出し（下は空けておく） */
 #tut { position: absolute; left: 50%; top: 16%; transform: translateX(-50%); z-index: 6; width: min(340px, 90vw);
-  background: rgba(0, 0, 0, .86); border: 2px solid var(--g); padding: 10px 14px 12px; box-shadow: 0 0 14px rgba(57, 255, 136, .3);
+  background: rgba(246, 239, 223, .97); border: 2px solid var(--sumi); padding: 10px 14px 12px; box-shadow: 4px 4px 0 rgba(26, 23, 20, .6);
   pointer-events: none; }   /* 吹き出しの上からでもドラッグできるように */
 #tut button { pointer-events: auto; }
 #tut[hidden] { display: none; }
-#tut .tut-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--dim); letter-spacing: 2px; }
-#tut button { font: inherit; font-size: 11px; color: var(--dim); background: none; border: 1px solid #3a4a40; padding: 3px 10px; cursor: pointer; }
-#tut p { margin: 8px 0 0; font-size: 15px; line-height: 1.6; color: #fff; white-space: pre-line; }
-#help { background: rgba(0, 0, 0, .96); z-index: 8; }
+#tut .tut-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--usu); letter-spacing: 2px; }
+#tut button { font: inherit; font-size: 12px; color: var(--usu); background: none; border: 1px solid var(--usu); padding: 3px 10px; cursor: pointer; }
+#tut p { margin: 8px 0 0; font-size: 15px; line-height: 1.7; color: var(--sumi); white-space: pre-line; }
 
-/* コイン */
-.coins { font-size: 18px; color: #ffd84a; letter-spacing: 2px; }
+/* 銭・真珠 */
+.coins { font-size: 18px; color: var(--shu); letter-spacing: 2px; }
 
 /* ガチャ */
 .layer#gacha, .layer#equip { justify-content: flex-start; padding-top: 48px; overflow-y: auto; }
-.tabs2 .btn.on { background: rgba(57, 255, 136, .22); }
+.tabs2 .btn.on { background: var(--sumi); color: var(--paper2); }
 .g-result { min-height: 64px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .g-result b { font-weight: 400; font-size: 22px; letter-spacing: 3px; }
-.g-result span { font-size: 20px; }
-.g-result small { font-size: 12px; color: #9aa89f; }
+.g-result span { font-family: 'Yuji Boku', serif; font-size: 22px; color: var(--sumi); }
+.g-result small { font-size: 12px; color: var(--usu); }
 .g-result.pop { animation: gpop .5s ease-out; }
 .g-result.r-SSR.pop { animation: gpop .5s ease-out, gshine 1.2s ease-out; }
 @keyframes gpop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
-@keyframes gshine { 0% { filter: drop-shadow(0 0 0 #ffd84a); } 30% { filter: drop-shadow(0 0 22px #ffd84a); } 100% { filter: none; } }
-.g-icon { width: 44px; height: 44px; image-rendering: pixelated; }
-.btn:disabled { opacity: .4; cursor: default; }
+@keyframes gshine { 0% { filter: drop-shadow(0 0 0 #c8321e); } 30% { filter: drop-shadow(0 0 16px #c8321e); } 100% { filter: none; } }
+.g-icon { width: 44px; height: 72px; object-fit: contain; }
 .g-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 340px; }
-.g-chip { font-size: 11px; border: 1px solid; padding: 3px 7px; color: #6b7a70; opacity: .55; }
-.g-chip.own { color: #fff; opacity: 1; }
+.g-chip { font-size: 12px; border: 1px solid; padding: 3px 7px; color: var(--usu); opacity: .55; background: var(--paper2); }
+.g-chip.own { color: var(--sumi); opacity: 1; }
 .g-chip i { font-style: normal; margin-right: 4px; }
 
-/* 装備 */
-.eq-head { font-size: 13px; color: var(--g); letter-spacing: 3px; align-self: center; }
+/* 装備・強化 */
+.eq-head { font-size: 15px; color: var(--shu); letter-spacing: 3px; align-self: center; }
 .eq-list { display: flex; flex-direction: column; gap: 6px; width: min(340px, 92vw); }
-.eq-row { display: flex; align-items: stretch; gap: 6px; background: rgba(0, 0, 0, .35); border: 1px solid #34504a; }
-.eq-row.on { border-color: var(--g); box-shadow: 0 0 10px rgba(57, 255, 136, .35); }
-.eq-pick { flex: 1; display: flex; align-items: center; gap: 8px; font: inherit; color: var(--w); background: none; border: 0; padding: 7px 10px; text-align: left; cursor: pointer; }
+.eq-row { display: flex; align-items: stretch; gap: 6px; background: var(--paper2); border: 1.5px solid rgba(26, 23, 20, .35); }
+.eq-row.on { border-color: var(--sumi); box-shadow: 3px 3px 0 rgba(26, 23, 20, .6); }
+.eq-pick { flex: 1; display: flex; align-items: center; gap: 8px; font: inherit; color: var(--sumi); background: none; border: 0; padding: 7px 10px; text-align: left; cursor: pointer; }
 .eq-pick > span { display: flex; flex-direction: column; gap: 2px; }
-.eq-pick img { width: 36px; height: 36px; image-rendering: pixelated; }
-.eq-name { font-size: 14px; } .eq-name i { font-style: normal; font-size: 11px; } .eq-name small { color: var(--g); font-size: 11px; }
-.eq-stat { font-size: 11px; color: #9aa89f; }
-.eq-up { font: inherit; font-size: 12px; color: #ffd84a; background: rgba(255, 216, 74, .06); border: 0; border-left: 1px solid #34504a; min-width: 62px;
+.eq-pick img { width: 28px; height: 46px; object-fit: contain; }
+.eq-name { font-size: 15px; } .eq-name i { font-style: normal; font-size: 11px; } .eq-name small { color: var(--shu); font-size: 12px; }
+.eq-stat { font-size: 12px; color: var(--usu); }
+.eq-up { font: inherit; font-size: 13px; color: var(--paper2); background: var(--shu); border: 0; border-left: 1.5px solid var(--sumi); min-width: 62px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
-.eq-up small { font-size: 11px; }
-.eq-up:disabled { color: #5d6a62; cursor: default; }
-.eq-skins { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 340px; }
-.eq-skin { font: inherit; background: rgba(0, 0, 0, .35); border: 1px solid #34504a; padding: 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; color: #cfd8d2; }
-.eq-skin.on { border-color: var(--g); box-shadow: 0 0 10px rgba(57, 255, 136, .35); }
-.eq-skin img { width: 44px; height: 44px; image-rendering: pixelated; }
-.eq-skin small { font-size: 10px; }
+.eq-up small { font-size: 12px; }
+.eq-up:disabled { background: #cfc6b2; color: var(--usu); cursor: default; }
