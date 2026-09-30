@@ -12,83 +12,102 @@
   <meta name="apple-mobile-web-app-title" content="GATE VADER">
   <title>GATE VADER</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Yuji+Boku&family=Yuji+Syuku&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=0.16.0">
+  <link rel="stylesheet" href="style.css?v=0.17.0">
 </head>
 <body>
   <div id="stage">
     <canvas id="cv"></canvas>
 
-    <!-- タイトル / 続きから -->
-    <div class="layer" id="menu" hidden>
-      <div class="logo">GATE<br>VADER</div>
-      <div class="sub" id="menuSub"></div>
-      <button class="btn big" id="btnContinue" hidden>CONTINUE</button>
-      <button class="btn big" id="btnStart">START</button>
-      <div class="row">
-        <button class="btn sm" id="btnEquip">GEAR</button>
-        <button class="btn sm" id="btnGacha">GACHA</button>
+    <!-- ホーム：上に通貨、下にタブ（中央がホーム）。左右スワイプでも切り替え -->
+    <div class="home" id="home" hidden>
+      <header class="h-bar">
+        <div class="h-cur"><i class="ic-zeni"></i><b id="hCoins">0</b></div>
+        <div class="h-title" id="hTitle"></div>
+        <div class="h-cur r"><i class="ic-pearl"></i><b id="hPearls">0</b></div>
+      </header>
+      <div class="h-panels" id="hPanels">
+        <!-- 記録 -->
+        <section class="h-panel" id="p-rec">
+          <div class="rec-stats" id="recStats"></div>
+          <h3 class="h-sec" id="recHead"></h3>
+          <div class="yokai" id="recYokai"></div>
+        </section>
+        <!-- 装備 -->
+        <section class="h-panel" id="p-gear">
+          <div class="seg no-swipe" id="gearSeg"><button data-k="weapon"></button><button data-k="skin"></button></div>
+          <div class="gear-now" id="gearNow"></div>
+          <div class="eq-list" id="gearList"></div>
+        </section>
+        <!-- ホーム -->
+        <section class="h-panel" id="p-home">
+          <div class="hm-logo">GATE<br>VADER</div>
+          <div class="hm-hero"><img id="hmCroc" alt=""><div class="hm-gear" id="hmGear"></div></div>
+          <div class="hm-road" id="hmRoad"></div>
+          <div class="hm-next" id="hmNext"></div>
+          <div class="hm-go">
+            <button class="btn-cont" id="btnContinue" hidden></button>
+            <button class="btn-go" id="btnStart"></button>
+          </div>
+          <div class="hm-best" id="menuSub"></div>
+        </section>
+        <!-- ガチャ -->
+        <section class="h-panel" id="p-gacha">
+          <div class="seg no-swipe" id="gachaSeg"><button data-k="weapon"></button><button data-k="skin"></button></div>
+          <div class="g-stage"><div class="g-result" id="gachaResult"></div></div>
+          <button class="btn-pull" id="btnPull"></button>
+          <div class="g-rates" id="gachaRates"></div>
+          <div class="g-how" id="gachaHow"></div>
+          <h3 class="h-sec" id="gachaListHead"></h3>
+          <div class="g-list" id="gachaList"></div>
+        </section>
+        <!-- 設定 -->
+        <section class="h-panel" id="p-opt">
+          <div class="opt-list" id="optList"></div>
+          <div class="opt-foot" id="optFoot"></div>
+        </section>
       </div>
-      <div class="row">
-        <button class="btn sm" id="btnLight">LIGHT: OFF</button>
-        <button class="btn sm" id="btnSound">SOUND: ON</button>
-      </div>
-      <div class="row">
-        <button class="btn sm ghost" id="btnHow">HOW TO PLAY</button>
-        <button class="btn sm ghost" id="btnLang">日本語</button>
-      </div>
-    </div>
-
-    <!-- ガチャ（武器 / スキン） -->
-    <div class="layer" id="gacha" hidden>
-      <div class="title" id="gachaTitle">GACHA</div>
-      <div class="coins" id="gachaCoins"></div>
-      <div class="row tabs2"><button class="btn sm" id="tabWeapon">WEAPON</button><button class="btn sm" id="tabSkin">SKIN</button></div>
-      <div class="g-result" id="gachaResult"></div>
-      <button class="btn big" id="btnPull">PULL</button>
-      <div class="sub" id="gachaRates"></div>
-      <div class="sub" id="gachaHow"></div>
-      <div class="g-list" id="gachaList"></div>
-      <button class="btn sm ghost" id="btnGachaBack">BACK</button>
-    </div>
-
-    <!-- 装備 -->
-    <div class="layer" id="equip" hidden>
-      <div class="title" id="equipTitle">GEAR</div>
-      <div class="coins" id="equipCoins"></div>
-      <div class="eq-head" id="equipWHead">WEAPON</div>
-      <div class="eq-list" id="equipWeapons"></div>
-      <div class="eq-head" id="equipSHead">SKIN</div>
-      <div class="eq-list" id="equipSkins"></div>
-      <button class="btn sm ghost" id="btnEquipBack">BACK</button>
+      <nav class="h-nav" id="hNav">
+        <button data-tab="rec"><i>録</i><span></span></button>
+        <button data-tab="gear"><i>装</i><span></span><b class="dot" id="dotGear"></b></button>
+        <button data-tab="home" class="center"><i>鰐</i><span></span></button>
+        <button data-tab="gacha"><i>引</i><span></span><b class="dot" id="dotGacha"></b></button>
+        <button data-tab="opt"><i>設</i><span></span></button>
+      </nav>
     </div>
 
     <!-- 一時停止 -->
-    <div class="layer" id="pause" hidden>
-      <div class="title" id="pauseTitle">PAUSE</div>
-      <button class="btn big" id="btnResume">RESUME</button>
-      <button class="btn sm" id="btnQuit">SAVE &amp; EXIT</button>
+    <div class="sheet" id="pause" hidden>
+      <div class="card">
+        <div class="card-title" id="pauseTitle"></div>
+        <button class="btn-go sm" id="btnResume"></button>
+        <button class="btn-line" id="btnQuit"></button>
+      </div>
     </div>
 
     <!-- 結果 -->
-    <div class="layer" id="result" hidden>
-      <div class="title" id="resTitle">GAME OVER</div>
-      <div class="res-m" id="resM">0 m</div>
-      <div class="sub" id="resSub"></div>
-      <div class="coins" id="resCoins"></div>
-      <button class="btn big" id="btnRetry">RETRY</button>
-      <button class="btn sm" id="btnHome">TITLE</button>
+    <div class="sheet" id="result" hidden>
+      <div class="card">
+        <div class="card-title" id="resTitle"></div>
+        <div class="res-m" id="resM"></div>
+        <div class="res-sub" id="resSub"></div>
+        <div class="res-get" id="resCoins"></div>
+        <button class="btn-go sm" id="btnRetry"></button>
+        <button class="btn-line" id="btnHome"></button>
+      </div>
     </div>
 
     <!-- 遊び方 -->
-    <div class="layer" id="help" hidden>
-      <div class="title" id="helpTitle">HOW TO PLAY</div>
-      <div class="help" id="helpBody"></div>
-      <button class="btn sm" id="btnHelpClose">CLOSE</button>
+    <div class="sheet" id="help" hidden>
+      <div class="card tall">
+        <div class="card-title" id="helpTitle"></div>
+        <div class="help" id="helpBody"></div>
+        <button class="btn-line" id="btnHelpClose"></button>
+      </div>
     </div>
 
     <!-- チュートリアル -->
@@ -107,8 +126,8 @@
     <div class="boot-skip" id="bootSkip">TAP</div>
   </div>
 
-  <script src="boot.js?v=0.16.0"></script>
-  <script src="ink.js?v=0.16.0"></script>
-  <script src="game.js?v=0.16.0"></script>
+  <script src="boot.js?v=0.17.0"></script>
+  <script src="ink.js?v=0.17.0"></script>
+  <script src="game.js?v=0.17.0"></script>
 </body>
 </html>
