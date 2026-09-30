@@ -2,18 +2,19 @@
 
 // =====================================================
 //  GATE VADER — 撃つか、育てるか。数字のインフレが止まらないゲートシューター
-//  v0.2  左＝ゾンビの大群 / 右＝迫ってくるゲートとアイテム。据え置きの自機で狙い撃つ。
+//  v0.2  左＝ワニの大群 / 右＝迫ってくるゲートとアイテム。据え置きの自機で狙い撃つ。
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
-const TS = Math.min(60, Math.max(0.1, +Q.get('ts') || 1));   // 開発用：時間の倍率
-const BOT = Q.has('bot');                                     // 開発用：自動操縦
+const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
+const TS = DEV ? Math.min(60, Math.max(0.1, +Q.get('ts') || 1)) : 1;   // 開発用：時間の倍率
+const BOT = DEV && Q.has('bot');                                     // 開発用：自動操縦
 
 // ---------- 進行のペース ----------
-const CLEAR_SEC = +Q.get('clear') || 3000;   // 100% までの目標秒数（50分）。ここ一つで長さを調整できる
+const CLEAR_SEC = (DEV && +Q.get('clear')) || 3000;   // 100% までの目標秒数（50分）。ここ一つで長さを調整できる
 const SEGS = 8;                              // 100% までのボスの数（12.5% ごと）
 const FIGHT_SEC = 40;                        // ボス戦1回あたりの想定秒数
 const K = 0.6;                               // 100% 到達時の速さ = 1 + K 倍
@@ -23,12 +24,14 @@ const FIGHT_LEN = G / 32;                    // ボス戦の間に進行バー�
 const speed = m => (m <= G ? 1 + K * m / G : (1 + K) * (1 + 1.8 * (m - G) / G));   // 100% 以降はぐっと加速
 
 // ---------- 盤面 ----------
-const MID = W / 2;                           // 左半分＝ゾンビ、右半分＝ゲート
+const MID = W / 2;                           // 左半分＝ワニ、右半分＝ゲート
 const PX = MID, PY = 560;                    // 自機（据え置き）
 const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
 const GATE_GAP = 200;                        // ゲートの行の間隔（進んだ距離）
 const MOB_VY = 14, GATE_VY = 14, BULLET_V = 720, ROW_H = 14;
 const LMAX = 15, CMAX = 8;                   // 段数と人数の上限
+const DMG_CAP = 1e250;                       // ダメージの上限（ボスHPなどが数の限界を超えないように）
+const PIERCE_MAX = 6;                        // 1発で貫ける数の上限（∞ MODE で無敵にならないように）
 const ST0 = { dmg: 1, lines: 7, crew: 1, rate: 8 };   // 初期グレード（転生で買う要素は次の段階）
 
 // ---------- 設定・セーブ ----------
@@ -69,16 +72,17 @@ function spr(rows, pal, px) {
   rows.forEach((r, j) => [...r].forEach((ch, i) => { if (pal[ch]) { x.fillStyle = pal[ch]; x.fillRect(i * px, j * px, px, px); } }));
   return c;
 }
-const ZF = [
-  ['..###..', '..#.#..', '#######', '#.###.#', '..###..', '..#.#..', '.##.##.'],
-  ['..###..', '..#.#..', '#######', '#.###.#', '..###..', '.##.#..', '..#.##.'],
+// 敵：インベーダー型のワニ（目の出っ張り・牙の列）
+const CF = [
+  ['#.....#', '.#####.', '##.#.##', '#######', '#.#.#.#', '.#...#.'],
+  ['#.....#', '.#####.', '##.#.##', '#######', '#.#.#.#', '#.....#'],
 ];
-const ZCOL = ['#8ccf7a', '#c9d98a', '#e0806e'];
-const ZOMBIES = ZCOL.map(col => ZF.map(f => spr(f, { '#': col }, 2)));
+const CCOL = ['#e8e8e8', '#c9e86a', '#ff7a6a'];
+const CROCS = CCOL.map(col => CF.map(f => spr(f, { '#': col }, 2)));
 const PLAYER = spr(['.....w.....', '....###....', '...#####...', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#.#######.#', '#..#####..#', '...##.##...', '..##...##..'],
   { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 3);
 const BOSS_ROWS = ['....########....', '..############..', '.##############.', '.#ee########ee#.', '.#eK########Ke#.', '################', '################', '#####.####.#####', '################', '#w#w#w#ww#w#w#w#', '.#.#.#.##.#.#.#.'];
-const BOSS_MID = spr(BOSS_ROWS, { '#': '#39ff88', e: '#ffe14a', K: '#000', w: '#fff' }, 7);
+const BOSS_MID = spr(BOSS_ROWS, { '#': '#e8e8e8', e: '#ffe14a', K: '#000', w: '#fff' }, 7);
 const BOSS_BIG = spr(BOSS_ROWS, { '#': '#ff6a5a', e: '#ffe14a', K: '#000', w: '#fff' }, 9);
 const HELPER = spr(['.....w.....', '....###....', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#..#####..#', '...##.##...'],
   { '#': '#39ff88', d: '#1f9d54', e: '#ffe14a', w: '#ffffff' }, 2);
@@ -126,7 +130,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function newRun() {
   const r = {
-    m: 0, hp: 3, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, breach: 0,
+    m: 0, hp: 3, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, calm: 0, inv: 0,
     st: { ...ST0 }, aim: MID + 70,
     mobs: [], b: [], objs: [],
     boss: null, nextBoss: 1, cleared: false, fightKills: 0, kills: 0,
@@ -137,8 +141,8 @@ function newRun() {
 }
 function snapshot() {
   if (!R || R.over) return null;
-  const { m, hp, t, rowAcc, gateAcc, uid, breach, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
-  return JSON.parse(JSON.stringify({ m, hp, t, rowAcc, gateAcc, uid, breach, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
+  const { m, hp, t, rowAcc, gateAcc, uid, calm, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
+  return JSON.parse(JSON.stringify({ m, hp, t, rowAcc, gateAcc, uid, calm, st, aim, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
 }
 function loadRun(snap) {
   const r = newRun();
@@ -192,9 +196,10 @@ function spawnGateRow() {
   if (!isGood(first) && !isGood(second) && second.cls === 'gate') second = makeGate(1, true);
   R.objs.push(first, second);
 }
-function isGood(o) { return o.cls === 'item' || (o.type === 'add' ? o.v >= 0 : o.v >= 1); }
+const stepOf = o => (o.stat === 'dmg' ? o.v : Math.round(o.v));   // LINE・CREW は整数で効く
+function isGood(o) { return o.cls === 'item' || (o.type === 'add' ? stepOf(o) >= 0 : o.v >= 1); }
 function gateLabel(o) {
-  if (o.type === 'add') return (o.v < 0 ? '-' : '+') + (o.stat === 'dmg' ? fmt(Math.floor(Math.abs(o.v))) : Math.max(0, Math.abs(Math.floor(o.v + 1e-6))));
+  if (o.type === 'add') { const v = stepOf(o); return (v < 0 ? '-' : '+') + (o.stat === 'dmg' ? fmt(Math.abs(v) < 10 ? Math.round(Math.abs(v) * 10) / 10 : Math.floor(Math.abs(v))) : Math.abs(v)); }
   if (o.v < 1) return '÷' + (1 / Math.max(0.05, o.v)).toFixed(1).replace(/\.0$/, '');
   return '×' + (o.v < 10 ? o.v.toFixed(1).replace(/\.0$/, '') : fmt(Math.floor(o.v)));
 }
@@ -212,24 +217,25 @@ function growGate(o, b) {
 function applyGate(o) {
   const st = R.st; let msg;
   const before = { ...st };
-  if (o.stat === 'dmg') { st.dmg = Math.max(1, o.type === 'add' ? st.dmg + o.v : st.dmg * o.v); }
-  else if (o.stat === 'lines') st.lines = clamp(Math.round(st.lines + o.v), 1, linesCap());
-  else st.crew = clamp(Math.round(st.crew + o.v), 1, CMAX);
+  if (o.stat === 'dmg') { st.dmg = clamp(o.type === 'add' ? st.dmg + o.v : st.dmg * o.v, 1, DMG_CAP); }
+  else if (o.stat === 'lines') st.lines = clamp(st.lines + stepOf(o), 1, linesCap());
+  else st.crew = clamp(st.crew + stepOf(o), 1, CMAX);
   const good = o.stat === 'dmg' ? st.dmg >= before.dmg : st[o.stat] >= before[o.stat];
   msg = `${STAT_NAME[o.stat]} ${gateLabel(o)}`;
-  pop(PX, PY - 50, msg, true, good ? '#39ff88' : '#ff5a5a');
+  const stack = R.pops.filter(p => p.big && p.y > PY - 130).length;   // 同時に確定したら縦にずらす
+  pop(PX, PY - 50 - stack * 20, msg, true, good ? '#39ff88' : '#ff5a5a');
   burst(o.x + o.w / 2, PY, 14, good ? '#39ff88' : '#ff5a5a');
   if (!good) { R.hurt = 0.3; sfx('hurt'); } else sfx('gate');
 }
 function breakItem(o) {
   if (o.kind === 'crew') { R.st.crew = Math.min(CMAX, R.st.crew + 1); pop(o.x + o.w / 2, o.y, '+1 CREW', true, '#66e6ff'); }
   else if (o.kind === 'heal') { R.hp = Math.min(3, R.hp + 1); pop(o.x + o.w / 2, o.y, '+1 HP', true, '#ff8da1'); }
-  else { R.st.dmg *= 1.5; pop(o.x + o.w / 2, o.y, 'DMG ×1.5', true, '#ffd84a'); }
+  else { R.st.dmg = Math.min(DMG_CAP, R.st.dmg * 1.5); pop(o.x + o.w / 2, o.y, 'DMG ×1.5', true, '#ffd84a'); }
   burst(o.x + o.w / 2, o.y + o.h / 2, 20, '#66e6ff');
   sfx('gate');
 }
 
-// ---------- ゾンビ ----------
+// ---------- ワニ ----------
 const ZSLOTS = 12, ZX0 = 9, ZDX = 14;
 function spawnRow() {
   const p = Math.min(1, R.m / G);
@@ -264,7 +270,7 @@ function spawnBoss() {
 }
 function killBoss() {
   const b = R.boss;
-  burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#39ff88');
+  burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#e8e8e8');
   R.m = b.k * SEG;
   R.nextBoss++;
   R.boss = null;
@@ -292,7 +298,7 @@ function volley() {
   const st = R.st, total = st.lines * st.crew, vis = OPT.light ? 14 : 32;
   const n = Math.min(total, vis), w = total / n;
   const shooters = Math.min(st.crew, 8), per = Math.ceil(n / shooters);
-  const pr = Math.max(1, Math.round(w)) + 1 + Math.floor(Math.log10(Math.max(1, st.dmg)));
+  const pr = Math.min(PIERCE_MAX, Math.max(1, Math.round(w)) + 1 + Math.floor(Math.log10(Math.max(1, st.dmg))));
   for (let k = 0; k < n; k++) {
     const si = k % shooters, line = Math.floor(k / shooters);
     const sx = si === 0 ? PX : helperX(si - 1);
@@ -341,7 +347,7 @@ function step(dt) {
         }
       }
     }
-    // 左：ゾンビ（一撃。強い弾は何体も貫く）
+    // 左：ワニ（一撃。強い弾は何体も貫く）
     if (!dead && b.x < MID + 10) {
       const cx = clamp(Math.floor(b.x / GC), 0, GCOLS - 1), cy = clamp(Math.floor((b.y + 16) / GC), 0, GROWS - 1);
       for (let yy = Math.max(0, cy - 1); yy <= Math.min(GROWS - 1, cy + 1) && !dead; yy++) {
@@ -350,7 +356,7 @@ function step(dt) {
             const mo = R.mobs[j];
             if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
             mo.d = 1; R.kills++; if (R.boss) R.fightKills++;
-            if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: '#9fe08c' });
+            if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: CCOL[mo.k] });
             if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
             sfx('kill');
             if (--b.pr <= 0) { dead = true; break; }
@@ -379,14 +385,14 @@ function step(dt) {
     else if (bo.y > PY - 40) R.hp = 0;
   }
 
-  // ゾンビ：前進、到達（10体通すとHP1減る）
+  // ワニ：前進、到達（1体でも届いたらハート-1）
   R.rowAcc += MOB_VY * s * dt * (R.boss ? 0.4 : 1);
   if (R.rowAcc >= ROW_H) { R.rowAcc -= ROW_H; if (R.mobs.length < 900) spawnRow(); }
   let any = false;
   for (const mo of R.mobs) {
     if (mo.d) { any = true; continue; }
     mo.y += MOB_VY * s * dt;
-    if (mo.y > PY + 4) { mo.d = 1; any = true; R.breach++; if (R.breach >= 10) { R.breach = 0; R.hp--; R.hurt = 0.4; R.calm = 0; sfx('hurt'); burst(mo.x, PY, 10, '#ff4d6d'); } }
+    if (mo.y > PY + 4) { mo.d = 1; any = true; damage(); burst(mo.x, PY, 10, '#ff4d6d'); }
   }
   if (any) R.mobs = R.mobs.filter(mo => !mo.d);
 
@@ -400,13 +406,13 @@ function step(dt) {
     if (o.y + o.h >= PY - 6) {
       o.dead = true;
       if (o.cls === 'gate') applyGate(o);
-      else { R.hp--; R.hurt = 0.4; R.calm = 0; sfx('hurt'); pop(o.x + o.w / 2, PY - 30, 'MISSED', true, '#ff5a5a'); }
+      else { damage(); pop(o.x + o.w / 2, PY - 30, 'MISSED', true, '#ff5a5a'); }
     }
   }
   if (R.objs.some(o => o.dead)) R.objs = R.objs.filter(o => !o.dead);
 
   // 演出
-  R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt);
+  R.popT -= dt; R.hurt = Math.max(0, R.hurt - dt); R.inv = Math.max(0, (R.inv || 0) - dt);
   for (let i = R.pops.length - 1; i >= 0; i--) { const p = R.pops[i]; p.t -= dt; p.y -= 34 * dt; if (p.t <= 0) R.pops.splice(i, 1); }
   for (let i = R.parts.length - 1; i >= 0; i--) { const p = R.parts[i]; p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; if (p.life <= 0) R.parts.splice(i, 1); }
   if (R.banner) { R.banner.t -= dt; if (R.banner.t <= 0) R.banner = null; }
@@ -414,7 +420,14 @@ function step(dt) {
   if (R.hp <= 0) gameOver();
 }
 
-// 開発用の自動操縦：ゾンビが詰まってきたら左へ、そうでなければ右のゲートとアイテムを撃つ
+// ハートが1つ減る。直後は少し無敵（群れがまとめて届いても一気に削れない）
+function damage() {
+  if (R.inv > 0) return;
+  R.hp--; R.inv = 1.5; R.hurt = 0.6; R.calm = 0;
+  sfx('hurt');
+}
+
+// 開発用の自動操縦：ワニが詰まってきたら左へ、そうでなければ右のゲートとアイテムを撃つ
 function botControl() {
   let low = 0, sum = 0;
   for (const mo of R.mobs) if (mo.y > 120) { low++; sum += mo.x; }
@@ -582,11 +595,11 @@ function render(now) {
   ctx.beginPath(); ctx.moveTo(MID, 0); ctx.lineTo(MID, PY); ctx.stroke(); ctx.setLineDash([]);
   ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.moveTo(0, PY + 0.5); ctx.lineTo(W, PY + 0.5); ctx.stroke();
 
-  // ゾンビ（小さく大量に）
+  // ワニ（小さく大量に）
   const fr = Math.floor(now / 380) % 2;
   for (const mo of R.mobs) {
-    const im = ZOMBIES[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
-    ctx.drawImage(im, Math.round(mo.x + Math.sin(now / 500 + mo.ph) * 1.5 - 7), Math.round(mo.y - 7));
+    const im = CROCS[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
+    ctx.drawImage(im, Math.round(mo.x + Math.sin(now / 500 + mo.ph) * 1.5 - 7), Math.round(mo.y - 6));
   }
 
   // ゲートとアイテム
@@ -622,7 +635,7 @@ function render(now) {
     ctx.drawImage(im, Math.round(bo.x - im.width / 2 + rnd(-j, j)), Math.round(bo.y - im.height / 2));
     const bw = 120, bx = bo.x - bw / 2, by = bo.y - im.height / 2 - 18;
     ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, 7);
-    ctx.fillStyle = bo.big ? '#ff6a5a' : '#39ff88'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
+    ctx.fillStyle = bo.big ? '#ff6a5a' : '#e8e8e8'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, 8);
     text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
   }
@@ -682,7 +695,7 @@ function drawHUD() {
   text('BEST ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
   text(fmt(Math.floor(m)) + ' m', 10, 44, 18, '#fff');
   text('SPEED ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 60, 11, '#6b7a70');
-  text('ZOMBIE', MID / 2, 84, 10, 'rgba(255,120,120,.6)', 'center');
+  text('CROC', MID / 2, 84, 10, 'rgba(255,120,120,.6)', 'center');
   text('GATE', MID + MID / 2, 84, 10, 'rgba(120,255,170,.6)', 'center');
   // 下段：ハートと今の強さ
   for (let i = 0; i < 3; i++) ctx.drawImage(i < R.hp ? HEART : HEART_OFF, 10 + i * 18, H - 28);
@@ -721,7 +734,7 @@ function frame(now) {
 }
 
 window.Game = { OPT, readSlot, selectSlot, saveOpt, fmt, showMenu };
-window.__gate = { get R() { return R; }, step, startRun, get state() { return state; }, G, SEG, speed, mEff };   // 開発用
+if (DEV) window.__gate = { get R() { return R; }, step, startRun, get state() { return state; }, G, SEG, speed, mEff };   // 開発用
 
 resize();
 requestAnimationFrame(frame);
