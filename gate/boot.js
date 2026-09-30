@@ -8,20 +8,37 @@
 
 const Boot = (() => {
   const NOTICE_VER = '1';
-  const T = {
-    credit: 'A GAME BY',
-    noticeTitle: 'NOTICE',
-    notice: [
-      'This is an unofficial game made by an individual.',
-      'Your save lives in this browser. Clearing history or site data deletes it.',
-      'Safari on iPhone may delete it after 7 days without a visit.',
-      'A run is long (about an hour to 100%). You can leave any time — the game saves and resumes with a countdown.',
-      'Please take breaks during long sessions.',
-      'The game may change or end without notice.',
-    ],
-    agree: 'OK',
-    slotTitle: 'SELECT SLOT', empty: 'NEW GAME',
+  const TT = {
+    ja: {
+      credit: 'A GAME BY',
+      noticeTitle: 'おしらせ',
+      notice: [
+        'このゲームは個人が制作した非公式の作品です。',
+        'セーブデータは端末のブラウザに保存されます。ブラウザの履歴やサイトデータを消すと、データも消えます。',
+        'iPhone の Safari では、7日間ひらかないと消えることがあります。',
+        '1回の旅は長め（100% までおよそ1時間）です。いつでも抜けられ、戻るとカウントダウンから再開します。',
+        '長時間のプレイは、適度に休憩をとってください。',
+        '予告なく内容を変更・終了することがあります。',
+      ],
+      agree: 'OK', slotTitle: 'スロットをえらぶ', empty: 'はじめから',
+      slotInfo: (b, r) => `ベスト ${b} m ・ ${r} 回`, inRun: m => `旅の途中 ${m} m`, noRun: '旅に出ていない',
+    },
+    en: {
+      credit: 'A GAME BY',
+      noticeTitle: 'NOTICE',
+      notice: [
+        'This is an unofficial game made by an individual.',
+        'Your save lives in this browser. Clearing history or site data deletes it.',
+        'Safari on iPhone may delete it after 7 days without a visit.',
+        'A run is long (about an hour to 100%). You can leave any time — the game saves and resumes with a countdown.',
+        'Please take breaks during long sessions.',
+        'The game may change or end without notice.',
+      ],
+      agree: 'OK', slotTitle: 'SELECT SLOT', empty: 'NEW GAME',
+      slotInfo: (b, r) => `BEST ${b} m · ${r} RUNS`, inRun: m => `RUN IN PROGRESS ${m} m`, noRun: 'NO RUN IN PROGRESS',
+    },
   };
+  const tx = () => TT[Game.OPT.lang] || TT.ja;
   const ICON = `<svg viewBox="0 0 512 512" width="120" height="120" aria-hidden="true" shape-rendering="crispEdges">
     <rect x="64" y="84" width="384" height="96" fill="none" stroke="#39ff88" stroke-width="12"/>
     <rect x="244" y="196" width="24" height="44" fill="#fff"/>
@@ -58,13 +75,14 @@ const Boot = (() => {
   }
 
   function slotHTML() {
+    const T = tx();
     const cards = [0, 1, 2].map(i => {
       const s = Game.readSlot(i);
       const has = s && (s.runs || s.best);
       return `<button class="boot-slot ${i === Game.OPT.slot ? 'on' : ''}" data-slot="${i}">
         <span class="bs-no">${String(i + 1).padStart(2, '0')}</span>
         <span class="bs-body">${has
-          ? `<b>BEST ${Game.fmt(Math.floor(s.best))} m · ${s.runs} RUNS</b><small>${s.run ? 'RUN IN PROGRESS ' + Game.fmt(Math.floor(s.run.m)) + ' m' : 'NO RUN IN PROGRESS'}</small>`
+          ? `<b>${T.slotInfo(Game.fmt(Math.floor(s.best)), s.runs)}</b><small>${s.run ? T.inRun(Game.fmt(Math.floor(s.run.m))) : T.noRun}</small>`
           : `<b>${T.empty}</b>`}</span>
       </button>`;
     }).join('');
@@ -102,6 +120,7 @@ const Boot = (() => {
     if (!root._wired) { root.addEventListener('click', () => { if (advance && !needOk) advance(); }); root._wired = true; }
 
     if (!skipIntro) {
+      const T = tx();
       const quick = !!Game.OPT.bootSeen;
       await show(`<div class="boot-logo">${ICON}</div>`, { auto: quick ? 900 : 1900, cls: 'logo' });
       await show(`<div class="boot-credit"><small>${T.credit}</small><b>MASU01</b></div>`, { auto: quick ? 800 : 1700, cls: 'credit' });

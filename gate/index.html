@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -33,12 +33,16 @@
         <button class="btn sm" id="btnLight">LIGHT: OFF</button>
         <button class="btn sm" id="btnSound">SOUND: ON</button>
       </div>
-      <button class="btn sm ghost" id="btnSlot">SLOT</button>
+      <div class="row">
+        <button class="btn sm ghost" id="btnHow">HOW TO PLAY</button>
+        <button class="btn sm ghost" id="btnLang">日本語</button>
+        <button class="btn sm ghost" id="btnSlot">SLOT</button>
+      </div>
     </div>
 
     <!-- 一時停止 -->
     <div class="layer" id="pause" hidden>
-      <div class="title">PAUSE</div>
+      <div class="title" id="pauseTitle">PAUSE</div>
       <button class="btn big" id="btnResume">RESUME</button>
       <button class="btn sm" id="btnQuit">SAVE &amp; EXIT</button>
     </div>
@@ -50,6 +54,19 @@
       <div class="sub" id="resSub"></div>
       <button class="btn big" id="btnRetry">RETRY</button>
       <button class="btn sm" id="btnHome">TITLE</button>
+    </div>
+
+    <!-- 遊び方 -->
+    <div class="layer" id="help" hidden>
+      <div class="title" id="helpTitle">HOW TO PLAY</div>
+      <div class="help" id="helpBody"></div>
+      <button class="btn sm" id="btnHelpClose">CLOSE</button>
+    </div>
+
+    <!-- チュートリアル -->
+    <div id="tut" hidden>
+      <div class="tut-head"><span id="tutStep">1 / 6</span><button id="tutSkip">SKIP</button></div>
+      <p id="tutText"></p>
     </div>
 
     <div id="count" hidden></div>
