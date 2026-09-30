@@ -495,10 +495,12 @@ function toLogical(e) {
   const r = cv.getBoundingClientRect();
   return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
 }
-const MENU_RECT = { x: W - 78, y: H - 34, w: 68, h: 26 };
+// 画面の最下端はスマホのホームバー操作と競合して押しにくいので、右上に置く（反応する範囲も広め）
+const MENU_RECT = { x: W - 72, y: 4, w: 62, h: 28 };
+const inMenu = p => p.x > W - 88 && p.y < 48;
 cv.addEventListener('pointerdown', e => {
   const p = toLogical(e);
-  if (state === 'play' && p.x > MENU_RECT.x && p.y > MENU_RECT.y) { pauseGame(false); return; }
+  if (state === 'play' && inMenu(p)) { pauseGame(false); return; }
   if (state !== 'play' || !R) return;
   cv.setPointerCapture(e.pointerId);
   drag = true;
@@ -677,7 +679,7 @@ function drawHUD() {
   ctx.fillStyle = '#000';
   for (let i = 1; i < SEGS; i++) ctx.fillRect(bx + bw * i / SEGS - 0.5, by, 1, bh);
   text(R.cleared ? '∞' : Math.min(100, Math.floor(p * 100)) + '%', bx + bw + 8, by + 10, 12, '#fff');
-  text('BEST ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, by + 10, 12, '#fff', 'right');
+  text('BEST ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
   text(fmt(Math.floor(m)) + ' m', 10, 44, 18, '#fff');
   text('SPEED ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 60, 11, '#6b7a70');
   text('ZOMBIE', MID / 2, 84, 10, 'rgba(255,120,120,.6)', 'center');
@@ -686,8 +688,8 @@ function drawHUD() {
   for (let i = 0; i < 3; i++) ctx.drawImage(i < R.hp ? HEART : HEART_OFF, 10 + i * 18, H - 28);
   text('DMG ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
   text(`LINE ${R.st.lines}  CREW ${R.st.crew}`, W / 2, H - 6, 11, '#9aa89f', 'center');
-  ctx.strokeStyle = '#6b7a70'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
-  text('MENU', MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 18, 12, '#9aa89f', 'center');
+  ctx.strokeStyle = '#9aa89f'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
+  text('MENU', MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 19, 13, '#cfd8d2', 'center');
 }
 
 // ---------- メインループ ----------
