@@ -7,16 +7,17 @@
 // =====================================================
 
 const Boot = (() => {
-  const NOTICE_VER = '1';
+  const NOTICE_VER = '2';
   const TT = {
     ja: {
       credit: 'A GAME BY',
       noticeTitle: 'おしらせ',
       notice: [
         'このゲームは個人が制作した非公式の作品です。',
+        '登場する妖怪は各地の伝承をもとにした創作の姿です。',
         'セーブデータは端末のブラウザに保存されます。ブラウザの履歴やサイトデータを消すと、データも消えます。',
         'iPhone の Safari では、7日間ひらかないと消えることがあります。',
-        '1回の旅は長め（100% までおよそ1時間）です。いつでも抜けられ、戻るとカウントダウンから再開します。',
+        '本編は全十段（6分ほど）。いつでも抜けられ、戻るとカウントダウンから再開します。',
         '長時間のプレイは、適度に休憩をとってください。',
         '予告なく内容を変更・終了することがあります。',
       ],
@@ -27,9 +28,10 @@ const Boot = (() => {
       noticeTitle: 'NOTICE',
       notice: [
         'This is an unofficial game made by an individual.',
+        'The yokai here are creative takes on Japanese folklore.',
         'Your save lives in this browser. Clearing history or site data deletes it.',
         'Safari on iPhone may delete it after 7 days without a visit.',
-        'A run is long (about an hour to 100%). You can leave any time — the game saves and resumes with a countdown.',
+        'The main run is 10 stages (about 6 minutes). You can leave any time — it resumes with a countdown.',
         'Please take breaks during long sessions.',
         'The game may change or end without notice.',
       ],
@@ -37,14 +39,8 @@ const Boot = (() => {
     },
   };
   const tx = () => TT[Game.OPT.lang] || TT.ja;
-  const ICON = `<svg viewBox="0 0 512 512" width="120" height="120" aria-hidden="true" shape-rendering="crispEdges">
-    <rect x="64" y="84" width="384" height="96" fill="none" stroke="#39ff88" stroke-width="12"/>
-    <rect x="244" y="196" width="24" height="44" fill="#fff"/>
-    <g fill="#39ff88"><rect x="224" y="264" width="64" height="32"/><rect x="192" y="296" width="128" height="32"/>
-    <rect x="160" y="328" width="192" height="64"/><rect x="128" y="392" width="256" height="48"/>
-    <rect x="160" y="440" width="64" height="32"/><rect x="288" y="440" width="64" height="32"/></g>
-    <g fill="#000"><rect x="192" y="328" width="32" height="32"/><rect x="288" y="328" width="32" height="32"/></g>
-    <g fill="#ffe14a"><rect x="200" y="336" width="16" height="16"/><rect x="296" y="336" width="16" height="16"/></g></svg>`;
+  // ロゴ：墨で描いたワニと、朱の落款（ink.js は起動時には読み込み済み）
+  const ICON = () => `<div style="display:flex;align-items:flex-end;justify-content:center;gap:8px">${Ink.croc(0, 'normal').replace('width="120" height="200"', 'width="84" height="140"')}${Ink.hanko(40, '鰐')}</div>`;
 
   let root, stage, skipHint, advance = null, needOk = false;
 
@@ -83,7 +79,7 @@ const Boot = (() => {
     if (!skipIntro) {
       const T = tx();
       const quick = !!Game.OPT.bootSeen;
-      await show(`<div class="boot-logo">${ICON}</div>`, { auto: quick ? 900 : 1900, cls: 'logo' });
+      await show(`<div class="boot-logo">${ICON()}</div>`, { auto: quick ? 900 : 1900, cls: 'logo' });
       await show(`<div class="boot-credit"><small>${T.credit}</small><b>MASU01</b></div>`, { auto: quick ? 800 : 1700, cls: 'credit' });
       const firstNotice = Game.OPT.noticeVer !== NOTICE_VER;
       await show(`<div class="boot-notice"><div class="boot-title">${T.noticeTitle}</div><ul>${T.notice.map(x => `<li>${x}</li>`).join('')}</ul>

@@ -1,8 +1,8 @@
 // オフラインでも起動できるように、ゲーム本体をキャッシュする。
 // 更新がすぐ届くよう「まずネット、だめならキャッシュ」で返す。
-const CACHE = 'gate-vader-v0.15.0';
+const CACHE = 'gate-vader-v0.16.0';
 const SHELL = [
-  './', 'index.html', 'style.css', 'boot.js', 'art.js', 'game.js', 'manifest.webmanifest',
+  './', 'index.html', 'style.css', 'boot.js', 'ink.js', 'game.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];
 

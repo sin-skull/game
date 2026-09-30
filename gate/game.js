@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.15.0';
+const VERSION = '0.16.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -81,19 +81,20 @@ const WEAPON_DEF = [
   { id: 'jaws', r: 'SSR', pat: 'beam', rate: 4, lines: 4, dmg: 10 },
 ];
 // スキン：見た目（体・影・目の色）と、レベルで伸びる小さな効果（pas × Lv）
+// スキン：ワニを描く墨の色（日本の伝統色の名前）。レベルで伸びる小さな効果つき
 const SKIN_DEF = [
-  { id: 'green', r: 'N', c: '#39ff88', d: '#1f9d54', e: '#ffe14a', pas: 'food', v: 1 },
-  { id: 'olive', r: 'N', c: '#a6d13a', d: '#5f7d1c', e: '#ffffff', pas: 'coin', v: 0.08 },
-  { id: 'sky', r: 'N', c: '#4ab3ff', d: '#1f5f9d', e: '#ffe14a', pas: 'eat', v: 0.1 },
-  { id: 'pink', r: 'R', c: '#ff7ab8', d: '#a8406f', e: '#ffffff', pas: 'food', v: 2 },
-  { id: 'gold', r: 'R', c: '#ffd84a', d: '#a8841c', e: '#ff4d4d', pas: 'coin', v: 0.15 },
-  { id: 'snow', r: 'R', c: '#e8f4ff', d: '#8aa0b8', e: '#39a0ff', pas: 'dmg', v: 0.1 },
-  { id: 'violet', r: 'SR', c: '#b07aff', d: '#5a3a9d', e: '#ffe14a', pas: 'dmg', v: 0.2 },
-  { id: 'crimson', r: 'SR', c: '#ff5a5a', d: '#8d1f1f', e: '#ffe14a', pas: 'rate', v: 0.5 },
-  { id: 'shadow', r: 'SSR', c: '#2f3642', d: '#141920', e: '#39ff88', pas: 'coin', v: 0.3 },
-  { id: 'neon', r: 'SSR', c: '#00fff0', d: '#008a80', e: '#ff3df0', pas: 'dmg', v: 0.4 },
+  { id: 'green', r: 'N', ink: '#1a1714', pas: 'food', v: 1 },      // 墨
+  { id: 'olive', r: 'N', ink: '#3d4a2a', pas: 'coin', v: 0.08 },   // 松葉色
+  { id: 'sky', r: 'N', ink: '#1f3a5a', pas: 'eat', v: 0.1 },       // 藍色
+  { id: 'pink', r: 'R', ink: '#7a2e3c', pas: 'food', v: 2 },       // 臙脂
+  { id: 'gold', r: 'R', ink: '#8a6a1a', pas: 'coin', v: 0.15 },    // 金茶
+  { id: 'snow', r: 'R', ink: '#6a6a70', pas: 'dmg', v: 0.1 },      // 銀鼠
+  { id: 'violet', r: 'SR', ink: '#4a2a5a', pas: 'dmg', v: 0.2 },   // 江戸紫
+  { id: 'crimson', r: 'SR', ink: '#c8321e', pas: 'rate', v: 0.5 }, // 朱色
+  { id: 'shadow', r: 'SSR', ink: '#0a0806', pas: 'coin', v: 0.3 }, // 漆黒
+  { id: 'neon', r: 'SSR', ink: '#3a6a5a', pas: 'dmg', v: 0.4 },    // 青磁色（濃いめ）
 ];
-const RARITY = { N: { w: 60, col: '#cfd8d2' }, R: { w: 28, col: '#4ab3ff' }, SR: { w: 10, col: '#b07aff' }, SSR: { w: 2, col: '#ffd84a' } };
+const RARITY = { N: { w: 60, col: '#5a534b' }, R: { w: 28, col: '#1f3a5a' }, SR: { w: 10, col: '#4a2a5a' }, SSR: { w: 2, col: '#c8321e' } };
 // ガチャはパールで引く。パールはステージの初回クリアでもらえる（大ボスは多め）。50回目は SSR 確定（天井）
 const GACHA_COST = 50;
 const PITY = 50;
@@ -119,63 +120,65 @@ function selectSlot(i) { OPT.slot = i; saveOpt(); SLOT = readSlot(i) || freshSlo
 // ---------- 文言（タイトルの GATE VADER 以外は 日本語 / English で切り替え） ----------
 const I18N = {
   ja: {
-    stat: { dmg: '威力', lines: '段数', crew: '仲間', rate: '連射', life: 'ライフ', weapon: '武器' },
-    wp: { normal: 'ノーマル', spread: '拡散', bounce: '反射', beam: 'ビーム', wave: 'ウェーブ', shotgun: 'ショットガン', homing: 'ホーミング', trident: '貫通' },
-    item: { crew: '仲間', heal: '回復', power: 'パワー' },
-    food: 'エサ', gate: 'ゲート', best: 'ベスト', speed: '速さ', menu: 'メニュー',
+    stat: { dmg: '威力', lines: '段数', crew: '仲間', rate: '連射', life: '命', weapon: '武器' },
+    wp: { normal: '単発', spread: '拡散', bounce: '反射', beam: '一閃', wave: '波打ち', shotgun: '散弾', homing: '追尾', trident: '貫通' },
+    item: { crew: '仲間', heal: '回復', power: '威力' },
+    food: '餌', gate: '札', best: '最高', speed: '速さ', menu: '中断', meter: '米', hungerMark: '腹', lifeMark: '命',
+    appears: n => `${n} 現る`,
     boss: 'ボス', bigBoss: '大ボス', bossDown: '撃破！', bigDown: '大ボス撃破！',
-    stageClear: n => `ステージ ${n} クリア！`, stageName: n => (n > STAGES ? `∞ ${n}` : `ステージ ${n}/${STAGES}`), hit: '当たった！',
-    mods: { normal: '', school: '魚の群れ', current: '急流', golden: '金の魚（食べるとコイン）', minus: '逆流ゲート', rush: 'ゲートラッシュ', dark: '深海' },
-    attacks: { plain: '', bubble: '泡を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
-    coinRush: n => `コイン +${n}`,
-    lifeUp: 'ライフ+1', crewUp: '仲間+1', hpUp: 'ライフ+1', powerUp: '威力×1.3',
+    stageClear: n => `第${n}段 突破`, stageName: n => (n > STAGES ? `続 第${n}段` : `第${n}段／${STAGES}`), hit: '被弾',
+    mods: { normal: '', school: '魚の群れ', current: '急流', golden: '朱の魚（食べると銭）', minus: '逆さ札', rush: '札の雨', dark: '夜の海' },
+    attacks: { plain: '', bubble: '墨玉を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
+    coinRush: n => `銭 +${n}`, gameClear: '十段 踏破', coinRushSub: '続きは 銭稼ぎの段',
+    lifeUp: '命 +1', crewUp: '仲間 +1', hpUp: '命 +1', powerUp: '威力 ×1.3',
     start: 'スタート', newRun: '新しく始める', cont: 'つづきから', light: '軽量', sound: '音', slot: 'スロット',
     how: '遊び方', lang: 'English', on: 'ON', off: 'OFF',
     pause: '一時停止', resume: '再開', quit: '保存して終了', retry: 'もう一度', title: 'タイトル',
     over: 'ゲームオーバー', starved: '餓死…', newBest: 'ベスト更新！', eaten: n => `${n}匹食べた`,
-    menuSub: (b, r) => `ベスト ${b} m ・ ${r} 回`,
+    menuSub: (b, r) => `最高 ${b} 米 ・ ${r} 回`,
     lightToast: '軽量モードにしました（タイトルで切り替えできます）',
     skip: 'スキップ', close: 'とじる',
-    coins: 'コイン', back: 'もどる', gacha: 'ガチャ', equip: '装備・強化', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
-    gNew: 'NEW!', gDup: n => `もう持っている → ${n} コイン`, pearl: 'パール', up: '強化',
-    pity: n => `SSR確定まで あと${n}回`, pearlHow: 'パールは、ステージを初めてクリアするともらえる（大ボスは多め）',
-    firstClear: n => `初回クリア！ パール+${n}`, pearlGot: n => `パール +${n}`,
-    pas: { food: v => `満腹 +${v}`, coin: v => `コイン +${Math.round(v * 100)}%`, eat: v => `食べて回復 +${Math.round(v * 100)}%`,
+    coins: '銭', back: 'もどる', gacha: 'ガチャ', equip: '装備・強化', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
+    gNew: '新たに入手', gDup: n => `もう持っている → 銭 ${n}`, pearl: '真珠', up: '強化',
+    pity: n => `SSR確定まで あと${n}回`, pearlHow: '真珠は、各段を初めて突破するともらえる（大ボスは多め）',
+    firstClear: n => `初突破　真珠 +${n}`, pearlGot: n => `真珠 +${n}`,
+    pas: { food: v => `満腹 +${v}`, coin: v => `銭 +${Math.round(v * 100)}%`, eat: v => `食べて回復 +${Math.round(v * 100)}%`,
       dmg: v => `威力 +${Math.round(v * 100)}%`, rate: v => `連射 +${Math.floor(v)}` },
-    earned: n => `+${n} コイン`,
-    wname: { pea: '豆鉄砲', twin: 'ツイン', fan: 'ファン', rapid: 'ラピッド', bouncer: 'バウンサー', wave: 'ウェーブ',
-      shotgun: 'ショットガン', homing: 'ホーミング', beam: 'ビームキャノン', trident: 'トライデント', jaws: 'ジョーズ' },
-    sname: { green: 'みどり', olive: 'オリーブ', sky: 'そら', pink: 'ピンク', gold: 'ゴールド', snow: 'スノー',
-      violet: 'バイオレット', crimson: 'クリムゾン', shadow: 'シャドウ', neon: 'ネオン' },
+    earned: n => `銭 +${n}`,
+    wname: { pea: '豆鉄砲', twin: '双筆', fan: '扇', rapid: '早打ち', bouncer: '跳ね墨', wave: '波筆',
+      shotgun: '散らし墨', homing: '追い墨', beam: '一筆', trident: '三叉銛', jaws: '大顎' },
+    sname: { green: '墨', olive: '松葉色', sky: '藍色', pink: '臙脂', gold: '金茶', snow: '銀鼠',
+      violet: '江戸紫', crimson: '朱色', shadow: '漆黒', neon: '青磁色' },
     tut: [
       '画面をドラッグして、ワニを左右に動かそう',
-      '左の魚を撃って食べよう。\n逃すと左上の🍖が減り、空になると餓死',
-      '右のゲートは、弾1発ごとに数値が1ずつ良くなる。\nマイナスも撃ち続ければプラスに変わる',
-      'ゲートは、くぐると効果が決まる。\n欲しいゲートの下へ動いて、くぐろう',
-      '点線のアイテムは、壊すと手に入る。\n壊さずにぶつかると負け（ライフは1つ）',
-      'ライフ・武器のゲートは、たまにだけ出る。\nできるだけ遠くまで進もう！',
+      '左の魚を撃って食べよう。\n逃すと左上の「腹」が減り、空になると餓死',
+      '右の札は、弾1発ごとに数値が1ずつ良くなる。\nマイナスも撃ち続ければプラスに変わる',
+      '札は、くぐると効果が決まる。\n欲しい札の下へ動いて、くぐろう',
+      '朱の点線の札は、壊すと手に入る。\n壊さずにぶつかると負け（命は1つ）',
+      '命・武器の札は、たまにだけ出る。\nできるだけ遠くまで進もう',
     ],
     help: [
       ['動かす', '画面のどこでもドラッグすると、ワニが左右に動く。弾はまっすぐ上に飛ぶ'],
-      ['左：エサ', '魚を撃つと食べられる。逃すと🍖が減り、空になると餓死'],
-      ['右：ゲート', '弾1発ごとに数値が1良くなる。くぐると 威力・連射・段数・仲間 が変わる。くぐらなければ何も起きない'],
-      ['アイテム', '点線の箱は壊すと手に入る。壊さずにぶつかるとライフ-1（0で負け）。避けてもいい'],
-      ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
-      ['ボス', '毎ステージの最後に大きな魚。泡・突進・墨などで攻撃してくる。当たるか、下まで来られたら負け。10の倍数は大ボス'],
-      ['ゴール', '10ステージで GAME CLEAR。その先は ∞ COIN RUSH：クリアするたびにコインが雪だるま式に増える'],
-      ['コイン・パール', '進んだ距離はコインになり、装備の強化に使う。ステージを初めてクリアするとパールがもらえ、ガチャで武器とスキンが手に入る'],
+      ['左：餌', '魚を撃つと食べられる。逃すと「腹」が減り、空になると餓死'],
+      ['右：札', '弾1発ごとに数値が1良くなる。くぐると 威力・連射・段数・仲間 が変わる。くぐらなければ何も起きない'],
+      ['壊せる札', '朱の点線の札は壊すと手に入る。壊さずにぶつかると命 -1（0で負け）。避けてもいい'],
+      ['命・武器', 'たまにだけ出る札。武器の札は撃つと中身が切り替わる'],
+      ['ボス', '各段の最後に、海の大物や伝承の怪異（蟹坊主・磯撫で・赤えい・海坊主）が現れる。墨玉・突進・墨で攻撃してくる。当たるか、下まで来られたら負け'],
+      ['ゴール', '第十段を突破すると終幕。その先は「続き」：突破するたびに銭が雪だるま式に増える'],
+      ['銭・真珠', '進んだ距離は銭になり、装備の強化に使う。各段を初めて突破すると真珠がもらえ、ガチャで武器と墨の色が手に入る'],
     ],
   },
   en: {
     stat: { dmg: 'DMG', lines: 'LINE', crew: 'CREW', rate: 'RATE', life: 'LIFE', weapon: 'WEAPON' },
     wp: WP_NAME,
     item: { crew: 'CREW', heal: 'HEAL', power: 'POWER' },
-    food: 'FOOD', gate: 'GATE', best: 'BEST', speed: 'SPEED', menu: 'MENU',
+    food: 'FOOD', gate: 'TAGS', best: 'BEST', speed: 'SPEED', menu: 'PAUSE', meter: 'm', hungerMark: 'Belly', lifeMark: 'Life',
+    appears: n => `${n} appears!`,
     boss: 'BOSS', bigBoss: 'BIG BOSS', bossDown: 'BOSS DOWN', bigDown: 'BIG BOSS DOWN!',
     stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}/${STAGES}`), hit: 'HIT!',
-    mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'GOLDEN FISH (coins)', minus: 'BACKFLOW GATES', rush: 'GATE RUSH', dark: 'DEEP SEA' },
-    attacks: { plain: '', bubble: 'BUBBLES', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK' },
-    coinRush: n => `+${n} COINS`,
+    mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'RED FISH (coins)', minus: 'REVERSED TAGS', rush: 'TAG RAIN', dark: 'NIGHT SEA' },
+    attacks: { plain: '', bubble: 'INK SHOTS', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK CLOUD' },
+    coinRush: n => `+${n} COINS`, gameClear: 'GAME CLEAR!', coinRushSub: 'COIN RUSH continues',
     lifeUp: '+1 LIFE', crewUp: '+1 CREW', hpUp: '+1 LIFE', powerUp: 'DMG ×1.3',
     start: 'START', newRun: 'NEW RUN', cont: 'CONTINUE', light: 'LIGHT', sound: 'SOUND', slot: 'SLOT',
     how: 'HOW TO PLAY', lang: '日本語', on: 'ON', off: 'OFF',
@@ -192,12 +195,12 @@ const I18N = {
       dmg: v => `DMG +${Math.round(v * 100)}%`, rate: v => `RATE +${Math.floor(v)}` },
     earned: n => `+${n} COINS`,
     wname: { pea: 'Pea Shooter', twin: 'Twin', fan: 'Fan', rapid: 'Rapid', bouncer: 'Bouncer', wave: 'Wave',
-      shotgun: 'Shotgun', homing: 'Homing', beam: 'Beam Cannon', trident: 'Trident', jaws: 'Jaws' },
-    sname: { green: 'Green', olive: 'Olive', sky: 'Sky', pink: 'Pink', gold: 'Gold', snow: 'Snow',
-      violet: 'Violet', crimson: 'Crimson', shadow: 'Shadow', neon: 'Neon' },
+      shotgun: 'Shotgun', homing: 'Homing', beam: 'Beam Cannon', trident: 'Trident', jaws: 'Great Jaw' },
+    sname: { green: 'Sumi ink', olive: 'Pine needle', sky: 'Indigo', pink: 'Enji red', gold: 'Kincha', snow: 'Silver gray',
+      violet: 'Edo purple', crimson: 'Vermilion', shadow: 'Lacquer black', neon: 'Celadon' },
     tut: [
       'Drag anywhere to move the croc left and right',
-      'Shoot the fish on the left to eat them.\nMiss them and the meat gauge drops — empty means starving',
+      'Shoot the fish on the left to eat them.\nMiss them and your belly gauge drops — empty means starving',
       'Each shot improves a gate by 1.\nKeep shooting a negative and it turns positive',
       'A gate takes effect when you pass through it.\nMove under the one you want',
       'Break dashed items to get them.\nRun into an unbroken one and you lose (you have 1 life)',
@@ -205,7 +208,7 @@ const I18N = {
     ],
     help: [
       ['Move', 'Drag anywhere to move the croc. Shots fly straight up'],
-      ['Left: food', 'Shoot fish to eat them. Missed fish drain the meat gauge; empty = starved'],
+      ['Left: food', 'Shoot fish to eat them. Missed fish drain the belly gauge; empty = starved'],
       ['Right: gates', 'Each shot improves the number by 1. Pass through to change DMG / RATE / LINE / CREW; skip it and nothing happens'],
       ['Items', 'Break dashed boxes to get them. Run into an unbroken one: -1 life (0 = game over). You can dodge'],
       ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
@@ -218,8 +221,17 @@ const I18N = {
 const L = () => I18N[OPT.lang] || I18N.ja;
 
 // ---------- 数の表記 ----------
+// 日本語の大きな数の単位（4桁ごと）。1e48 の「極」まで
+const JA_UNITS = ['万', '億', '兆', '京', '垓', '秭', '穣', '溝', '澗', '正', '載', '極'];
+function fmtJa(n) {
+  if (n < 1e4) return Number.isInteger(n) ? String(n) : n.toFixed(n < 10 ? 1 : 0).replace(/\.0$/, '');
+  const e = Math.floor(Math.log10(n) / 4);
+  if (e - 1 < JA_UNITS.length) { const v = n / Math.pow(1e4, e); return (v < 100 ? v.toFixed(1).replace(/\.0$/, '') : Math.floor(v)) + JA_UNITS[e - 1]; }
+  return n.toExponential(2).replace('+', '');
+}
 function fmt(n) {
   if (!isFinite(n)) return '∞';
+  if (typeof OPT !== 'undefined' && OPT.lang === 'ja') return fmtJa(n);
   if (n < 1000) return Number.isInteger(n) ? String(n) : n.toFixed(n < 10 ? 1 : 0).replace(/\.0$/, '');
   const units = ['K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
   const exp = Math.floor(Math.log10(n) / 3);
@@ -270,21 +282,14 @@ function artImg(key, make, w, h) {
   return e.cv;
 }
 const lighten = (hex, k = 0.55) => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255, f = v => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0'); return '#' + f(r) + f(g) + f(b); };
-const skinArt = id => { const k = skinOf(id); return { c: k.c, d: k.d, l: lighten(k.c), e: k.id === 'shadow' ? k.e : undefined }; };
-const skinIconURL = id => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Art.croc(0, skinArt(id)));
-const HERO_W = 40, HERO_H = 59, HELP_W = 26, HELP_H = 38, FISH_W = 18, FISH_H = 22;
-const heroImg = (f, mood, small) => artImg(`croc:${SLOT.skin}:${f}:${mood}:${small ? 1 : 0}`, () => Art.croc(f, skinArt(SLOT.skin), mood), small ? HELP_W : HERO_W, small ? HELP_H : HERO_H);
-const fishImg = (k, f, gold) => artImg(`fish:${gold ? 'g' : k}:${f}`, () => Art.fish(f, gold ? Art.GOLD : Art.FISH_COLORS[k]), FISH_W, FISH_H);
-const bossSize = big => (big ? 150 : 116);
-const bossImg = (art, f, mood, big) => artImg(`boss:${art}:${f}:${mood}:${big ? 1 : 0}`, () => Art.boss(art, f, mood), bossSize(big), bossSize(big));
-const skinCache = {};
-function crocSprites(id) {
-  if (!skinCache[id]) {
-    const k = skinOf(id), pal = { '#': k.c, d: k.d, e: k.e, w: '#ffffff' };
-    skinCache[id] = { player: spr(PLAYER_ROWS, pal, 3), helper: spr(HELPER_ROWS, pal, 2), icon: spr(PLAYER_ROWS, pal, 4) };
-  }
-  return skinCache[id];
-}
+const skinInk = id => skinOf(id).ink;
+const skinIconURL = id => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.croc(0, 'normal', skinInk(id)));
+const HERO_W = 40, HERO_H = 67, HELP_W = 26, HELP_H = 43, FISH_W = 18, FISH_H = 25;
+const heroImg = (f, mood, small) => artImg(`croc:${SLOT.skin}:${f}:${mood}:${small ? 1 : 0}`, () => Ink.croc(f, mood, skinInk(SLOT.skin)), small ? HELP_W : HERO_W, small ? HELP_H : HERO_H);
+const fishImg = (k, f, gold) => artImg(`fish:${gold ? 'g' : 'n'}:${f}`, () => Ink.fish(f, gold), FISH_W, FISH_H);
+const bossSize = big => (big ? 156 : 120);
+const bossImg = (art, f, mood, big) => artImg(`boss:${art}:${f}:${mood}:${big ? 1 : 0}`, () => Ink.boss(art, f, mood), bossSize(big), bossSize(big));
+const bossName = art => Ink.BOSS_NAME[OPT.lang === 'ja' ? 'ja' : 'en'][art] || '';
 const HEART = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#ff4d6d' }, 2);
 const HEART_OFF = spr(['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'], { '#': '#3a3a3a' }, 2);
 
@@ -522,19 +527,19 @@ const mod = () => (R ? R.mod || 'normal' : 'normal');
 function curSpeed() { return Math.min(SPEED_CAP * 1.2, stageSpeed(R.stage) * (mod() === 'current' ? 1.25 : 1)); }
 function enterStage(n) {
   R.mod = modOf(n);
-  R.banner = { text: L().stageName(n), t: 2.2, sub: L().mods[R.mod] };
+  R.banner = { kind: 'stage', text: L().stageName(n), t: 2.4, sub: L().mods[R.mod] };
 }
 
 // ---------- ボス：攻撃してくる ----------
 // plain：何もしない / bubble：泡を撃つ / charge：突進 / summon：魚を呼ぶ / ink：墨でゲートを隠す。大ボスは2つ組み合わせ
-// ボスは10種類（art.js）。ステージ n のボスは n 番目。11 から先は順番にまた出て、攻撃が1つ増える
+// ボスは10種類（ink.js）。ステージ n のボスは n 番目。11 から先は順番にまた出て、攻撃が1つ増える
 const BOSS_ATTACK = { puffer: ['bubble'], jelly: ['summon'], octo: ['ink'], crab: ['bubble'], marlin: ['charge'],
-  squid: ['ink', 'summon'], eel: ['bubble'], shark: ['charge'], manta: ['bubble'], angler: ['bubble', 'charge'] };
+  squid: ['ink', 'summon'], eel: ['bubble'], shark: ['charge'], manta: ['bubble'], umibozu: ['bubble', 'charge'] };
 const EXTRA = ['bubble', 'charge', 'summon', 'ink'];
-const bossArtOf = k => (k - 1) % Art.BOSS_IDS.length;
+const bossArtOf = k => (k - 1) % Ink.BOSS_IDS.length;
 function bossKinds(k, big) {
   if (k <= 1) return ['plain'];   // 最初のボスは攻撃しない（慣れるため）
-  const kinds = [...BOSS_ATTACK[Art.BOSS_IDS[bossArtOf(k)]]];
+  const kinds = [...BOSS_ATTACK[Ink.BOSS_IDS[bossArtOf(k)]]];
   if (k > STAGES) { const x = EXTRA[k % EXTRA.length]; if (!kinds.includes(x)) kinds.push(x); }
   return kinds;
 }
@@ -577,7 +582,7 @@ function spawnBoss() {
   const max = Math.max(20, dpsOf(R.st) * 0.35 * bossFightSec(k, big));
   R.boss = { k, big, art: bossArtOf(k), hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0, kinds: bossKinds(k, big), cd: { bubble: 1.5, charge: 3, summon: 1, ink: 2 } };
   R.fightKills = 0;
-  R.banner = { text: big ? L().bigBoss : L().boss, t: 2, sub: R.boss.kinds.map(x => L().attacks[x]).join(' ＋ ') };
+  R.banner = { text: L().appears(bossName(R.boss.art)), t: 2.2, red: true, sub: R.boss.kinds.map(x => L().attacks[x]).filter(Boolean).join('・') };
   sfx('boss');
 }
 function killBoss() {
@@ -600,7 +605,7 @@ function killBoss() {
     pop(W / 2, 360, L().coinRush(bonus), true, '#ffd84a');
   }
   R.eb = []; R.ink = [];
-  if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ COIN RUSH' }; R.mod = modOf(R.stage); }
+  if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: L().gameClear, t: 4, sub: L().coinRushSub }; R.mod = modOf(R.stage); }
   else enterStage(R.stage);
 }
 function burst(x, y, n, col) {
@@ -976,7 +981,8 @@ function preloadArt() {
   for (let f = 0; f < 4; f++) for (const m of ['normal', 'happy', 'hurt']) { heroImg(f, m, false); heroImg(f, m, true); }
   for (let k = 0; k < 3; k++) for (let f = 0; f < 4; f++) fishImg(k, f, false);
   for (let f = 0; f < 4; f++) fishImg(0, f, true);
-  for (let i = 0; i < Art.BOSS_IDS.length; i++) for (const m of ['normal', 'hurt', 'dead']) for (let f = 0; f < 2; f++) bossImg(i, f, m, i === 9);
+  for (let i = 0; i < Ink.BOSS_IDS.length; i++) for (const m of ['normal', 'hurt', 'dead']) for (let f = 0; f < 2; f++) bossImg(i, f, m, i === 9);
+  washiImg(); fudaImg(true); fudaImg(false);
 }
 function startRun(resume) {
   preloadArt();
@@ -1100,94 +1106,86 @@ function resize() {
 }
 addEventListener('resize', resize);
 
-// 海：深い青のグラデーション・立ちのぼる泡・ゆらぐ光
-const bubbles = Array.from({ length: 40 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: 0.8 + Math.random() * 2.4, v: 12 + Math.random() * 26, ph: Math.random() * 6.28 }));
-let starY = 0, seaBg = null;
-function seaGradient() {
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#0a3a5c'); g.addColorStop(0.45, '#062a48'); g.addColorStop(1, '#021426');
-  return g;
+// 和紙と掛軸：背景の紙は一度だけ描いておく。進んでいる感じは、うすい墨の波で出す
+const SUMI = Ink.SUMI, SHU = Ink.SHU, AI = '#1f3a5a', PAPER = Ink.PAPER;
+const FONT = '"Yuji Syuku", "Noto Serif JP", serif';
+const BRUSH = '"Yuji Boku", "Yuji Syuku", serif';
+const washiImg = () => artImg('washi', () => Ink.washi(W, H), W, H);
+const fudaImg = neg => artImg('fuda:' + (neg ? 1 : 0), () => Ink.fuda(GATE_W, GATE_H, neg), GATE_W, GATE_H);
+let starY = 0;
+// 以前のネオン色で渡された色を、墨・朱・藍に読み替える
+function inkCol(c) {
+  if (!c) return SUMI;
+  if (/^#(ff5a5a|ff4d4d|ff4d6d|ff8da1|ff6a5a|e0664a|ffd84a|ffc6f0|b8ffd2|ff7fa2)$/i.test(c)) return SHU;
+  if (/^#(66e6ff|39a0ff)$/i.test(c)) return AI;
+  return SUMI;
 }
-const FONT = '"DotGothic16", "IBM Plex Mono", monospace';
-const ITEM_COL = { crew: '#66e6ff', heal: '#ff8da1', power: '#ffd84a' };
-
-function bulletColor(d) {
-  const e = Math.log10(Math.max(1, d));
-  return e < 1 ? '#ffffff' : e < 3 ? '#b8ffd2' : e < 6 ? '#39ff88' : e < 9 ? '#66e6ff' : '#ffd84a';
+function text(t, x, y, size, col, align = 'left', brush = false) {
+  ctx.font = `${size}px ${brush ? BRUSH : FONT}`; ctx.textAlign = align; ctx.fillStyle = col; ctx.fillText(t, x, y);
 }
-function text(t, x, y, size, col, align = 'left') {
-  ctx.font = `${size}px ${FONT}`; ctx.textAlign = align; ctx.fillStyle = col; ctx.fillText(t, x, y);
+// 縦書き（右の列から左へ）。絵巻の詞書のように
+function vtext(lines, xRight, yTop, size, col, gap = 1.25) {
+  ctx.font = `${size}px ${FONT}`; ctx.textAlign = 'center'; ctx.fillStyle = col;
+  lines.forEach((ln, c) => [...ln].forEach((ch, i) => ctx.fillText(ch, xRight - c * size * gap, yTop + (i + 1) * size * 1.05)));
+}
+function inkWaves(now) {
+  if (OPT.light) return;
+  ctx.strokeStyle = SUMI; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const y = ((i * 83 + starY * 0.9) % (H + 60)) - 30, x0 = (i * 131) % (W - 60);
+    ctx.globalAlpha = 0.07;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo(x0 + 14, y - 8, x0 + 28, y); ctx.quadraticCurveTo(x0 + 42, y + 8, x0 + 56, y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+function kakejiku() {
+  // 上：八双（細い横木）／下：軸木と軸先
+  ctx.fillStyle = '#3a2414'; ctx.fillRect(0, 0, W, 4);
+  const g = ctx.createLinearGradient(0, H - 10, 0, H); g.addColorStop(0, '#6a4428'); g.addColorStop(.5, '#9a6a40'); g.addColorStop(1, '#3a2414');
+  ctx.fillStyle = g; ctx.fillRect(0, H - 10, W, 10);
+  ctx.fillStyle = '#2a1a0e'; ctx.fillRect(0, H - 11, 6, 11); ctx.fillRect(W - 6, H - 11, 6, 11);
 }
 
 function render(now) {
   ctx.setTransform(kScale, 0, 0, kScale, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  seaBg = seaGradient();
-  ctx.fillStyle = seaBg; ctx.fillRect(0, 0, W, H);
-  // 水面からの光（ゆっくり揺れる）
-  if (!OPT.light) {
-    ctx.fillStyle = '#7fd4ff';
-    for (let i = 0; i < 4; i++) {
-      const x = ((i * 97 + now / 90) % (W + 120)) - 60;
-      ctx.globalAlpha = 0.035;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 40, 0); ctx.lineTo(x - 30, H * 0.8); ctx.lineTo(x - 70, H * 0.8); ctx.fill();
-    }
-  }
-  // 泡：下から上へ
-  ctx.fillStyle = '#bfe9ff';
-  const nb = OPT.light ? 16 : bubbles.length;
-  for (let i = 0; i < nb; i++) {
-    const b = bubbles[i];
-    const y = H - ((H - b.y + starY * b.v / 20) % (H + 10));
-    const x = b.x + Math.sin(now / 700 + b.ph) * 3;
-    ctx.globalAlpha = 0.18 + b.r * 0.06;
-    ctx.fillRect(Math.round(x), Math.round(y), Math.ceil(b.r), Math.ceil(b.r));
-  }
-  ctx.globalAlpha = 1;
-  if (!R) return;
-  const glow = !OPT.light;
+  ctx.imageSmoothingEnabled = true;
+  const wimg = washiImg();
+  if (wimg) ctx.drawImage(wimg, 0, 0, W, H); else { ctx.fillStyle = '#efe7d4'; ctx.fillRect(0, 0, W, H); }
+  inkWaves(now);
+  if (!R) { kakejiku(); return; }
 
-  // 左右の地面
-  ctx.fillStyle = 'rgba(120,220,255,.05)'; ctx.fillRect(0, 0, MID, PY);
-  ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(MID, 0, MID, PY);
-  // 海底（自機の下）
-  ctx.fillStyle = '#0b1c1a'; ctx.fillRect(0, PY + 1, W, H - PY);
-  ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
-  ctx.beginPath(); ctx.moveTo(MID, 0); ctx.lineTo(MID, PY); ctx.stroke(); ctx.setLineDash([]);
-  ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.moveTo(0, PY + 0.5); ctx.lineTo(W, PY + 0.5); ctx.stroke();
+  // 左右の境：うすい墨の点線
+  ctx.fillStyle = 'rgba(26,23,20,.035)'; ctx.fillRect(MID, 0, MID, PY);
+  ctx.strokeStyle = 'rgba(26,23,20,.22)'; ctx.lineWidth = 1.5; ctx.setLineDash([8, 8]);
+  ctx.beginPath(); ctx.moveTo(MID, 90); ctx.lineTo(MID, PY); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(26,23,20,.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(8, PY + 16); ctx.quadraticCurveTo(W / 2, PY + 10, W - 8, PY + 16); ctx.stroke();
 
-  // ワニ（小さく大量に）
-  const fr = Math.floor(now / 380) % 2;
+  // 魚
   for (const mo of R.mobs) {
-    const sf = (Math.floor(now / 110 + mo.ph * 2)) % 4;   // 泳ぎのコマ（1匹ずつずらす）
+    const sf = (Math.floor(now / 110 + mo.ph * 2)) % 4;
     const art = fishImg(mo.k, sf, mo.gold);
     const sx = mo.x + Math.sin(now / 420 + mo.ph) * 2;
     if (art) ctx.drawImage(art, Math.round(sx - FISH_W / 2), Math.round(mo.y - FISH_H / 2), FISH_W, FISH_H);
-    else { const im = mo.gold ? GOLD_FISH[(fr + (mo.ph > 3.14 ? 1 : 0)) % 2] : FISH[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2]; ctx.drawImage(im, Math.round(sx - 7), Math.round(mo.y - 6)); }
+    else { ctx.fillStyle = mo.gold ? SHU : SUMI; ctx.beginPath(); ctx.ellipse(sx, mo.y, 5, 8, 0, 0, 6.283); ctx.fill(); }
   }
 
-  // ゲートとアイテム
+  // 札（ゲート）と、壊せる箱
   for (const o of R.objs) {
     if (o.y < -o.h || o.dead) continue;
+    const neg = o.cls === 'gate' && !isGood(o);
+    const fi = fudaImg(neg || (o.cls === 'item'));
+    if (fi) ctx.drawImage(fi, o.x, o.y, o.w, o.h); else { ctx.fillStyle = PAPER; ctx.fillRect(o.x, o.y, o.w, o.h); }
+    if (o.hit > 0) { ctx.fillStyle = SUMI; ctx.globalAlpha = Math.min(.25, o.hit * 2); ctx.fillRect(o.x + 3, o.y + 3, o.w - 6, o.h - 6); ctx.globalAlpha = 1; }
     if (o.cls === 'gate') {
-      const good = isGood(o);
-      const col = o.stat === 'weapon' ? '#66e6ff' : o.stat === 'life' ? '#ff8da1' : o.type === 'mul' && o.v >= 1 ? '#ffd84a' : good ? '#39ff88' : '#ff5a5a';
-      ctx.fillStyle = col; ctx.globalAlpha = 0.1 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
-      ctx.globalAlpha = 1;
-      if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 6 + o.hit * 40; }
-      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2);
-      ctx.shadowBlur = 0;
-      text(L().stat[o.stat], o.x + o.w / 2, o.y + 14, 11, col, 'center');
-      text(gateLabel(o), o.x + o.w / 2, o.y + 38, o.stat === 'weapon' ? 16 : 22, '#fff', 'center');
+      const col = neg ? SHU : o.stat === 'weapon' ? AI : o.stat === 'life' ? SHU : SUMI;
+      text(L().stat[o.stat], o.x + o.w / 2, o.y + 15, 12, col, 'center');
+      text(gateLabel(o), o.x + o.w / 2, o.y + 38, o.stat === 'weapon' ? 16 : 21, col, 'center', true);
     } else {
-      const name = L().item[o.kind], col = ITEM_COL[o.kind];
-      ctx.fillStyle = col; ctx.globalAlpha = 0.08 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
-      ctx.globalAlpha = 1;
-      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2); ctx.setLineDash([]);
-      text(name, o.x + o.w / 2, o.y + 18, 14, col, 'center');
-      ctx.fillStyle = '#222'; ctx.fillRect(o.x + 8, o.y + 26, o.w - 16, 5);
-      ctx.fillStyle = col; ctx.fillRect(o.x + 8, o.y + 26, (o.w - 16) * clamp(o.hp / o.max, 0, 1), 5);
-      text(fmt(Math.max(0, Math.ceil(o.hp))), o.x + o.w / 2, o.y + 43, 11, '#fff', 'center');
+      ctx.strokeStyle = SHU; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.strokeRect(o.x + 6, o.y + 6, o.w - 12, o.h - 12); ctx.setLineDash([]);
+      text(L().item[o.kind], o.x + o.w / 2, o.y + 21, 14, SHU, 'center', true);
+      ctx.strokeStyle = SUMI; ctx.lineWidth = 1; ctx.strokeRect(o.x + 12.5, o.y + 27.5, o.w - 25, 5);
+      ctx.fillStyle = SHU; ctx.fillRect(o.x + 13, o.y + 28, (o.w - 26) * clamp(o.hp / o.max, 0, 1), 4);
+      text(fmt(Math.max(0, Math.ceil(o.hp))), o.x + o.w / 2, o.y + 42, 10, SUMI, 'center');
     }
   }
 
@@ -1197,120 +1195,135 @@ function render(now) {
     const bsz = bossSize(bo.big), j = bo.hit > 0 ? 2 : 0;
     const bmood = bo.hit > 0 && Math.floor(now / 120) % 2 ? 'hurt' : 'normal';
     const bart = bossImg(bo.art || 0, (bo.charge > 0 || Math.floor(now / 400) % 2) ? 1 : 0, bmood, bo.big);
-    const im = bart || (bo.big ? BOSS_BIG : BOSS_MID);
-    const iw = bart ? bsz : im.width, ih = bart ? bsz : im.height;
-    ctx.drawImage(im, Math.round(bo.x - iw / 2 + rnd(-j, j)), Math.round(bo.y - ih / 2), iw, ih);
-    const bw = 120, bx = bo.x - bw / 2, by = bo.y - ih / 2 - 14;
-    ctx.fillStyle = '#222'; ctx.fillRect(bx, by, bw, 7);
-    ctx.fillStyle = bo.big ? '#ff6a5a' : '#cfe0ff'; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 7);
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, 8);
-    text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
+    if (bart) ctx.drawImage(bart, Math.round(bo.x - bsz / 2 + rnd(-j, j)), Math.round(bo.y - bsz / 2), bsz, bsz);
+    const bw = 120, bx = bo.x - bw / 2, by = bo.y - bsz / 2 - 8;
+    ctx.strokeStyle = SUMI; ctx.lineWidth = 1.5; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, 7);
+    ctx.fillStyle = SHU; ctx.fillRect(bx, by, bw * Math.max(0, bo.hp / bo.max), 6);
+    text(`${bossName(bo.art)}　${fmt(Math.max(0, Math.ceil(bo.hp)))}`, bo.x, by - 5, 12, SUMI, 'center');
   }
-
-  // 倒したボス：目を回して沈んでいく
   if (R.deadBoss) {
     const d = R.deadBoss, sz = bossSize(d.big), im = bossImg(d.art, 0, 'dead', d.big);
     if (im) { ctx.save(); ctx.globalAlpha = Math.min(1, d.t); ctx.translate(d.x, d.y); ctx.rotate((1.4 - d.t) * 1.2); ctx.drawImage(im, -sz / 2, -sz / 2, sz, sz); ctx.restore(); }
   }
 
-  // ボスの弾（泡）と、突進の予告
+  // ボスの墨玉と、突進の予告
   for (const e of R.eb) {
-    ctx.strokeStyle = '#ffb3d9'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 6.283); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,179,217,.35)'; ctx.fill();
+    ctx.fillStyle = SUMI; ctx.globalAlpha = .9; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 6.283); ctx.fill();
+    ctx.globalAlpha = .25; ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 3, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
   }
   if (R.boss && R.boss.charge > 0 && Math.floor(R.boss.charge * 10) % 2) {
-    ctx.fillStyle = 'rgba(255,80,80,.18)'; ctx.fillRect(R.boss.x - 60, R.boss.y, 120, PY - R.boss.y);
+    ctx.fillStyle = 'rgba(200,50,30,.14)'; ctx.fillRect(R.boss.x - 60, R.boss.y, 120, PY - R.boss.y);
   }
-  // 弾
+  // 弾：墨のしずく。強い弾は朱
   for (const b of R.b) {
-    ctx.fillStyle = bulletColor(b.d);
-    if (b.beam) ctx.fillRect(b.x - 2, b.y - 16, 4, 32);
-    else ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8);
+    const strong = b.d >= 1e6;
+    ctx.fillStyle = strong ? SHU : SUMI;
+    if (b.beam) { ctx.globalAlpha = .75; ctx.fillRect(b.x - 2, b.y - 16, 4, 32); ctx.globalAlpha = 1; }
+    else { ctx.beginPath(); ctx.ellipse(b.x, b.y, 2, 4.5, 0, 0, 6.283); ctx.fill(); }
   }
-
-  // 墨（ゲートを隠す）と深海（上が暗い）
+  // 墨（札を隠す）と夜の海（上が暗い）
   for (const k of R.ink) {
-    ctx.globalAlpha = Math.min(1, k.t) * 0.92; ctx.fillStyle = '#05070c';
+    ctx.globalAlpha = Math.min(1, k.t) * 0.9; ctx.fillStyle = SUMI;
     ctx.beginPath(); ctx.arc(k.x, k.y, k.r, 0, 6.283); ctx.arc(k.x + 30, k.y + 20, k.r * 0.7, 0, 6.283); ctx.arc(k.x - 26, k.y + 26, k.r * 0.6, 0, 6.283); ctx.fill();
     ctx.globalAlpha = 1;
   }
   if (mod() === 'dark') {
     const g = ctx.createLinearGradient(0, 84, 0, 380);
-    g.addColorStop(0, 'rgba(0,0,0,.92)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    g.addColorStop(0, 'rgba(26,23,20,.9)'); g.addColorStop(1, 'rgba(26,23,20,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 84, W, 300);
   }
   // 自機と仲間
   if (!R.over) {
     const n = Math.min(R.st.crew, 8);
-    const cs = crocSprites(SLOT.skin), HELPER = cs.helper, PLAYER = cs.player;
-    const wf = Math.floor(now / 130) % 4;   // 歩きのコマ
+    const wf = Math.floor(now / 130) % 4;
     const mood = R.hurt > 0 ? 'hurt' : R.happy > 0 ? 'happy' : 'normal';
     for (let si = 1; si < n; si++) {
       const h = heroImg((wf + si) % 4, R.happy > 0 ? 'happy' : 'normal', true), hx = shooterX(si);
-      if (h) ctx.drawImage(h, Math.round(hx - HELP_W / 2), PY + 10 - HELP_H, HELP_W, HELP_H);
-      else ctx.drawImage(HELPER, Math.round(hx - HELPER.width / 2), PY - 12);
+      if (h) ctx.drawImage(h, Math.round(hx - HELP_W / 2), PY + 12 - HELP_H, HELP_W, HELP_H);
     }
     if (R.hurt > 0 && Math.floor(R.hurt * 20) % 2) ctx.globalAlpha = 0.35;
     const hero = heroImg(wf, mood, false);
-    if (hero) ctx.drawImage(hero, Math.round(R.x - HERO_W / 2), PY + 14 - HERO_H, HERO_W, HERO_H);
-    else ctx.drawImage(PLAYER, Math.round(R.x - PLAYER.width / 2), PY - 16);
+    if (hero) ctx.drawImage(hero, Math.round(R.x - HERO_W / 2), PY + 16 - HERO_H, HERO_W, HERO_H);
     ctx.globalAlpha = 1;
   }
-
-  for (const p of R.parts) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, 3, 3); }
+  // 墨の飛び散りと、数字
+  for (const p of R.parts) { ctx.globalAlpha = Math.min(1, p.life * 2); ctx.fillStyle = inkCol(p.col); ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, 6.283); ctx.fill(); }
   ctx.globalAlpha = 1;
   for (const p of R.pops) {
     ctx.globalAlpha = Math.min(1, p.t * 2);
-    if (glow && p.big) { ctx.shadowColor = p.col; ctx.shadowBlur = 8; }
-    text(p.text, p.x, p.y, p.big ? 18 : 12, p.col, 'center');
-    ctx.shadowBlur = 0;
+    text(p.text, p.x, p.y, p.big ? 20 : 12, inkCol(p.col), 'center', p.big);
   }
   ctx.globalAlpha = 1;
 
   drawHUD();
-  if (R.banner) {
-    const b = R.banner, a = Math.min(1, b.t);
-    ctx.globalAlpha = a;
-    if (glow) { ctx.shadowColor = '#39ff88'; ctx.shadowBlur = 16; }
-    text(b.text, W / 2, 250, 40, '#39ff88', 'center');
-    if (b.sub) text(b.sub, W / 2, 284, 22, '#fff', 'center');
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  if (R.banner) drawBanner(R.banner);
+  kakejiku();
+}
+
+// 見出し：ステージの始まりは横長の絵巻の札（縦書き・右から左）。ほかは大きな筆文字
+// 漢数字（縦書き用）：1〜9999
+const KAN = '〇一二三四五六七八九';
+function kan(n) {
+  if (n < 10) return KAN[n];
+  let out = '';
+  [[1000, '千'], [100, '百'], [10, '十']].forEach(([u, c]) => { const d = Math.floor(n / u) % 10; if (d) out += (d > 1 ? KAN[d] : '') + c; });
+  return out + (n % 10 ? KAN[n % 10] : '');
+}
+const stageKan = n => (n > STAGES ? `続 第${kan(n)}段` : `第${kan(n)}段`);
+function drawBanner(b) {
+  ctx.globalAlpha = Math.min(1, b.t);
+  if (b.kind === 'stage' && OPT.lang === 'ja') {
+    // 絵巻は右から左へ読む：右端に「第〇段」、その左に段の変化（縦書きなので漢数字・括弧は列を分ける）
+    const cols = [stageKan(R.stage), ...(b.sub || '').split(/[（）]/).filter(Boolean)];
+    const size = 20, gap = 1.6, w = Math.max(120, cols.length * size * gap + 44);
+    const h = Math.max(...cols.map(c => [...c].length)) * size * 1.05 + 22, x = W / 2 - w / 2, y = 180;
+    ctx.fillStyle = 'rgba(243,234,214,.96)'; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = SUMI; ctx.lineWidth = 2; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+    ctx.fillStyle = '#6a4428'; ctx.fillRect(x - 6, y - 3, 6, h + 6); ctx.fillRect(x + w, y - 3, 6, h + 6);   // 両端の軸
+    vtext([cols[0]], x + w - 24, y + 6, size, R.stage % 10 === 0 ? SHU : SUMI);
+    if (cols.length > 1) vtext(cols.slice(1), x + w - 24 - size * gap, y + 6, size * 0.8, SUMI, gap * 1.25);
+  } else {
+    text(b.text, W / 2, 250, 36, b.red ? SHU : SUMI, 'center', true);
+    if (b.sub) text(b.sub, W / 2, 282, 18, SUMI, 'center');
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawHUD() {
   const m = mEff();
-  // 上の表示が魚と重なって読めなくならないよう、薄く下地を敷く
-  ctx.fillStyle = 'rgba(2,16,32,.85)'; ctx.fillRect(0, 0, W, 84);
-  const bx = 10, by = 10, bw = 170, bh = 10;
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
-  ctx.fillStyle = R.boss ? (R.boss.big ? '#ff6a5a' : '#ffd84a') : '#39ff88';
-  ctx.fillRect(bx, by, bw * stageFrac(), bh);
-  ctx.fillStyle = '#000'; ctx.fillRect(bx + bw * 0.75 - 0.5, by, 1, bh);   // ここからボス
-  text(L().stageName(R.stage), bx + bw + 8, by + 10, 12, R.stage % 10 === 0 ? '#ff8a7a' : '#fff');
-  if (R.mod && R.mod !== 'normal') text(L().mods[R.mod], W - 10, 64, 11, '#ffd84a', 'right');
-  text(L().best + ' ' + fmt(Math.floor(Math.max(SLOT.best, m) * METER)) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
-  // 飢餓ゲージ（🍖）
-  ctx.drawImage(MEAT, 9, 26);
-  const low = R.food <= 3;
-  const fm = R.foodMax || FOOD_MAX, cw = 150 / fm;
+  // 上の帯：紙を重ねて、下に筆の線
+  ctx.fillStyle = 'rgba(239,231,212,.94)'; ctx.fillRect(0, 0, W, 86);
+  ctx.strokeStyle = 'rgba(26,23,20,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(6, 86); ctx.quadraticCurveTo(W / 2, 83, W - 6, 86); ctx.stroke();
+  text(L().stageName(R.stage), 10, 26, 20, R.stage % 10 === 0 ? SHU : SUMI, 'left', true);
+  const bx = 10, by = 33, bw = 150, bh = 7;
+  ctx.strokeStyle = SUMI; ctx.lineWidth = 1.2; ctx.strokeRect(bx - .5, by - .5, bw + 1, bh + 1);
+  ctx.fillStyle = R.boss ? SHU : SUMI; ctx.globalAlpha = .85; ctx.fillRect(bx, by, bw * stageFrac(), bh); ctx.globalAlpha = 1;
+  ctx.fillStyle = SHU; ctx.fillRect(bx + bw * 0.75 - 1, by - 4, 2, bh + 8);   // ここからボス
+  // 腹（飢え）
+  text(L().hungerMark, 10, 58, 14, SUMI);
+  const low = R.food <= 3, fm = R.foodMax || FOOD_MAX, cw = 130 / fm;
   for (let i = 0; i < fm; i++) {
     const f = clamp(R.food - i, 0, 1);
-    ctx.fillStyle = '#2a2a2a'; ctx.fillRect(28 + i * cw, 29, cw - 3, 8);
-    if (f > 0) { ctx.fillStyle = low && Math.floor(performance.now() / 200) % 2 ? '#ff4d4d' : '#e0664a'; ctx.fillRect(28 + i * cw, 29, (cw - 3) * f, 8); }
+    ctx.strokeStyle = SUMI; ctx.lineWidth = 1; ctx.strokeRect(30 + i * cw + .5, 48.5, cw - 3, 8);
+    if (f > 0) { ctx.fillStyle = low && Math.floor(performance.now() / 200) % 2 ? SHU : SUMI; ctx.fillRect(30 + i * cw, 48, (cw - 3) * f, 9); }
   }
-  if (R.hungry > 0) { ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(26.5, 27.5, fm * cw, 11); }
-  text(fmt(Math.floor(m * METER)) + ' m', 10, 62, 18, '#fff');
-  text(L().speed + ' ×' + curSpeed().toFixed(2), 10, 77, 11, '#6b7a70');
-  text(L().food, MID / 2, 96, 11, 'rgba(170,230,255,.7)', 'center');
-  text(L().gate, MID + MID / 2, 96, 11, 'rgba(120,255,170,.6)', 'center');
-  // 下段：ハートと今の強さ
-  for (let i = 0; i < HP_MAX; i++) if (i < R.hp) ctx.drawImage(HEART, 10 + i * 18, H - 28);
-  text(L().stat.dmg + ' ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
-  text(`${L().stat.rate} ${R.st.rate}  ${L().stat.lines} ${R.st.lines}  ${L().stat.crew} ${R.st.crew}  ${L().wp[R.st.wp] || L().wp.normal}`, W / 2, H - 6, 11, '#9aa89f', 'center');
-  ctx.strokeStyle = '#9aa89f'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
-  text(L().menu, MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 19, 13, '#cfd8d2', 'center');
+  if (R.hungry > 0) { ctx.strokeStyle = SHU; ctx.lineWidth = 1.5; ctx.strokeRect(28.5, 46.5, fm * cw, 12); }
+  text(fmt(Math.floor(m * METER)) + ' ' + L().meter, 10, 79, 15, SUMI);
+  text(L().speed + ' ×' + curSpeed().toFixed(2), 120, 79, 10, '#6a6258');
+  // 右上：中断の札・自己ベスト・このステージの変化
+  ctx.fillStyle = PAPER; ctx.fillRect(MENU_RECT.x, MENU_RECT.y, MENU_RECT.w, MENU_RECT.h);
+  ctx.strokeStyle = SUMI; ctx.lineWidth = 1.5; ctx.strokeRect(MENU_RECT.x + .5, MENU_RECT.y + .5, MENU_RECT.w, MENU_RECT.h);
+  text(L().menu, MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 19, 14, SUMI, 'center');
+  text(L().best + ' ' + fmt(Math.floor(Math.max(SLOT.best, m) * METER)) + L().meter, W - 10, 52, 11, '#6a6258', 'right');
+  if (R.mod && R.mod !== 'normal') text(L().mods[R.mod], W - 10, 70, 12, SHU, 'right');
+  text(L().food, MID / 2, 102, 12, '#6a6258', 'center');
+  text(L().gate, MID + MID / 2, 102, 12, '#6a6258', 'center');
+  // 下：命・今の強さ
+  text(L().lifeMark, 10, H - 30, 14, SHU);
+  for (let i = 0; i < HP_MAX; i++) { ctx.fillStyle = SHU; ctx.globalAlpha = i < R.hp ? 1 : .15; ctx.beginPath(); ctx.arc(32 + i * 13, H - 35, 4.5, 0, 6.283); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  text(L().stat.dmg + ' ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 30, 18, SUMI, 'center', true);
+  text(`${L().stat.rate}${R.st.rate}・${L().stat.lines}${R.st.lines}・${L().stat.crew}${R.st.crew}・${L().wp[R.st.wp] || L().wp.normal}`, W / 2, H - 15, 10, '#4a443d', 'center');
 }
 
 // ---------- メインループ ----------
@@ -1344,6 +1357,10 @@ function frame(now) {
 window.Game = { OPT, METER, readSlot, selectSlot, saveOpt, fmt, showMenu };
 if (DEV) window.__gate = { get R() { return R; }, step, startRun, get state() { return state; }, STAGES, stageLen, stageSpeed, mEff };   // 開発用
 
+// 画面（タイトルなど）の背景にも同じ和紙を敷く
+document.documentElement.style.setProperty('--washi', `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(Ink.washi(360, 640))}")`);
+// 筆文字のフォントが読み込まれてから描く（読み込めなくても明朝で表示される）
+if (document.fonts && document.fonts.load) { document.fonts.load('20px "Yuji Syuku"').catch(() => {}); document.fonts.load('20px "Yuji Boku"').catch(() => {}); }
 resize();
 requestAnimationFrame(frame);
 Boot.start(false);
