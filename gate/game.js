@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.10.0';
+const VERSION = '0.11.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -15,21 +15,18 @@ const TS = DEV ? Math.min(60, Math.max(0.1, +Q.get('ts') || 1)) : 1;   // 開発
 const BOT = DEV && Q.has('bot');                                     // 開発用：自動操縦
 
 // ---------- 進行のペース ----------
-const CLEAR_SEC = (DEV && +Q.get('clear')) || 3000;   // 100% までの目標秒数（50分）。ここ一つで長さを調整できる
-const SEGS = 8;                              // 100% までのボスの数（12.5% ごと）
-const FIGHT_SEC = 40;                        // ボス戦1回あたりの想定秒数
-const K = 0.6;                               // 100% 到達時の速さ = 1 + K 倍
-const G = (CLEAR_SEC - SEGS * FIGHT_SEC) * K / Math.log(1 + K);   // 100% までのメートル
-const SEG = G / SEGS;                        // ボス1区間のメートル
-const FIGHT_LEN = G / 32;                    // ボス戦の間に進行バーが進む長さ
-const speed = m => (m <= G ? 1 + K * m / G : (1 + K) * (1 + 1.8 * (m - G) / G));   // 100% 以降はぐっと加速
+// ステージ制：100 ステージ。毎ステージ最後にボス、10 の倍数で大ボス。101 から先は ∞ MODE
+const STAGES = 100;
+const STAGE_SEC = (DEV && +Q.get('stage')) || 24;   // 1ステージの道のり（秒）。ボス戦を足して 30〜40 秒
+const stageSpeed = n => (n <= STAGES ? 1 + 0.03 * (n - 1) : 1 + 0.03 * (STAGES - 1) + 0.08 * (n - STAGES));   // ステージごとに速く
+const stageLen = n => STAGE_SEC * stageSpeed(n);
 
 // ---------- 盤面 ----------
 const MID = W / 2;                           // 左半分＝ワニ、右半分＝ゲート
 const PY = 560;                               // 自機の高さ（左右には自由に動ける）
 const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
 const GATE_GAP = 170;                        // ゲートの間隔（進んだ距離）。1列に1つ
-const MOB_VY = 30, GATE_VY = 30, BULLET_V = 900, ROW_H = 14;   // 迫ってくる速さ（暇にならないよう速め）
+const MOB_VY = 36, GATE_VY = 34, BULLET_V = 900, ROW_H = 14;   // 迫ってくる速さ（暇にならないよう速め）
 const METER = 10;                            // 表示用：内部の1を10mとして見せる
 const LMAX = 15, CMAX = 8;                   // 段数と人数の上限
 const HP_MAX = 3;                              // ハートは1つで始まり、LIFE ゲート・HEAL でだけ増える（最大3）
@@ -84,7 +81,8 @@ const I18N = {
     wp: { normal: 'ノーマル', spread: '拡散', bounce: '反射', beam: 'ビーム' },
     item: { crew: '仲間', heal: '回復', power: 'パワー' },
     food: 'エサ', gate: 'ゲート', best: 'ベスト', speed: '速さ', menu: 'メニュー',
-    boss: 'ボス', bigBoss: '大ボス', bossDown: '撃破！', hit: '当たった！',
+    boss: 'ボス', bigBoss: '大ボス', bossDown: '撃破！', bigDown: '大ボス撃破！',
+    stageClear: n => `ステージ ${n} クリア！`, stageName: n => (n > STAGES ? `∞ ${n}` : `ステージ ${n}`), hit: '当たった！',
     lifeUp: 'ライフ+1', crewUp: '仲間+1', hpUp: 'ライフ+1', powerUp: '威力×1.3',
     start: 'スタート', newRun: '新しく始める', cont: 'つづきから', light: '軽量', sound: '音', slot: 'スロット',
     how: '遊び方', lang: 'English', on: 'ON', off: 'OFF',
@@ -112,8 +110,8 @@ const I18N = {
       ['右：ゲート', '弾1発ごとに数値が1良くなる。くぐると 威力・連射・段数・仲間 が変わる。くぐらなければ何も起きない'],
       ['アイテム', '点線の箱は壊すと手に入る。壊さずにぶつかるとライフ-1（0で負け）。避けてもいい'],
       ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
-      ['ボス', '12.5%ごとに大きな魚。下まで来られたら負け'],
-      ['ゴール', '100%で GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
+      ['ボス', '毎ステージの最後に大きな魚。10の倍数は大ボス。下まで来られたら負け'],
+      ['ゴール', '100ステージで GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
     ],
   },
   en: {
@@ -121,7 +119,8 @@ const I18N = {
     wp: WP_NAME,
     item: { crew: 'CREW', heal: 'HEAL', power: 'POWER' },
     food: 'FOOD', gate: 'GATE', best: 'BEST', speed: 'SPEED', menu: 'MENU',
-    boss: 'BOSS', bigBoss: 'BIG BOSS', bossDown: 'BOSS DOWN', hit: 'HIT!',
+    boss: 'BOSS', bigBoss: 'BIG BOSS', bossDown: 'BOSS DOWN', bigDown: 'BIG BOSS DOWN!',
+    stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}`), hit: 'HIT!',
     lifeUp: '+1 LIFE', crewUp: '+1 CREW', hpUp: '+1 LIFE', powerUp: 'DMG ×1.3',
     start: 'START', newRun: 'NEW RUN', cont: 'CONTINUE', light: 'LIGHT', sound: 'SOUND', slot: 'SLOT',
     how: 'HOW TO PLAY', lang: '日本語', on: 'ON', off: 'OFF',
@@ -149,8 +148,8 @@ const I18N = {
       ['Right: gates', 'Each shot improves the number by 1. Pass through to change DMG / RATE / LINE / CREW; skip it and nothing happens'],
       ['Items', 'Break dashed boxes to get them. Run into an unbroken one: -1 life (0 = game over). You can dodge'],
       ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
-      ['Boss', 'A big fish every 12.5%. If it reaches the bottom, you lose'],
-      ['Goal', '100% = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
+      ['Boss', 'A big fish ends every stage; every 10th is a big boss. If it reaches the bottom, you lose'],
+      ['Goal', 'Stage 100 = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
     ],
   },
 };
@@ -234,10 +233,10 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function newRun() {
   const r = {
-    m: 0, hp: 1, food: FOOD_MAX, foodMax: FOOD_MAX, nextLife: SEG * 0.5, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, inv: 0,
-    st: { ...ST0 }, x: MID, tx: MID, nextWeapon: SEG * 0.3,
+    m: 0, stage: 1, stageM: 0, hp: 1, food: FOOD_MAX, foodMax: FOOD_MAX, nextLife: stageLen(1) * 2.5, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, inv: 0,
+    st: { ...ST0 }, x: MID, tx: MID, nextWeapon: stageLen(1) * 1.5,
     mobs: [], b: [], objs: [],
-    boss: null, nextBoss: 1, cleared: false, fightKills: 0, kills: 0,
+    boss: null, cleared: false, fightKills: 0, kills: 0,
     pops: [], parts: [], popT: 0, bossAcc: 0, bossAccT: 0, hurt: 0, banner: null, over: false, newBest: false,
   };
   R = r;
@@ -249,8 +248,8 @@ function newRun() {
 }
 function snapshot() {
   if (!R || R.over) return null;
-  const { m, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, nextBoss, cleared, fightKills, kills } = R;
-  return JSON.parse(JSON.stringify({ m, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, nextBoss, cleared, fightKills, kills }));
+  const { m, stage, stageM, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, cleared, fightKills, kills } = R;
+  return JSON.parse(JSON.stringify({ m, stage, stageM, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, cleared, fightKills, kills }));
 }
 function loadRun(snap) {
   const r = newRun();
@@ -272,9 +271,12 @@ function clearFrac() {
   const b = R.boss;
   return 0.85 * (1 - b.hp / b.max) + 0.15 * Math.min(1, R.fightKills / 40);
 }
-const mEff = () => (R.boss ? R.boss.startM + FIGHT_LEN * clearFrac() : R.m);
+const mEff = () => R.m;
+// 今のステージの進み具合（道のり 75% + ボス 25%）
+const stageFrac = () => (R.boss ? 0.75 + 0.25 * clearFrac() : 0.75 * Math.min(1, R.stageM / stageLen(R.stage)));
+const stageP = () => (R.stage - 1) / STAGES;   // 全体の進み具合（100 ステージで 1。∞ MODE では 1 を超える）
 // 強さの上限は進み具合で少しずつ開く（序盤つらい → 70% 前後で全開 → 終盤はマイナスゲートと速さで苦しい）
-const pOf = () => Math.min(1, (R ? R.m : 0) / G);
+const pOf = () => Math.min(1, R ? (R.stage - 1) / 70 : 0);   // 70 ステージ前後で全開
 const baseOf = k => (R && R.base ? R.base[k] : 1);
 const linesCap = () => Math.max(baseOf('lines'), Math.min(OPT.light ? 9 : LMAX, 2 + Math.floor(pOf() * 18)));
 const crewCap = () => Math.max(baseOf('crew'), Math.min(CMAX, 1 + Math.floor(pOf() * 10)));
@@ -285,7 +287,7 @@ const mulCap = () => 1.2 + pOf() * 0.8;   // ×ゲートがどこまで育つか
 // 数値ゲート：撃つと数値が動き、自機に届いた瞬間に効果が確定する（良くも悪くも）
 // ゲートの数値は「弾1発で1」動く。難しさは初期値で決める（終盤は -100 などの深いマイナスが増える）
 function makeGate(slot, safe) {
-  const st = R.st, p = R.m / G, pc = Math.min(1, p);
+  const st = R.st, p = stageP(), pc = Math.min(1, p);
   const room = { lines: st.lines < linesCap(), crew: st.crew < crewCap(), rate: st.rate < rateCap() };
   const q = Math.random();
   let stat, type = 'add', v;
@@ -293,13 +295,13 @@ function makeGate(slot, safe) {
   else if (q < 0.4 && room.lines) stat = 'lines';
   else if (q < 0.5 && room.crew) stat = 'crew';
   else stat = 'dmg';
-  const bad = !safe && Math.random() < 0.25 + 0.35 * pc + (p > 1 ? 0.1 : 0);
+  const bad = !safe && Math.random() < 0.3 + 0.4 * pc + (p > 1 ? 0.1 : 0);
   if (stat === 'dmg') {
     const mag = Math.pow(10, p * 5);   // 100% で 十万くらいの桁
     if (pc > 0.12 && Math.random() < 0.06) {
       type = 'mul';
       v = bad ? 0.5 : Math.round((1.1 + Math.random() * (0.1 + pc * 0.5)) * 10) / 10;
-    } else v = Math.max(1, Math.round(mag * rnd(0.5, 1.5))) * (bad ? -Math.max(1, Math.round(rnd(1, 1 + 4 * pc))) : 1);
+    } else v = Math.max(1, Math.round(Math.max(mag, st.dmg * rnd(0.15, 0.4)) * rnd(0.5, 1.5))) * (bad ? -Math.max(1, Math.round(rnd(1, 1 + 4 * pc))) : 1);   // 今の威力に見合う大きさ
   } else {
     v = bad ? -(1 + Math.floor(Math.random() * (2 + pc * 12))) : 1 + Math.floor(Math.random() * (1 + pc * 2));
   }
@@ -318,17 +320,16 @@ function makeItem(slot, kind) {
   return { id: ++R.uid, cls: 'item', kind, hp, max: hp, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
 function spawnGateRow() {
-  const p = R.m / G;
-  const early = p < 0.03;
+  const early = R.stage <= 2;
   const slot = Math.random() < 0.5 ? 0 : 1;   // 1列に1つだけ（2つ同時には取れない）
   let o;
   if (R.m >= R.nextLife) {
     // ハートを増やす機会は多すぎないように、距離で間隔を空ける
-    R.nextLife = R.m + SEG * rnd(0.45, 0.75);
+    R.nextLife = R.m + stageLen(R.stage) * rnd(4, 6);   // 4〜6 ステージに1回
     o = Math.random() < 0.5 ? makeLife(slot) : makeItem(slot, 'heal');
   } else if (R.m >= R.nextWeapon) {
     // 武器ゲートもたまにだけ。撃つと中身の武器が切り替わる
-    R.nextWeapon = R.m + SEG * rnd(0.3, 0.5);
+    R.nextWeapon = R.m + stageLen(R.stage) * rnd(3, 4);   // 3〜4 ステージに1回
     o = makeWeapon(slot);
   } else if (!early && Math.random() < 0.14) o = makeItem(slot);
   else o = makeGate(slot, early);
@@ -394,8 +395,8 @@ function breakItem(o) {
 // ---------- 魚（餌） ----------
 const ZSLOTS = 12, ZX0 = 9, ZDX = 14;
 function spawnRow() {
-  const p = Math.min(1, R.m / G);
-  const dens = Math.min(0.92, 0.04 + 0.55 * Math.pow(p, 0.8) + (R.m > G ? 0.3 * Math.min(1, (R.m - G) / G) : 0));
+  const p = Math.min(1, stageP());
+  const dens = Math.min(0.92, 0.08 + 0.6 * Math.pow(p, 0.7) + (stageP() > 1 ? 0.25 * Math.min(1, stageP() - 1) : 0));
   const k = p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
   for (let i = 0; i < ZSLOTS; i++) if (Math.random() < dens) R.mobs.push({ x: ZX0 + i * ZDX + rnd(-1, 1), y: -10, k: Math.random() < 0.85 ? k : Math.min(2, k + 1), ph: Math.random() * 6.28, d: 0 });
 }
@@ -414,11 +415,11 @@ function buildGrid() {
 }
 
 // ---------- ボス ----------
-const bossFightSec = k => 22 * (1 + 0.06 * k + Math.max(0, k - SEGS) * 0.25);
+const bossFightSec = (k, big) => (big ? 16 : 8) * (1 + 0.01 * k + Math.max(0, k - STAGES) * 0.05);
 function spawnBoss() {
-  const k = R.nextBoss, big = k % 4 === 0;
+  const k = R.stage, big = k % 10 === 0;
   // HP は今の火力に合わせる（数字はインフレするが、戦う時間は変わらない）
-  const max = Math.max(30, dpsOf(R.st) * 0.35 * bossFightSec(k));
+  const max = Math.max(20, dpsOf(R.st) * 0.35 * bossFightSec(k, big));
   R.boss = { k, big, hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0 };
   R.fightKills = 0;
   R.banner = { text: big ? L().bigBoss : L().boss, t: 2 };
@@ -427,12 +428,11 @@ function spawnBoss() {
 function killBoss() {
   const b = R.boss;
   burst(b.x, b.y, b.big ? 60 : 36, b.big ? '#ff6a5a' : '#cfe0ff');
-  R.m = b.k * SEG;
-  R.nextBoss++;
+  R.stage++; R.stageM = 0;
   R.boss = null;
   sfx('boss');
-  if (b.k === SEGS && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
-  else R.banner = { text: L().bossDown, t: 1.8 };
+  if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
+  else R.banner = { text: L().stageClear(b.k), t: 1.8, sub: b.big ? L().bigDown : '' };
 }
 function burst(x, y, n, col) {
   if (OPT.light) return;
@@ -483,13 +483,13 @@ function volley() {
 function step(dt) {
   if (!R || R.over) return;
   const st = R.st;
-  const s = speed(R.boss ? R.boss.startM : R.m);
+  const s = stageSpeed(R.stage);
   R.t += dt;
 
   // 進行：ボスが出たらその場で止まり、ボス戦の進み具合でバーが動く
   if (!R.boss) {
-    R.m += s * dt;
-    if (R.m >= R.nextBoss * SEG - FIGHT_LEN) spawnBoss();
+    R.m += s * dt; R.stageM += s * dt;
+    if (R.stageM >= stageLen(R.stage)) spawnBoss();
   }
   if (BOT) botControl();
   tutTick(dt);
@@ -548,7 +548,7 @@ function step(dt) {
   const bo = R.boss;
   if (bo) {
     bo.ph += dt; bo.hit = Math.max(0, bo.hit - dt);
-    if (bo.y < 96) bo.y += 130 * dt; else bo.y += 11 * s * dt;
+    if (bo.y < 150) bo.y += 130 * dt; else bo.y += (bo.big ? 9 : 14) * s * dt;
     bo.x = MID + Math.sin(bo.ph * 0.7) * 90;
     R.bossAccT -= dt;
     if (R.bossAccT <= 0 && R.bossAcc > 0) { pop(bo.x + rnd(-30, 30), bo.y + 30, fmt(R.bossAcc), true, '#b8ffd2'); R.bossAcc = 0; R.bossAccT = 0.25; }
@@ -761,7 +761,7 @@ function gameOver() {
   SLOT.runs++;
   R.newBest = m > SLOT.best;
   if (R.newBest) SLOT.best = m;
-  const gain = coinsFor(m, R.nextBoss - 1);
+  const gain = coinsFor(m, R.stage - 1);
   SLOT.coins += gain; SLOT.prep = freshPrep();
   SLOT.run = null; writeSlot();
   sfx('hurt');
@@ -976,16 +976,15 @@ function render(now) {
 }
 
 function drawHUD() {
-  const m = mEff(), p = m / G;
+  const m = mEff();
   // 上の表示が魚と重なって読めなくならないよう、薄く下地を敷く
-  ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, 84);
+  ctx.fillStyle = 'rgba(2,16,32,.85)'; ctx.fillRect(0, 0, W, 84);
   const bx = 10, by = 10, bw = 170, bh = 10;
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1);
   ctx.fillStyle = R.boss ? (R.boss.big ? '#ff6a5a' : '#ffd84a') : '#39ff88';
-  ctx.fillRect(bx, by, bw * Math.min(1, p), bh);
-  ctx.fillStyle = '#000';
-  for (let i = 1; i < SEGS; i++) ctx.fillRect(bx + bw * i / SEGS - 0.5, by, 1, bh);
-  text(R.cleared ? '∞' : Math.min(100, Math.floor(p * 1000) / 10).toFixed(1) + '%', bx + bw + 8, by + 10, 12, '#fff');
+  ctx.fillRect(bx, by, bw * stageFrac(), bh);
+  ctx.fillStyle = '#000'; ctx.fillRect(bx + bw * 0.75 - 0.5, by, 1, bh);   // ここからボス
+  text(L().stageName(R.stage), bx + bw + 8, by + 10, 12, R.stage % 10 === 0 ? '#ff8a7a' : '#fff');
   text(L().best + ' ' + fmt(Math.floor(Math.max(SLOT.best, m) * METER)) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
   // 飢餓ゲージ（🍖）
   ctx.drawImage(MEAT, 9, 26);
@@ -998,7 +997,7 @@ function drawHUD() {
   }
   if (R.hungry > 0) { ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(26.5, 27.5, fm * cw, 11); }
   text(fmt(Math.floor(m * METER)) + ' m', 10, 62, 18, '#fff');
-  text(L().speed + ' ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 77, 11, '#6b7a70');
+  text(L().speed + ' ×' + stageSpeed(R.stage).toFixed(2), 10, 77, 11, '#6b7a70');
   text(L().food, MID / 2, 96, 11, 'rgba(170,230,255,.7)', 'center');
   text(L().gate, MID + MID / 2, 96, 11, 'rgba(120,255,170,.6)', 'center');
   // 下段：ハートと今の強さ
@@ -1021,7 +1020,7 @@ function frame(now) {
     R.tx = clamp(R.tx, 14, W - 14);
     let dt = Math.min(0.05, raw) * TS;
     while (dt > 0 && state === 'play') { const d = Math.min(1 / 30, dt); step(d); dt -= d; }
-    starY += speed(R.m) * 40 * raw * TS % H;
+    starY += stageSpeed(R.stage) * 40 * raw * TS % H;
     // 最初の数秒で重そうなら、軽量モードを提案して自動で切り替える
     if (!OPT.lightAsked && !OPT.light && lightSamples < 240) {
       lightSamples++; lightSum += raw;
@@ -1038,7 +1037,7 @@ function frame(now) {
 }
 
 window.Game = { OPT, METER, readSlot, selectSlot, saveOpt, fmt, showMenu };
-if (DEV) window.__gate = { get R() { return R; }, step, startRun, get state() { return state; }, G, SEG, speed, mEff };   // 開発用
+if (DEV) window.__gate = { get R() { return R; }, step, startRun, get state() { return state; }, STAGES, stageLen, stageSpeed, mEff };   // 開発用
 
 resize();
 requestAnimationFrame(frame);
