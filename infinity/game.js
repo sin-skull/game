@@ -67,7 +67,7 @@ const I18N = {
       clear: ['清算転生', 'すべて 0 に戻る。魂をまるごと得る。'],
       gain: n => `魂 +${n}`, locked: n => `あと ${n} コイン稼ぐと転生できる`,
       how: '魂の量は、この周回で稼いだコインと、どこまで到達したかで決まる。',
-      rows: ['基本', '到達ランク', '次元', '共鳴', '∞ の数'],
+      rows: ['次元の基本', '途中でやめる：達成度', '次元', '共鳴', '∞ の数'],
       pickTitle: '残す強化を選ぶ', confirmTitle: '転生する？',
       confirmText: (n, keep) => `コイン・オブジェクト・強化は 0 に戻る${keep ? `（${keep} は残る）` : ''}。<br>次元とスキルはそのまま。魂 +${n}`,
       done: n => `転生した。魂 +${n}`,
@@ -170,7 +170,7 @@ const I18N = {
       clear: ['Liquidate', 'Everything back to 0. All the Souls.'],
       gain: n => `Souls +${n}`, locked: n => `Earn ${n} more coins to rebirth`,
       how: 'Souls depend on the coins earned this run and how far you reached.',
-      rows: ['Base', 'Rank reached', 'Dimension', 'Resonance', '∞ count'],
+      rows: ['Dimension base', 'Quit early: progress', 'Dimension', 'Resonance', '∞ count'],
       pickTitle: 'Choose an upgrade to keep', confirmTitle: 'Rebirth?',
       confirmText: (n, keep) => `Coins, objects and upgrades reset${keep ? ` (${keep} stays)` : ''}.<br>Dimension and skills stay. Souls +${n}`,
       done: n => `Reborn. Souls +${n}`,
@@ -368,7 +368,7 @@ const UPGRADES = [
     desc: lv => `${SPACE_CAPS[lv]} → ${SPACE_CAPS[Math.min(lv + 1, SPACE_CAPS.length - 1)]} objects`,
   },
   {
-    id: 'baseTier', jp: '生成ランク', en: 'Base Rank', unlock: 1, max: d => Math.min(MAX_TIER + 2 * (d - 1) - 4, 10 + 3 * (d - 1)),
+    id: 'baseTier', jp: '生成ランク', en: 'Base Rank', unlock: 1, max: d => 10 + 2 * (d - 1),   // 上限と同じ +2/次元（∞ との差はいつも10段）
     cost: lv => 400 * Math.pow(3.2, lv),
     desc: lv => `${pow2(lv)} → ${pow2(lv + 1)}`,
   },
@@ -397,16 +397,19 @@ const umax = (u, s = S) => u.max(dimOf(s));
 const uUnlocked = (u, s = S) => dimOf(s) >= u.unlock;
 
 // ---------- 永遠強化（魂で買う・上限なし） ----------
+// 値段は1回買うごとに ×1.5, ×1.55, ×1.6 … と倍率そのものが上がる（なかなか貯まらない）
+function eCost(base, lv) { let c = base; for (let i = 0; i < lv; i++) c *= 1.5 + 0.05 * i; return Math.ceil(c); }
+const ETERNAL_OPEN = s => s.shards >= 1;   // 永遠強化は、次元を1つ突破してから
 const ETERNAL = [
-  { id: 'eRank', jp: '永遠の生成ランク', en: 'Eternal Rank', cost: lv => Math.ceil(20 * Math.pow(2.3, lv)),
+  { id: 'eRank', jp: '永遠の生成ランク', en: 'Eternal Rank', cost: lv => eCost(200, lv),
     desc: lv => ({ ja: `+${lv} → +${lv + 1} 段`, en: `+${lv} → +${lv + 1} ranks` }) },
-  { id: 'eSpeed', jp: '永遠の速さ', en: 'Eternal Speed', cost: lv => Math.ceil(8 * Math.pow(1.7, lv)),
+  { id: 'eSpeed', jp: '永遠の速さ', en: 'Eternal Speed', cost: lv => eCost(80, lv),
     desc: lv => ({ ja: `×${Math.pow(1.1, lv).toFixed(2)} → ×${Math.pow(1.1, lv + 1).toFixed(2)}`, en: `×${Math.pow(1.1, lv).toFixed(2)} → ×${Math.pow(1.1, lv + 1).toFixed(2)}` }) },
-  { id: 'eCoin', jp: '永遠の富', en: 'Eternal Wealth', cost: lv => Math.ceil(5 * Math.pow(1.6, lv)),
+  { id: 'eCoin', jp: '永遠の富', en: 'Eternal Wealth', cost: lv => eCost(50, lv),
     desc: lv => ({ ja: `コイン ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}`, en: `Coins ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}` }) },
-  { id: 'eLuck', jp: '永遠の幸運', en: 'Eternal Luck', cost: lv => Math.ceil(10 * Math.pow(1.8, lv)),
+  { id: 'eLuck', jp: '永遠の幸運', en: 'Eternal Luck', cost: lv => eCost(100, lv),
     desc: lv => ({ ja: `+${lv * 3}% → +${(lv + 1) * 3}%`, en: `+${lv * 3}% → +${(lv + 1) * 3}%` }) },
-  { id: 'eSoul', jp: '魂の共鳴', en: 'Soul Resonance', cost: lv => Math.ceil(12 * Math.pow(1.9, lv)),
+  { id: 'eSoul', jp: '魂の共鳴', en: 'Soul Resonance', cost: lv => eCost(120, lv),
     desc: lv => ({ ja: `魂 +${lv * 25}% → +${(lv + 1) * 25}%`, en: `Souls +${lv * 25}% → +${(lv + 1) * 25}%` }) },
 ];
 // 以前の魂スキル（上限あり）の値段。移行時にかかった魂を返す
@@ -535,7 +538,15 @@ const sellMult = () => (1 + 0.25 * S.up.sellMult) * incomeMult();
 const sellPrice = t => Math.pow(2, t) * sellMult();
 const spawnCoin = () => 0.1 * S.up.spawnCoin * incomeMult();
 const cap = () => SPACE_CAPS[S.up.space];
-const upCost = u => Math.ceil(u.cost(S.up[u.id]));
+// 通常強化の値段：次元ごとに ×8（物の価値 ×4・収入 ×2 を打ち消す）。
+// 前の次元の上限までは今まで通りの伸び、それより上の新しいレベルは1段ごとにさらに ×1.5
+const DIM_COST = 8, NEW_LV_COST = 1.5;
+function upCostAt(u, lv, d) {
+  if (u.id === 'autoSell') return u.cost(lv);
+  const prev = d - 1 >= u.unlock ? u.max(d - 1) : Infinity;
+  return Math.ceil(u.cost(lv) * Math.pow(DIM_COST, d - 1) * Math.pow(NEW_LV_COST, Math.max(0, lv - prev + 1)));
+}
+const upCost = u => (MODE ? Math.ceil(u.cost(S.up[u.id])) : upCostAt(u, S.up[u.id], dimOf()));
 const eternalCost = k => k.cost(S.eternal[k.id]);
 // ゲームの進む速さ（倍速モード × 2倍速券）
 const gameSpeed = () => speedMultOf(S.up.speed || 0) * (S.boost.x2 > 0 ? 2 : 1);
@@ -546,20 +557,19 @@ const dimStr = (s = S) => String(s.shards + 1).padStart(2, '0');
 const offlineCapSec = () => 12 * 3600;
 const offlineRate = () => 0.6;
 
-// 転生で得られる魂（バランス表：次元dを終えた時点で累計が「パワー d bit」分より少し下になるように）
-//   基本13 × 到達度 × ∞の数 × 次元（次元2から×2ずつ）× 共鳴
+// 転生で得られる魂（数値はバランス表から）
+//   ∞ を作って転生：(40 + 10×(次元-1)) × ∞の数ボーナス × 共鳴
+//   途中でやめる：達成度（上限までの道のり 10%ごとに1）× 2 × 共鳴
 //   コインの稼ぎには比例させない（稼ぎ→魂→永遠強化→稼ぎ…の雪だるまを防ぐ）
 const REBIRTH_MIN = 1000;   // ∞ を作っていなければ、今回これだけ稼ぐと転生できる
-const SOUL_BASE = 13;
 function soulParts() {
   const n = infCount();
-  const earn = SOUL_BASE;
-  const rank = Math.pow(Math.min(S.runMaxTier, INF()) / INF(), 3);   // ∞ に届いていれば ×1
-  const inf = n > 0 ? 1 + 0.5 * Math.log2(n) : 0.5;                  // ∞1つ×1、2つ×1.5、4つ×2
-  const dim = Math.pow(2, Math.max(0, S.shards - 1));
+  const steps = Math.floor(10 * Math.min(S.runMaxTier, INF()) / INF());   // 達成度 0〜10
+  const earn = n > 0 ? 40 + 10 * S.shards : 2 * steps;
+  const inf = n > 0 ? 1 + 0.5 * Math.log2(n) : 1;   // ∞1つ×1、2つ×1.5、4つ×2
   const res = 1 + 0.25 * E('eSoul');
-  const ok = n > 0 || S.runEarned >= REBIRTH_MIN;
-  return { n, earn, rank, inf, dim, res, total: ok && !MODE ? Math.max(1, Math.floor(earn * rank * inf * dim * res)) : 0 };
+  const ok = n > 0 || (S.runEarned >= REBIRTH_MIN && steps > 0);
+  return { n, steps, earn, inf, res, total: ok && !MODE ? Math.floor(earn * inf * res) : 0 };
 }
 const soulBase = () => soulParts().total;
 const soulToNext = () => Math.max(0, Math.ceil(REBIRTH_MIN - S.runEarned));
@@ -902,7 +912,7 @@ function buy(u) {
 
 function buyEternal(k) {
   const cost = eternalCost(k);
-  if (S.soul < cost) { sfx.deny(); return; }
+  if (!ETERNAL_OPEN(S) || S.soul < cost) { sfx.deny(); return; }
   S.soul -= cost;
   S.eternal[k.id]++;
   sfx.buy();
@@ -1041,7 +1051,7 @@ function renderHeader() {
   els.count.textContent = `${S.objs.length} / ${cap()}`;
   const affordable = UPGRADES.some(u => uUnlocked(u) && S.up[u.id] < umax(u) && S.coins >= upCost(u));
   els.shopBadge.classList.toggle('on', affordable);
-  const eAffordable = !MODE && ETERNAL.some(k => S.soul >= eternalCost(k));
+  const eAffordable = !MODE && ETERNAL_OPEN(S) && ETERNAL.some(k => S.soul >= eternalCost(k));
   els.infBadge.classList.toggle('on', !MODE && (infCount() > 0 || eAffordable));
   els.menuBadge.classList.toggle('on', !!(window.Gacha && Gacha.badge()));
   if (!MODE && soulBase() >= 1) showTip('rebirth');
@@ -1129,10 +1139,9 @@ function renderInf() {
   els.rebirth.innerHTML = `
     <div class="soul-now">◇ ${l.soul(fmt(S.soul))}</div>
     <div class="soul-calc">
-      <div><span>${r.rows[0]}</span><b>${fmt(p.earn)}</b></div>
-      <div><span>${r.rows[1]} ${rankName(S.runMaxTier)}</span><b>${x(p.rank)}</b></div>
-      <div class="${p.n ? 'hot' : ''}"><span>${r.rows[4]} ${p.n}</span><b>${x(p.inf)}</b></div>
-      <div><span>${r.rows[2]} ${dimStr()}</span><b>${x(p.dim)}</b></div>
+      ${p.n ? `<div><span>${r.rows[0]} ${dimStr()}</span><b>${fmt(p.earn)}</b></div>
+      <div class="hot"><span>${r.rows[4]} ${p.n}</span><b>${x(p.inf)}</b></div>`
+      : `<div><span>${r.rows[1]} ${rankName(S.runMaxTier)} · ${p.steps * 10}%</span><b>${p.steps} × 2</b></div>`}
       ${p.res > 1 ? `<div><span>${r.rows[3]}</span><b>${x(p.res)}</b></div>` : ''}
       <div class="sum"><span>=</span><b>◇ ${fmt(p.total)}</b></div>
     </div>`;
@@ -1151,7 +1160,8 @@ function renderInf() {
 
   // 永遠強化（上限なし）
   const ja = OPT.lang === 'ja';
-  els.skills.innerHTML = ETERNAL.map((k, i) => {
+  const eOpen = ETERNAL_OPEN(S);
+  els.skills.innerHTML = !eOpen ? `<p class="dim-text">${ja ? '永遠強化は、∞ を作って次元を1つ突破すると解放される。魂は今のうちに貯めておける。' : 'Eternal upgrades open after you break through your first dimension. Souls you earn now are kept.'}</p>` : ETERNAL.map((k, i) => {
     const lv = S.eternal[k.id], cost = eternalCost(k), dsc = k.desc(lv);
     return upgradeRow(i, ja ? k.jp : k.en, `${ja ? k.en.toUpperCase() + ' · ' : ''}LV ${lv}`, ja ? dsc.ja : dsc.en,
       lv, Infinity, `◇ ${fmt(cost)}`, S.soul >= cost, false, `data-skill="${k.id}"`, k.id);
