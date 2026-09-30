@@ -1,0 +1,53 @@
+:root { --g: #39ff88; --w: #f2f2f2; --dim: #6b7a70; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: #000; color: var(--w); overflow: hidden; overscroll-behavior: none;
+  font-family: 'DotGothic16', 'IBM Plex Mono', monospace; user-select: none; -webkit-user-select: none; touch-action: none; }
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+#cv { display: block; background: #000; image-rendering: pixelated; }
+
+.layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: rgba(0, 0, 0, .78); z-index: 5; padding: 24px; text-align: center; }
+.layer[hidden], #count[hidden], .boot[hidden] { display: none; }
+.logo { font-size: 54px; line-height: 1; color: var(--g); letter-spacing: 4px; text-shadow: 0 0 18px rgba(57, 255, 136, .7); margin-bottom: 4px; }
+.title { font-size: 34px; color: var(--g); text-shadow: 0 0 14px rgba(57, 255, 136, .6); letter-spacing: 3px; }
+.res-m { font-size: 44px; color: var(--w); }
+.sub { font-size: 13px; color: var(--dim); min-height: 18px; letter-spacing: 1px; }
+.row { display: flex; gap: 10px; }
+
+.btn { font: inherit; color: var(--g); background: transparent; border: 2px solid var(--g); padding: 12px 26px; letter-spacing: 3px; cursor: pointer;
+  box-shadow: 0 0 10px rgba(57, 255, 136, .25); }
+.btn:active { background: rgba(57, 255, 136, .18); }
+.btn.big { font-size: 22px; min-width: 210px; padding: 14px 26px; }
+.btn.sm { font-size: 13px; padding: 8px 14px; letter-spacing: 2px; }
+.btn.ghost { border-color: var(--dim); color: var(--dim); box-shadow: none; }
+
+#count { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; pointer-events: none;
+  font-size: 120px; color: var(--g); text-shadow: 0 0 24px rgba(57, 255, 136, .8); }
+#count b { animation: pop .9s ease-out forwards; font-weight: 400; }
+@keyframes pop { 0% { transform: scale(1.7); opacity: 0; } 25% { opacity: 1; } 100% { transform: scale(.8); opacity: 0; } }
+
+#toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 7; padding: 8px 14px; font-size: 13px; letter-spacing: 1px;
+  background: rgba(0, 0, 0, .85); border: 1px solid var(--g); color: var(--g); opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; }
+#toast.on { opacity: 1; }
+
+/* 起動画面 */
+.boot { position: fixed; inset: 0; z-index: 20; background: #000; display: flex; align-items: center; justify-content: center; transition: opacity .4s; }
+.boot.gone { opacity: 0; pointer-events: none; }
+.boot-stage { width: 100%; max-width: 420px; padding: 24px; text-align: center; opacity: 0; transition: opacity .26s; }
+.boot-stage.in { opacity: 1; }
+.boot-stage.out { opacity: 0; }
+.boot-skip { position: absolute; bottom: 36px; left: 0; right: 0; text-align: center; font-size: 11px; letter-spacing: 4px; color: #444; }
+.boot-logo svg { filter: drop-shadow(0 0 14px rgba(57, 255, 136, .5)); }
+.boot-credit small { display: block; font-size: 11px; letter-spacing: 4px; color: var(--dim); margin-bottom: 8px; }
+.boot-credit b { font-weight: 400; font-size: 28px; letter-spacing: 6px; color: var(--g); }
+.boot-title { font-size: 15px; letter-spacing: 5px; color: var(--g); margin-bottom: 18px; }
+.boot-notice ul { text-align: left; padding-left: 18px; font-size: 12px; line-height: 1.7; color: #bbb; margin: 0 0 18px; }
+.boot-ok { font: inherit; color: var(--g); background: transparent; border: 2px solid var(--g); padding: 10px 34px; letter-spacing: 4px; cursor: pointer; }
+.boot-slots { display: flex; flex-direction: column; gap: 10px; }
+.boot-slot { display: flex; align-items: center; gap: 12px; font: inherit; color: var(--w); background: transparent; border: 1px solid #2e3a33; padding: 12px; text-align: left; cursor: pointer; }
+.boot-slot.on { border-color: var(--g); }
+.boot-slot .bs-no { color: var(--g); font-size: 18px; }
+.boot-slot .bs-body { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.boot-slot small { color: var(--dim); font-size: 11px; }
+.boot-away p { font-size: 14px; line-height: 1.8; }
+.boot-away b { color: var(--g); font-weight: 400; }

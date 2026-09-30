@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="description" content="Shoot the horde, or grow the gates. The numbers never stop inflating.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="GATE VADER">
+  <title>GATE VADER</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <!-- タイトル / 続きから -->
+    <div class="layer" id="menu" hidden>
+      <div class="logo">GATE<br>VADER</div>
+      <div class="sub" id="menuSub"></div>
+      <button class="btn big" id="btnContinue" hidden>CONTINUE</button>
+      <button class="btn big" id="btnStart">START</button>
+      <div class="row">
+        <button class="btn sm" id="btnLight">LIGHT: OFF</button>
+        <button class="btn sm" id="btnSound">SOUND: ON</button>
+      </div>
+      <button class="btn sm ghost" id="btnSlot">SLOT</button>
+    </div>
+
+    <!-- 一時停止 -->
+    <div class="layer" id="pause" hidden>
+      <div class="title">PAUSE</div>
+      <button class="btn big" id="btnResume">RESUME</button>
+      <button class="btn sm" id="btnQuit">SAVE &amp; EXIT</button>
+    </div>
+
+    <!-- 結果 -->
+    <div class="layer" id="result" hidden>
+      <div class="title" id="resTitle">GAME OVER</div>
+      <div class="res-m" id="resM">0 m</div>
+      <div class="sub" id="resSub"></div>
+      <button class="btn big" id="btnRetry">RETRY</button>
+      <button class="btn sm" id="btnHome">TITLE</button>
+    </div>
+
+    <div id="count" hidden></div>
+    <div id="toast"></div>
+  </div>
+
+  <!-- 起動画面 -->
+  <div class="boot" id="boot">
+    <div class="boot-stage" id="bootStage"></div>
+    <div class="boot-skip" id="bootSkip">TAP</div>
+  </div>
+
+  <script src="boot.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
