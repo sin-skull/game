@@ -28,7 +28,7 @@ const Boot = (() => {
       awayTitle: 'WHILE YOU WERE AWAY', bonusTitle: 'LOGIN BONUS',
       away: (t, c) => `${t} のあいだに<br><b>+${c} COIN</b>`,
       daily: n => `今日のログインボーナス <b>+${n} SP</b>`,
-      freePull: '今日の無料ガチャが引けます（MENU → GACHA）',
+      freePull: '今日の無料ガチャが引けます（GACHA タブ）',
       tap: 'TAP', wake: 'TAP TO WAKE',
     },
     en: {
@@ -50,7 +50,7 @@ const Boot = (() => {
       awayTitle: 'WHILE YOU WERE AWAY', bonusTitle: 'LOGIN BONUS',
       away: (t, c) => `In ${t}<br><b>+${c} COIN</b>`,
       daily: n => `Daily login bonus <b>+${n} SP</b>`,
-      freePull: 'Your free pull is ready (MENU → GACHA)',
+      freePull: 'Your free pull is ready (GACHA tab)',
       tap: 'TAP', wake: 'TAP TO WAKE',
     },
   };

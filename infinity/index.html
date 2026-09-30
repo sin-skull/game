@@ -63,34 +63,41 @@
       </button>
     </section>
 
-    <!-- UPGRADE -->
+    <!-- UPGRADE（通常 / 永遠：∞・転生・永遠強化・ブースト・Ω） -->
     <section class="panel scroll" id="panel-shop">
       <h2>UPGRADE</h2>
       <p class="h-sub" data-i18n="shopSub"></p>
-      <div id="upgrades"></div>
+      <div class="seg wide shop-seg no-swipe" id="shopSeg">
+        <button data-view="normal" class="on">NORMAL<i class="dot" id="segNormalDot"></i></button>
+        <button data-view="eternal">∞ ETERNAL<i class="dot" id="infBadge"></i></button>
+      </div>
+      <div id="shopNormal"><div id="upgrades"></div></div>
+      <div id="shopEternal" hidden>
+        <div class="inf-rings"><span>∞</span></div>
+        <div class="inf-path" id="infPath"></div>
+        <p class="inf-main" id="infMain"></p>
+        <p class="inf-sub" id="infSub"></p>
+
+        <h3>REBIRTH</h3>
+        <p class="sec-sub" data-i18n="rebirthSub"></p>
+        <div class="rebirth" id="rebirth"></div>
+        <button class="beyond" id="prestigeBtn">REBIRTH</button>
+        <p class="inf-note" id="infNote"></p>
+        <div class="omega-bar" id="omegaBar"></div>
+
+        <div id="eternalWrap">
+          <h3>ETERNAL</h3>
+          <p class="sec-sub" data-i18n="soulSub"></p>
+          <div id="skills"></div>
+        </div>
+
+        <div id="boostWrap"></div>
+      </div>
     </section>
 
-    <!-- ∞ / 転生 / ブースト / 永遠強化 / Ω -->
-    <section class="panel scroll" id="panel-inf">
-      <div class="inf-rings"><span>∞</span></div>
-      <div class="inf-path" id="infPath"></div>
-      <p class="inf-main" id="infMain"></p>
-      <p class="inf-sub" id="infSub"></p>
-
-      <h3>REBIRTH</h3>
-      <p class="sec-sub" data-i18n="rebirthSub"></p>
-      <div class="rebirth" id="rebirth"></div>
-      <button class="beyond" id="prestigeBtn">REBIRTH</button>
-      <p class="inf-note" id="infNote"></p>
-      <div class="omega-bar" id="omegaBar"></div>
-
-      <div id="boostWrap"></div>
-
-      <div id="eternalWrap" hidden>
-        <h3>ETERNAL</h3>
-        <p class="sec-sub" data-i18n="soulSub"></p>
-        <div id="skills"></div>
-      </div>
+    <!-- GACHA -->
+    <section class="panel scroll" id="panel-gacha">
+      <div id="gachaRoot"></div>
     </section>
 
     <!-- VERSUS -->
@@ -111,12 +118,10 @@
       <p class="h-sub" data-i18n="menuSub"></p>
       <div class="subnav" id="menuNav">
         <button data-sub="account" class="on">ACCOUNT</button>
-        <button data-sub="skin">GACHA</button>
         <button data-sub="log">LOG</button>
         <button data-sub="opt">OPTION</button>
       </div>
       <div class="subpanel on" id="sub-account"></div>
-      <div class="subpanel" id="sub-skin"></div>
       <div class="subpanel" id="sub-log">
         <dl class="stats" id="stats"></dl>
         <h3>OBJECTS</h3>
@@ -129,7 +134,7 @@
   <nav class="tabs" id="tabs">
     <button class="tab active" data-panel="play">MERGE</button>
     <button class="tab" data-panel="shop">UPGRADE<i class="dot" id="shopBadge"></i></button>
-    <button class="tab" data-panel="inf">∞<i class="dot" id="infBadge"></i></button>
+    <button class="tab" data-panel="gacha">GACHA<i class="dot" id="gachaBadge"></i></button>
     <button class="tab" data-panel="vs">VERSUS<i class="dot" id="vsBadge"></i></button>
     <button class="tab" data-panel="menu">MENU<i class="dot" id="menuBadge"></i></button>
   </nav>
