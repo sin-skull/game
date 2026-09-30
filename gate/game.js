@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.18.0';
+const VERSION = '0.19.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -30,16 +30,18 @@ const GATE_W = 84, GATE_H = 46, GATE_X = [MID + 6, MID + 6 + GATE_W + 6];
 const GATE_GAP = 170;                        // ゲートの間隔（進んだ距離）。1列に1つ
 const MOB_VY = 36, GATE_VY = 34, BULLET_V = 900, ROW_H = 14;   // 迫ってくる速さ（暇にならないよう速め）
 const METER = 10;                            // 表示用：内部の1を10mとして見せる
-const LMAX = 15, CMAX = 8;                   // 段数と人数の上限
+const LMAX = 15, CMAX = 20;                  // 段数と人数の上限（仲間は 8 人目から後ろにもう1列）
 const HP_MAX = 3;                              // ハートは1つで始まり、LIFE ゲート・HEAL でだけ増える（最大3）
 const FOOD_MAX = 10, FOOD_EAT = 0.5;         // 飢餓ゲージ：1匹逃すと-1、1匹食べると+0.5
 const DMG_CAP = 1e250;                       // ダメージの上限（ボスHPなどが数の限界を超えないように）
 const PIERCE_MAX = 6;                        // 1発で貫ける数の上限（∞ MODE で無敵にならないように）
 // 最初は 1秒に1発・1列・1人。ゲートで 連射・段数・仲間・威力 を増やしていく（序盤つらい → 中盤楽しい → 終盤苦しい）
-const ST0 = { dmg: 1, lines: 1, crew: 1, rate: 1, wp: 'normal' };
+const ST0 = { dmg: 1, lines: 1, crew: 1, rate: 1, wp: 'normal', subs: {} };
 const RMAX = 12;                             // 連射（1秒あたり）の上限
 // 武器：撃ち方が変わる（弾はまっすぐ上に飛ぶのが基本）
-const WEAPONS = ['normal', 'spread', 'bounce', 'beam', 'wave'];   // 旅の途中の WEAPON ゲートで切り替わる撃ち方
+// 旅の途中の武器の札：持っている武器はそのままで、その撃ち方が外側に2本加わる（同じ札を重ねると +2 本、3段まで）
+const WEAPONS = ['spread', 'bounce', 'wave', 'homing', 'shotgun', 'trident', 'beam'];
+const SUB_MAX = 3;
 const WP_NAME = { normal: 'NORMAL', spread: 'SPREAD', bounce: 'BOUNCE', beam: 'BEAM', wave: 'WAVE', shotgun: 'SHOTGUN', homing: 'HOMING', trident: 'TRIDENT' };
 
 // ---------- 設定・セーブ ----------
@@ -60,7 +62,7 @@ function readSlot(i) {
     const skins = Object.assign(f.skins, d.skins || {});
     for (const k in skins) if (skins[k] === true) skins[k] = 1;   // 旧形式（持っているだけ）→ Lv1
     return { best: +d.best || 0, runs: +d.runs || 0, run: d.run && typeof d.run === 'object' ? d.run : null, coins: +d.coins || 0,
-      pearls: d.pearls == null ? f.pearls : +d.pearls, maxStage: +d.maxStage || 0, pity: Object.assign(f.pity, d.pity || {}),
+      pearls: d.pearls == null ? f.pearls : +d.pearls, free: Object.assign(f.free, d.free || {}), maxStage: +d.maxStage || 0, pity: Object.assign(f.pity, d.pity || {}),
       weapons: Object.assign(f.weapons, d.weapons || {}), weapon: d.weapon || f.weapon, skins, skin: d.skin || f.skin };
   } catch (e) { return null; }
 }
@@ -79,6 +81,16 @@ const WEAPON_DEF = [
   { id: 'beam', r: 'SR', pat: 'beam', rate: 2, lines: 3, dmg: 4 },
   { id: 'trident', r: 'SSR', pat: 'trident', rate: 3, lines: 3, dmg: 6 },
   { id: 'jaws', r: 'SSR', pat: 'beam', rate: 4, lines: 4, dmg: 10 },
+  { id: 'bamboo', r: 'N', pat: 'normal', rate: 2, lines: 1, dmg: 1 },
+  { id: 'reed', r: 'N', pat: 'wave', rate: 1, lines: 2, dmg: 1 },
+  { id: 'kasa', r: 'R', pat: 'spread', rate: 2, lines: 4, dmg: 1 },
+  { id: 'oar', r: 'R', pat: 'bounce', rate: 2, lines: 3, dmg: 2 },
+  { id: 'net', r: 'R', pat: 'shotgun', rate: 1, lines: 4, dmg: 2 },
+  { id: 'kite', r: 'SR', pat: 'homing', rate: 2, lines: 3, dmg: 3 },
+  { id: 'drum', r: 'SR', pat: 'wave', rate: 3, lines: 4, dmg: 3 },
+  { id: 'anchor', r: 'SR', pat: 'trident', rate: 2, lines: 2, dmg: 5 },
+  { id: 'suzuri', r: 'SSR', pat: 'shotgun', rate: 3, lines: 7, dmg: 8 },
+  { id: 'aranami', r: 'SSR', pat: 'wave', rate: 4, lines: 5, dmg: 9 },
 ];
 // スキン：見た目（体・影・目の色）と、レベルで伸びる小さな効果（pas × Lv）
 // スキン：ワニを描く墨の色（日本の伝統色の名前）。レベルで伸びる小さな効果つき
@@ -93,10 +105,22 @@ const SKIN_DEF = [
   { id: 'crimson', r: 'SR', ink: '#c8321e', pas: 'rate', v: 0.5 }, // 朱色
   { id: 'shadow', r: 'SSR', ink: '#0a0806', pas: 'coin', v: 0.3 }, // 漆黒
   { id: 'neon', r: 'SSR', ink: '#3a6a5a', pas: 'dmg', v: 0.4 },    // 青磁色（濃いめ）
+  { id: 'tobi', r: 'N', ink: '#6b3a2a', pas: 'coin', v: 0.08 },    // 鳶色
+  { id: 'kon', r: 'N', ink: '#223a70', pas: 'food', v: 1 },        // 紺色
+  { id: 'moegi', r: 'R', ink: '#006e54', pas: 'eat', v: 0.15 },    // 萌葱色
+  { id: 'kuri', r: 'R', ink: '#762f07', pas: 'dmg', v: 0.1 },      // 栗色
+  { id: 'ebicha', r: 'R', ink: '#6d3c32', pas: 'coin', v: 0.15 },  // 海老茶
+  { id: 'rurikon', r: 'SR', ink: '#19448e', pas: 'eat', v: 0.3 },  // 瑠璃紺
+  { id: 'yamabuki', r: 'SR', ink: '#b8862b', pas: 'coin', v: 0.25 }, // 山吹色
+  { id: 'kokiake', r: 'SR', ink: '#8a2b2b', pas: 'food', v: 3 },   // 深緋（こきあけ）
+  { id: 'kindei', r: 'SSR', ink: '#9a7a2a', pas: 'rate', v: 0.7 }, // 金泥
+  { id: 'shinku', r: 'SSR', ink: '#a22041', pas: 'dmg', v: 0.35 }, // 真紅
 ];
 const RARITY = { N: { w: 60, col: '#5a534b' }, R: { w: 28, col: '#1f3a5a' }, SR: { w: 10, col: '#4a2a5a' }, SSR: { w: 2, col: '#c8321e' } };
-// ガチャはパールで引く。パールはステージの初回クリアでもらえる（大ボスは多め）。50回目は SSR 確定（天井）
-const GACHA_COST = 50;
+// ガチャは真珠で引く（1回10、10連100）。各ガチャの最初の1回は無料。
+// 真珠は 進んだ距離（600米ごとに1）と、段の初突破（大ボスは多め）でたまる。50回目は SSR 確定（天井）
+const GACHA_COST = 10;
+const PEARL_PER_M = 600;
 const PITY = 50;
 const FIRST_CLEAR = { normal: 5, big: 30 };
 const DUP_COINS = { N: 60, R: 150, SR: 400, SSR: 1000 };   // もう持っているものが出たらコインに
@@ -108,7 +132,7 @@ const sUpCost = (k, lv) => Math.round(S_UP_BASE[k.r] * Math.pow(1.8, lv - 1));
 const wDmg = (w, lv) => w.dmg * Math.pow(1.35, lv - 1);          // レベルで威力 ×1.35
 const wRate = (w, lv) => w.rate + Math.floor((lv - 1) / 3);      // 3レベルごとに連射+1
 const skinBonus = (pas) => { const k = skinOf(SLOT.skin); return k.pas === pas ? k.v * (SLOT.skins[k.id] || 1) : 0; };
-const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, pearls: GACHA_COST, maxStage: 0, pity: { weapon: 0, skin: 0 },
+const freshSlot = () => ({ best: 0, runs: 0, run: null, coins: 0, pearls: 0, free: { weapon: 1, skin: 1 }, maxStage: 0, pity: { weapon: 0, skin: 0 },
   weapons: { pea: 1 }, weapon: 'pea', skins: { green: 1 }, skin: 'green' });
 const weaponOf = id => WEAPON_DEF.find(w => w.id === id) || WEAPON_DEF[0];
 const skinOf = id => SKIN_DEF.find(k => k.id === id) || SKIN_DEF[0];
@@ -130,14 +154,18 @@ const I18N = {
     mods: { normal: '', school: '魚の群れ', current: '急流', golden: '朱の魚（食べると銭）', minus: '逆さ札', rush: '札の雨', dark: '夜の海' },
     attacks: { plain: '', bubble: '墨玉を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
     side: { news: 'お知らせ', road: '道のり', how: '遊び方' }, road: '十段の道のり', contShort: '続きから', fromStart: 'はじめから',
-    roadLead: '各段を初めて突破すると真珠がもらえる。第十段（海坊主）は多め。', got: '済',
-    bn: { nextK: '初突破', next: (n, p) => `第${kan(n)}段を突破で　真珠 +${p}`, up: '強化できる装備があります', rec: n => `海の怪異 絵巻　${n} / 10` },
+    roadLead: '真珠は 600米進むごとに1つ。さらに各段を初めて突破すると多めにもらえる（第十段の海坊主は特に多い）。', got: '済',
+    bn: { nextK: '初突破', next: (n, p) => `第${kan(n)}段を突破で　真珠 +${p}`, up: '強化できる装備があります', free: 'ガチャ 初回1回 無料', rec: n => `海の怪異 絵巻　${n} / 10` },
     rankName: n => (n >= STAGES ? '十段 踏破' : n > 0 ? `第${kan(n)}段 突破` : '見習い'),
     says: n => ['腹がへった…', `次は第${kan(Math.min(n, STAGES))}段だ`, '札は、くぐってこそ', '墨が乾く前に行こう', '海坊主…いつか会う'],
-    tapStart: 'タップしてはじめる', plusCoin: '銭は、進んだ距離と突破した段でたまる', plusPearl: '真珠は、各段を初めて突破するともらえる',
-    news: [['版 0.18.0', 'タイトル画面を追加。ホームを作り直し（左右のアイコン、下の角の大きな丸ボタン、バナー）。'],
+    tapStart: 'タップしてはじめる', plusCoin: '銭は、進んだ距離と突破した段でたまる', plusPearl: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。ガチャ1回10、各ガチャの最初の1回は無料',
+    news: [['版 0.19.0', 'ガチャに注目の品と絵つきのラインナップ、10連（SR以上1つ確定）、各ガチャの初回無料。武器と墨の色を20種ずつに。真珠は600米ごとに1つ（1回10）。武器の札は、今の武器に撃ち方を外側2本足す形に。仲間は20人まで。'],
+      ['版 0.18.0', 'タイトル画面を追加。ホームを作り直し（左右のアイコン、下の角の大きな丸ボタン、バナー）。'],
       ['版 0.17.0', '下のタブ（装備・ガチャ・ホーム・絵巻・設定）。アイコンを一新。'],
       ['版 0.16.0', '墨絵と和紙の見た目に。ボスは海の怪異に。']],
+    gTitleW: '武器ガチャ', gTitleS: '墨の色ガチャ', pickup: '注目', owned: '所持', notOwned: '未入手', lineup: 'ラインナップ',
+    lineupLead: '出るものと、1つずつの確率。同じものが出たら銭に変わる。', gResult: '結果', pull1: '1回', pull10: '10連', freeOnce: '初回無料', srSure: 'SR以上1つ確定',
+    skinNote: 'ワニを描く墨の色が変わる', 
     tabs: { rec: '絵巻', gear: '装備', home: 'ホーム', gacha: 'ガチャ', opt: '設定' },
     go: '出陣', skinTab: '墨の色', equipped: '装備中', collection: '集めたもの',
     nextClear: (n, p) => `次の初突破　第${kan(n)}段　真珠 +${p}`, allClear: '十段 すべて突破',
@@ -160,15 +188,19 @@ const I18N = {
     skip: 'スキップ', close: 'とじる',
     coins: '銭', back: 'もどる', gacha: 'ガチャ', equip: '装備・強化', gWeapon: '武器', gSkin: 'スキン', pull: '引く',
     gNew: '新たに入手', gDup: n => `もう持っている → 銭 ${n}`, pearl: '真珠', up: '強化',
-    pity: n => `SSR確定まで あと${n}回`, pearlHow: '真珠は、各段を初めて突破するともらえる（大ボスは多め）',
+    pity: n => `SSR確定まで あと${n}回`, pearlHow: '真珠は 600米ごとに1つ ＋ 段の初突破でもらえる。各ガチャの最初の1回は無料',
     firstClear: n => `初突破　真珠 +${n}`, pearlGot: n => `真珠 +${n}`,
     pas: { food: v => `満腹 +${v}`, coin: v => `銭 +${Math.round(v * 100)}%`, eat: v => `食べて回復 +${Math.round(v * 100)}%`,
       dmg: v => `威力 +${Math.round(v * 100)}%`, rate: v => `連射 +${Math.floor(v)}` },
     earned: n => `銭 +${n}`,
     wname: { pea: '豆鉄砲', twin: '双筆', fan: '扇', rapid: '早打ち', bouncer: '跳ね墨', wave: '波筆',
-      shotgun: '散らし墨', homing: '追い墨', beam: '一筆', trident: '三叉銛', jaws: '大顎' },
+      shotgun: '散らし墨', homing: '追い墨', beam: '一筆', trident: '三叉銛', jaws: '大顎',
+      bamboo: '竹筒', reed: '葦笛', kasa: '番傘', oar: '櫂', net: '投網', kite: '凧', drum: '太鼓', anchor: '錨', suzuri: '大硯', aranami: '荒波' },
+    wdesc: { normal: 'まっすぐ撃つ', spread: '扇のように広がる', bounce: '斜めに撃ち、壁で跳ね返る', beam: '1人1本の太い筆。よく貫く', wave: 'くねくね進む',
+      shotgun: '広く散らばる', homing: '近くの魚へ曲がる', trident: '何匹も貫く' },
     sname: { green: '墨', olive: '松葉色', sky: '藍色', pink: '臙脂', gold: '金茶', snow: '銀鼠',
-      violet: '江戸紫', crimson: '朱色', shadow: '漆黒', neon: '青磁色' },
+      violet: '江戸紫', crimson: '朱色', shadow: '漆黒', neon: '青磁色',
+      tobi: '鳶色', kon: '紺色', moegi: '萌葱色', kuri: '栗色', ebicha: '海老茶', rurikon: '瑠璃紺', yamabuki: '山吹色', kokiake: '深緋', kindei: '金泥', shinku: '真紅' },
     tut: [
       '画面をドラッグして、ワニを左右に動かそう',
       '左の魚を撃って食べよう。\n逃すと左上の「腹」が減り、空になると餓死',
@@ -182,7 +214,7 @@ const I18N = {
       ['左：餌', '魚を撃つと食べられる。逃すと「腹」が減り、空になると餓死'],
       ['右：札', '弾1発ごとに数値が1良くなる。くぐると 威力・連射・段数・仲間 が変わる。くぐらなければ何も起きない'],
       ['壊せる札', '朱の点線の札は壊すと手に入る。壊さずにぶつかると命 -1（0で負け）。避けてもいい'],
-      ['命・武器', 'たまにだけ出る札。武器の札は撃つと中身が切り替わる'],
+      ['命・武器', 'たまにだけ出る札。武器の札をくぐると、今の武器はそのままで、その撃ち方が外側に2本加わる（重ねると増える）。撃つと中身が切り替わる'],
       ['ボス', '各段の最後に、海の大物や伝承の怪異（蟹坊主・磯撫で・赤えい・海坊主）が現れる。墨玉・突進・墨で攻撃してくる。当たるか、下まで来られたら負け'],
       ['ゴール', '第十段を突破すると終幕。その先は「続き」：突破するたびに銭が雪だるま式に増える'],
       ['銭・真珠', '進んだ距離は銭になり、装備の強化に使う。各段を初めて突破すると真珠がもらえ、ガチャで武器と墨の色が手に入る'],
@@ -199,14 +231,18 @@ const I18N = {
     mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'RED FISH (coins)', minus: 'REVERSED TAGS', rush: 'TAG RAIN', dark: 'NIGHT SEA' },
     attacks: { plain: '', bubble: 'INK SHOTS', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK CLOUD' },
     side: { news: 'News', road: 'Road', how: 'How to' }, road: 'ROAD OF 10', contShort: 'CONTINUE', fromStart: 'NEW RUN',
-    roadLead: 'Clear each stage for the first time to earn pearls. Stage 10 (Umibozu) gives more.', got: 'DONE',
-    bn: { nextK: 'FIRST CLEAR', next: (n, p) => `Clear stage ${n}: +${p} pearls`, up: 'Gear ready to upgrade', rec: n => `Scroll of sea yokai  ${n} / 10` },
+    roadLead: 'You earn 1 pearl per 600 m, plus a bonus for each first-time stage clear (Stage 10, Umibozu, gives the most).', got: 'DONE',
+    bn: { nextK: 'FIRST CLEAR', next: (n, p) => `Clear stage ${n}: +${p} pearls`, up: 'Gear ready to upgrade', free: 'First gacha pull is FREE', rec: n => `Scroll of sea yokai  ${n} / 10` },
     rankName: n => (n >= STAGES ? 'All cleared' : n > 0 ? `Stage ${n} cleared` : 'Novice'),
     says: n => ['So hungry…', `Stage ${Math.min(n, STAGES)} next`, 'Tags count only when you pass', "Let's go before the ink dries", 'Umibozu… someday'],
-    tapStart: 'TAP TO START', plusCoin: 'Coins come from distance and stages cleared', plusPearl: 'Pearls come from first-time stage clears',
-    news: [['v0.18.0', 'New title screen. Rebuilt home (side icons, big round buttons, banner).'],
+    tapStart: 'TAP TO START', plusCoin: 'Coins come from distance and stages cleared', plusPearl: '1 pearl per 600 m + first-time stage clears. A pull costs 10; the first pull of each gacha is free',
+    news: [['v0.19.0', 'Gacha now shows a pick-up with pictures, a full lineup with rates, ×10 pulls (1 SR+ guaranteed) and a free first pull. 21 weapons and 20 inks. 1 pearl per 600 m (a pull costs 10). Weapon gates now add 2 outer shots to your weapon. Crew up to 20.'],
+      ['v0.18.0', 'New title screen. Rebuilt home (side icons, big round buttons, banner).'],
       ['v0.17.0', 'Bottom tabs (Gear, Gacha, Home, Scroll, Option). New icon.'],
       ['v0.16.0', 'Sumi-e ink look on washi paper. Bosses are sea yokai.']],
+    gTitleW: 'WEAPON GACHA', gTitleS: 'INK GACHA', pickup: 'PICK UP', owned: 'OWNED', notOwned: 'not owned', lineup: 'LINEUP',
+    lineupLead: 'Everything you can get, with each rate. Duplicates turn into coins.', gResult: 'RESULT', pull1: '×1', pull10: '×10', freeOnce: 'FREE', srSure: '1 SR+ guaranteed',
+    skinNote: 'Changes the ink color of your croc', 
     tabs: { rec: 'SCROLL', gear: 'GEAR', home: 'HOME', gacha: 'GACHA', opt: 'OPTION' },
     go: 'START', skinTab: 'INK', equipped: 'EQUIPPED', collection: 'COLLECTION',
     nextClear: (n, p) => `Next first clear: stage ${n}  ·  +${p} pearls`, allClear: 'All 10 stages cleared',
@@ -229,15 +265,19 @@ const I18N = {
     skip: 'SKIP', close: 'CLOSE',
     coins: 'COINS', back: 'BACK', gacha: 'GACHA', equip: 'GEAR', gWeapon: 'WEAPON', gSkin: 'SKIN', pull: 'PULL',
     gNew: 'NEW!', gDup: n => `Duplicate → ${n} coins`, pearl: 'PEARLS', up: 'UP',
-    pity: n => `SSR guaranteed in ${n}`, pearlHow: 'Earn pearls by clearing a stage for the first time (more for big bosses)',
+    pity: n => `SSR guaranteed in ${n}`, pearlHow: '1 pearl per 600 m + first-time stage clears. The first pull of each gacha is free',
     firstClear: n => `FIRST CLEAR! +${n} PEARLS`, pearlGot: n => `+${n} PEARLS`,
     pas: { food: v => `FULL +${v}`, coin: v => `COINS +${Math.round(v * 100)}%`, eat: v => `EAT +${Math.round(v * 100)}%`,
       dmg: v => `DMG +${Math.round(v * 100)}%`, rate: v => `RATE +${Math.floor(v)}` },
     earned: n => `+${n} COINS`,
-    wname: { pea: 'Pea Shooter', twin: 'Twin', fan: 'Fan', rapid: 'Rapid', bouncer: 'Bouncer', wave: 'Wave',
-      shotgun: 'Shotgun', homing: 'Homing', beam: 'Beam Cannon', trident: 'Trident', jaws: 'Great Jaw' },
+    wname: { pea: 'Pea Shooter', twin: 'Twin Brush', fan: 'Folding Fan', rapid: 'Quick Tubes', bouncer: 'Inkstone Bounce', wave: 'Wave Brush',
+      shotgun: 'Ink Spray', homing: 'Seeking Ink', beam: 'Single Stroke', trident: 'Trident', jaws: 'Great Jaw',
+      bamboo: 'Bamboo Tube', reed: 'Reed Flute', kasa: 'Oil Umbrella', oar: 'Oar', net: 'Cast Net', kite: 'Kite', drum: 'Drum', anchor: 'Anchor', suzuri: 'Great Inkstone', aranami: 'Rough Waves' },
+    wdesc: { normal: 'Shoots straight', spread: 'Fans out', bounce: 'Shoots diagonally, bounces off walls', beam: 'One thick stroke per shooter, pierces a lot', wave: 'Wiggles forward',
+      shotgun: 'Scatters wide', homing: 'Curves toward nearby fish', trident: 'Pierces many fish' },
     sname: { green: 'Sumi ink', olive: 'Pine needle', sky: 'Indigo', pink: 'Enji red', gold: 'Kincha', snow: 'Silver gray',
-      violet: 'Edo purple', crimson: 'Vermilion', shadow: 'Lacquer black', neon: 'Celadon' },
+      violet: 'Edo purple', crimson: 'Vermilion', shadow: 'Lacquer black', neon: 'Celadon',
+      tobi: 'Kite brown', kon: 'Navy', moegi: 'Onion green', kuri: 'Chestnut', ebicha: 'Ebicha maroon', rurikon: 'Lapis navy', yamabuki: 'Yamabuki gold', kokiake: 'Deep scarlet', kindei: 'Gold paint', shinku: 'Crimson' },
     tut: [
       'Drag anywhere to move the croc left and right',
       'Shoot the fish on the left to eat them.\nMiss them and your belly gauge drops — empty means starving',
@@ -251,7 +291,7 @@ const I18N = {
       ['Left: food', 'Shoot fish to eat them. Missed fish drain the belly gauge; empty = starved'],
       ['Right: gates', 'Each shot improves the number by 1. Pass through to change DMG / RATE / LINE / CREW; skip it and nothing happens'],
       ['Items', 'Break dashed boxes to get them. Run into an unbroken one: -1 life (0 = game over). You can dodge'],
-      ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
+      ['Life / weapon', 'Rare gates. Pass a weapon gate to add that attack as 2 extra outer shots (your weapon stays; stacks). Shooting it cycles what is inside'],
       ['Boss', 'A big fish ends every stage and attacks with bubbles, charges, ink and more. Get hit or let it reach the bottom and you lose'],
       ['Goal', 'Stage 10 = GAME CLEAR. Beyond it is ∞ COIN RUSH: every clear snowballs your coins'],
       ['Coins & pearls', 'Distance becomes coins for upgrading gear. First-time stage clears give pearls for the weapon / skin gacha'],
@@ -382,7 +422,7 @@ function newRun() {
   };
   R = r;
   const wd = weaponOf(SLOT.weapon), lv = SLOT.weapons[wd.id] || 1;
-  r.st.rate = wRate(wd, lv) + Math.floor(skinBonus('rate')); r.st.lines = wd.lines; r.st.dmg = wDmg(wd, lv) * (1 + skinBonus('dmg')); r.st.wp = wd.pat;
+  r.st.rate = wRate(wd, lv) + Math.floor(skinBonus('rate')); r.st.lines = wd.lines; r.st.dmg = wDmg(wd, lv) * (1 + skinBonus('dmg')); r.st.wp = wd.pat; r.st.subs = {};
   r.foodMax = r.food = FOOD_MAX + Math.floor(skinBonus('food'));
   r.base = { ...r.st };   // 装備の強さは、ステージの上限より下がらない
   return r;
@@ -420,7 +460,7 @@ const stageP = () => (R.stage - 1) / STAGES;   // 全体の進み具合（ステ
 const pOf = () => Math.min(1, R ? (R.stage - 1) / 7 : 0);   // ステージ8で全開
 const baseOf = k => (R && R.base ? R.base[k] : 1);
 const linesCap = () => Math.max(baseOf('lines'), Math.min(OPT.light ? 9 : LMAX, 2 + Math.floor(pOf() * 18)));
-const crewCap = () => Math.max(baseOf('crew'), Math.min(CMAX, 1 + Math.floor(pOf() * 10)));
+const crewCap = () => Math.max(baseOf('crew'), Math.min(CMAX, 1 + Math.floor(pOf() * 19)));
 const rateCap = () => Math.max(baseOf('rate'), Math.min(RMAX, 2 + Math.floor(pOf() * 14)));
 const mulCap = () => 1.2 + pOf() * 0.8;   // ×ゲートがどこまで育つか
 
@@ -452,7 +492,8 @@ function makeLife(slot) {
   return { id: ++R.uid, cls: 'gate', stat: 'life', type: 'add', v: 1, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
 function makeWeapon(slot) {
-  const choices = WEAPONS.filter(w => w !== R.st.wp);
+  const subs = R.st.subs || {}, choices = WEAPONS.filter(w => w !== R.st.wp && (subs[w] || 0) < SUB_MAX);
+  if (!choices.length) return makeGate(slot, false);
   return { id: ++R.uid, cls: 'gate', stat: 'weapon', type: 'set', v: choices[Math.floor(Math.random() * choices.length)], c: 0, x: GATE_X[slot], y: -GATE_H, w: GATE_W, h: GATE_H, hit: 0 };
 }
 function makeItem(slot, kind) {
@@ -479,7 +520,7 @@ function spawnGateRow() {
 const stepOf = o => Math.round(o.v);   // どのゲートも整数で効く
 function isGood(o) { return o.cls === 'item' || o.stat === 'weapon' || (o.type === 'add' ? stepOf(o) >= 0 : o.v >= 1); }
 function gateLabel(o) {
-  if (o.stat === 'weapon') return L().wp[o.v];
+  if (o.stat === 'weapon') return '+' + L().wp[o.v];
   if (o.type === 'add') { const v = stepOf(o); return (v < 0 ? '-' : '+') + fmt(Math.abs(v)); }
   if (o.v < 1) return '÷' + (1 / Math.max(0.05, o.v)).toFixed(1).replace(/\.0$/, '');
   return '×' + (o.v < 10 ? o.v.toFixed(2).replace(/0$/, '').replace(/\.0$/, '') : fmt(Math.floor(o.v)));
@@ -491,7 +532,7 @@ function growGate(o, b) {
   if (o.stat === 'life') { o.hit = 0.1; return; }
   if (o.stat === 'weapon') {
     o.c += b.w; o.hit = 0.1;
-    if (o.c >= 12) { o.c = 0; o.v = WEAPONS[(WEAPONS.indexOf(o.v) + 1) % WEAPONS.length]; }
+    if (o.c >= 12) { o.c = 0; const subs = R.st.subs || {}; for (let t = 0; t < WEAPONS.length; t++) { o.v = WEAPONS[(WEAPONS.indexOf(o.v) + 1) % WEAPONS.length]; if (o.v !== R.st.wp && (subs[o.v] || 0) < SUB_MAX) break; } }
     return;
   }
   // 弾1発で1だけ良い方向に動く（見た目の1発が何発ぶんかは w）
@@ -509,8 +550,9 @@ function applyGate(o) {
     return;
   }
   if (o.stat === 'weapon') {
-    st.wp = o.v;
-    pop(R.x, PY - 50, L().wp[o.v], true, '#66e6ff'); burst(o.x + o.w / 2, PY, 14, '#66e6ff'); sfx('gate');
+    st.subs = st.subs || {};
+    st.subs[o.v] = Math.min(SUB_MAX, (st.subs[o.v] || 0) + 1);
+    pop(R.x, PY - 50, `+${L().wp[o.v]}`, true, '#66e6ff'); burst(o.x + o.w / 2, PY, 14, '#66e6ff'); sfx('gate');
     return;
   }
   const before = { ...st };
@@ -662,11 +704,13 @@ function pop(x, y, text, big, col) {
 
 // ---------- 発射 ----------
 // 見た目の弾数には上限を設け、超えた分は1発の重み（w）に乗せる（スマホが熱くならないように）
-function shooterX(si) {   // 0 が自分、1 以降は左右に並ぶ仲間
+function shooterX(si) {   // 0 が自分、1〜7 は左右に並ぶ仲間、8 以降は後ろの列（前の列のすき間）
   if (si === 0) return R.x;
-  const i = si - 1;
-  return clamp(R.x + (i % 2 ? 1 : -1) * (26 + Math.floor(i / 2) * 20), 8, W - 8);
+  if (si <= 7) { const i = si - 1; return clamp(R.x + (i % 2 ? 1 : -1) * (26 + Math.floor(i / 2) * 20), 8, W - 8); }
+  const i = si - 8;
+  return clamp(R.x + (i % 2 ? 1 : -1) * (16 + Math.floor(i / 2) * 20), 8, W - 8);
 }
+const shooterBack = si => si >= 8;
 function nearestFood(x) {
   let best = null, bd = 1e9;
   for (const mo of R.mobs) { if (mo.d || mo.y > PY - 40) continue; const d = Math.abs(mo.x - x) + (PY - mo.y) * 0.3; if (d < bd) { bd = d; best = mo; } }
@@ -674,13 +718,14 @@ function nearestFood(x) {
 }
 function volley() {
   const st = R.st, wp = st.wp || 'normal', total = st.lines * st.crew;
-  const shooters = Math.min(st.crew, 8);
+  const shooters = Math.min(st.crew, CMAX);
   if (wp === 'beam') {
     // ビーム：1人1本。段数ぶんの威力をまとめ、たくさん貫く
     for (let si = 0; si < shooters; si++) {
       const w = total / shooters;
       R.b.push({ x: shooterX(si), y: PY - 14, vx: 0, vy: -BULLET_V * 1.3, d: st.dmg * w, w, pr: PIERCE_MAX * 4, beam: 1, bn: 0 });
     }
+    subVolley(st, 1);
     return;
   }
   const vis = OPT.light ? 14 : 32;
@@ -699,6 +744,30 @@ function volley() {
     else if (wp === 'wave') wave = 1;                             // くねくね進む
     const vy = -Math.sqrt(BULLET_V * BULLET_V - vx * vx);
     R.b.push({ x, x0: x, y: PY - 14, vx, vy, d: st.dmg * w, w, pr: pierce, bn: wp === 'bounce' ? 3 : 0, wave, ph: line * 1.7 + si });
+  }
+  subVolley(st, per);
+}
+// 武器の札で加わった撃ち方：自分の外側に左右1本ずつ（段ごとに外へ）
+function subVolley(st, per) {
+  const subs = st.subs || {};
+  const w = Math.max(1, st.lines * st.crew / 6), pr = Math.min(PIERCE_MAX, 2 + Math.floor(Math.log10(Math.max(1, st.dmg))));
+  let ring = 0;
+  for (const pat of WEAPONS) {
+    for (let j = 0; j < (subs[pat] || 0); j++, ring++) {
+      for (const side of [-1, 1]) {
+        const x = clamp(R.x + side * (Math.min(per, 9) * 3 + 12 + ring * 9), 4, W - 4);
+        let vx = 0, pierce = pr, wave = 0, bn = 0, beam = 0;
+        if (pat === 'spread') vx = side * 0.35 * BULLET_V;
+        else if (pat === 'shotgun') vx = side * (0.45 + Math.random() * 0.4) * BULLET_V;
+        else if (pat === 'bounce') { vx = side * 0.45 * BULLET_V; bn = 3; }
+        else if (pat === 'homing') { const t = nearestFood(x); if (t) vx = clamp((t.x - x) / Math.max(40, PY - t.y), -0.6, 0.6) * BULLET_V; }
+        else if (pat === 'trident') pierce = pr + 3;
+        else if (pat === 'wave') wave = 1;
+        else if (pat === 'beam') { beam = 1; pierce = PIERCE_MAX * 2; }
+        const vy = -Math.sqrt(BULLET_V * BULLET_V - vx * vx) * (beam ? 1.3 : 1);
+        R.b.push({ x, x0: x, y: PY - 10, vx, vy, d: st.dmg * w, w, pr: pierce, bn, wave, beam, ph: ring * 2.1 + side, sub: 1 });
+      }
+    }
   }
 }
 
@@ -960,13 +1029,14 @@ function renderTab() {
   $('hPearls').textContent = fmt(SLOT.pearls);
   // 印：強化できるものがある／ガチャが引ける
   $('dotGear').hidden = !canUpgrade();
-  $('dotGacha').hidden = SLOT.pearls < GACHA_COST;
+  $('dotGacha').hidden = !canPull();
   clearInterval(heroTimer);
   ({ rec: renderRec, gear: renderEquip, home: renderHomePanel, gacha: renderGacha, opt: renderOpt })[tab]();
 }
 // ホーム：まん中にワニ、左右に機能のアイコン、下の角に大きな丸ボタン、その間にバナー
 const canUpgrade = () => WEAPON_DEF.some(w => SLOT.weapons[w.id] && SLOT.weapons[w.id] < WLV_MAX && SLOT.coins >= wUpCost(w, SLOT.weapons[w.id]))
   || SKIN_DEF.some(k => SLOT.skins[k.id] && SLOT.skins[k.id] < SLV_MAX && SLOT.coins >= sUpCost(k, SLOT.skins[k.id]));
+const canPull = () => SLOT.pearls >= GACHA_COST || !!SLOT.free.weapon || !!SLOT.free.skin;
 const cleared = () => Math.min(SLOT.maxStage, STAGES);
 const nextReward = () => (cleared() >= STAGES ? 0 : cleared() + 1 === STAGES ? FIRST_CLEAR.big : FIRST_CLEAR.normal);
 // 波（墨の線を何段か）
@@ -1012,7 +1082,7 @@ function renderHomePanel() {
   // 左右のアイコン
   const side = (items) => items.map(([act, ic, label, dot]) => `<button class="side-btn" data-act="${act}"><i>${ic}</i><span>${label}</span>${dot ? '<b class="dot"></b>' : ''}</button>`).join('');
   $('sideL').innerHTML = side([['news', '報', l.side.news, OPT.newsSeen !== VERSION], ['road', '道', l.side.road, false], ['how', '習', l.side.how, false]]);
-  $('sideR').innerHTML = side([['gacha', '引', l.tabs.gacha, SLOT.pearls >= GACHA_COST], ['skin', '墨', l.skinTab, false], ['rec', '巻', l.tabs.rec, false]]);
+  $('sideR').innerHTML = side([['gacha', '引', l.tabs.gacha, canPull()], ['skin', '墨', l.skinTab, false], ['rec', '巻', l.tabs.rec, false]]);
   document.querySelectorAll('.side-btn').forEach(b => { b.onclick = () => { sfx('gate'); sideAct(b.dataset.act); }; });
   // 下の角：左＝出陣（続きがあれば「続きから」）、右＝強化
   const st = $('btnStart');
@@ -1047,7 +1117,8 @@ function renderBanner() {
   const l = L(), done = cleared(), slides = [];
   if (done < STAGES) slides.push({ go: 'road', img: bossURL(done), k: l.bn.nextK, t: l.bn.next(done + 1, nextReward()) });
   else slides.push({ go: 'road', img: bossURL(9), k: l.bn.nextK, t: l.allClear });
-  slides.push({ go: 'gacha', img: crocURL(SLOT.skin, 0, 'happy'), k: l.tabs.gacha, t: l.pity(PITY - Math.max(SLOT.pity.weapon || 0, SLOT.pity.skin || 0)) });
+  if (SLOT.free.weapon || SLOT.free.skin) slides.push({ go: 'gacha', img: weaponURL('jaws'), k: l.tabs.gacha, t: l.bn.free });
+  slides.push({ go: 'gacha', img: weaponURL('suzuri'), k: l.tabs.gacha, t: l.pity(PITY - Math.max(SLOT.pity.weapon || 0, SLOT.pity.skin || 0)) });
   if (canUpgrade()) slides.push({ go: 'gear', img: crocURL(SLOT.skin, 1, 'normal'), k: l.tabs.gear, t: l.bn.up });
   slides.push({ go: 'rec', img: bossURL(Math.max(0, done - 1)), k: l.tabs.rec, t: l.bn.rec(done) });
   bnIdx %= slides.length;
@@ -1110,30 +1181,54 @@ function rollRarity() {
   for (const k of ['SSR', 'SR', 'R', 'N']) { r -= RARITY[k].w; if (r < 0) return k; }
   return 'N';
 }
-function pull(kind) {
-  if (SLOT.pearls < GACHA_COST) return;
-  SLOT.pearls -= GACHA_COST;
+const STARS = { N: 1, R: 2, SR: 3, SSR: 4 };
+const wURLc = {};
+const weaponURL = id => wURLc[id] || (wURLc[id] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.weapon(id)));
+const itemPic = (kind, id, mood) => (kind === 'weapon' ? weaponURL(id) : crocURL(id, 0, mood || 'normal'));
+const itemName = (kind, id) => (kind === 'weapon' ? L().wname[id] : L().sname[id]);
+const itemInfo = (kind, x, lv = 1) => {
+  const l = L();
+  return kind === 'weapon' ? `${l.wp[x.pat]}：${l.wdesc[x.pat]}<br>${l.stat.rate} ${wRate(x, lv)}　${l.stat.lines} ${x.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(x, lv) * 10) / 10)}`
+    : `${l.pas[x.pas](x.v * lv)}<br>${l.skinNote}`;
+};
+const itemRate = (kind, x) => RARITY[x.r].w / (kind === 'weapon' ? WEAPON_DEF : SKIN_DEF).filter(y => y.r === x.r).length;
+function pullOne(kind, minR) {
   SLOT.pity[kind] = (SLOT.pity[kind] || 0) + 1;
   let rar = rollRarity();
+  if (minR === 'SR' && (rar === 'N' || rar === 'R')) rar = 'SR';
   if (SLOT.pity[kind] >= PITY) rar = 'SSR';   // 天井
   if (rar === 'SSR') SLOT.pity[kind] = 0;
   const pool = (kind === 'weapon' ? WEAPON_DEF : SKIN_DEF).filter(x => x.r === rar);
   const got = pool[Math.floor(Math.random() * pool.length)];
-  const l = L(), owned = kind === 'weapon' ? SLOT.weapons : SLOT.skins;
-  let note;
-  if (!owned[got.id]) { owned[got.id] = 1; note = l.gNew; }
-  else { SLOT.coins += DUP_COINS[rar]; note = l.gDup(DUP_COINS[rar]); }
+  const owned = kind === 'weapon' ? SLOT.weapons : SLOT.skins;
+  let isNew = false, dup = 0;
+  if (!owned[got.id]) { owned[got.id] = 1; isNew = true; } else { dup = DUP_COINS[rar]; SLOT.coins += dup; }
+  return { x: got, rar, isNew, dup };
+}
+// n=1 または 10。各ガチャの最初の1回は無料。10連は SR 以上が1つ確定
+function pull(kind, n = 1) {
+  const free = n === 1 && SLOT.free[kind];
+  const cost = free ? 0 : GACHA_COST * n;
+  if (SLOT.pearls < cost) return;
+  SLOT.pearls -= cost; if (free) SLOT.free[kind] = 0;
+  const res = [];
+  for (let i = 0; i < n; i++) res.push(pullOne(kind, n === 10 && i === 9 && !res.some(r => r.rar === 'SR' || r.rar === 'SSR') ? 'SR' : null));
   writeSlot();
-  sfx(rar === 'SSR' || rar === 'SR' ? 'boss' : 'gate');
-  const name = kind === 'weapon' ? l.wname[got.id] : l.sname[got.id];
-  const w = kind === 'weapon' ? got : null;
-  const icon = kind === 'skin' ? `<img class="g-icon" src="${crocURL(got.id, 0, 'happy')}" alt="">`
-    : `<div class="g-wp">${l.wp[w.pat]}</div>`;
-  const el = $('gachaResult');
-  el.className = 'g-result r-' + rar;
-  el.innerHTML = `<b class="g-rar" style="color:${RARITY[rar].col}">${rar}</b>${icon}<span>${name}</span><small>${note}</small>`;
-  void el.offsetWidth; el.classList.add('pop');
+  const top = res.some(r => r.rar === 'SSR' || r.rar === 'SR');
+  sfx(top ? 'boss' : 'gate');
+  const l = L();
+  const card = (r, i) => `<div class="gr-card r-${r.rar}" style="--rc:${RARITY[r.rar].col};--i:${i}"><i>${r.rar}</i><img src="${itemPic(kind, r.x.id, 'happy')}" alt="">
+    <b>${itemName(kind, r.x.id)}</b><small>${r.isNew ? l.gNew : l.gDup(r.dup)}</small></div>`;
+  openInfo(l.gResult, `<div class="gr-grid n${n}">${res.map(card).join('')}</div>`);
   renderTab();
+}
+let pickIdx = 0, pickTimer = 0;
+function openLineup(kind) {
+  const l = L(), list = kind === 'weapon' ? WEAPON_DEF : SKIN_DEF;
+  const owned = kind === 'weapon' ? SLOT.weapons : SLOT.skins;
+  openInfo(l.lineup, `<p class="info-lead">${l.lineupLead}</p>` + ['SSR', 'SR', 'R', 'N'].map(r => `<div class="lu-head" style="--rc:${RARITY[r].col}">${r}　${'★'.repeat(STARS[r])}<small>${RARITY[r].w}%</small></div>` +
+    list.filter(x => x.r === r).map(x => `<div class="lu-row" style="--rc:${RARITY[r].col}"><img src="${itemPic(kind, x.id)}" alt="">
+      <span><b>${itemName(kind, x.id)}${owned[x.id] ? `<em>${l.owned}</em>` : ''}</b><small>${itemInfo(kind, x)}</small></span><i>${itemRate(kind, x).toFixed(2)}%</i></div>`).join('')).join(''));
 }
 function renderSeg(id, cur, fn) {
   const l = L();
@@ -1144,20 +1239,38 @@ function renderSeg(id, cur, fn) {
   });
 }
 function renderGacha() {
-  const l = L(), kind = gachaTab;
-  renderSeg('gachaSeg', kind, k => { gachaTab = k; $('gachaResult').innerHTML = ''; $('gachaResult').className = 'g-result'; renderGacha(); });
-  if (!$('gachaResult').innerHTML) $('gachaResult').innerHTML = `<div class="g-idle">${kind === 'weapon' ? '武' : '墨'}</div><small>${l.pity(PITY - (SLOT.pity[kind] || 0))}</small>`;
-  $('btnPull').innerHTML = `${l.pull}<span><i class="ic-pearl"></i>${GACHA_COST}</span>`;
-  $('btnPull').disabled = SLOT.pearls < GACHA_COST;
-  $('gachaRates').textContent = `N 60%　R 28%　SR 10%　SSR 2%　·　${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
+  const l = L(), kind = gachaTab, list = kind === 'weapon' ? WEAPON_DEF : SKIN_DEF;
+  const owned = kind === 'weapon' ? SLOT.weapons : SLOT.skins;
+  renderSeg('gachaSeg', kind, k => { gachaTab = k; pickIdx = 0; renderGacha(); });
+  $('gachaTitle').textContent = kind === 'weapon' ? l.gTitleW : l.gTitleS;
+  // 注目（SSR と SR を順に見せる）：絵・名前・レア度・撃ち方や効果
+  const picks = list.filter(x => x.r === 'SSR').concat(list.filter(x => x.r === 'SR'));
+  const showPick = () => {
+    const x = picks[pickIdx % picks.length];
+    $('gachaPick').innerHTML = `<div class="gp-tag">${l.pickup}</div>
+      <div class="gp-head" style="--rc:${RARITY[x.r].col}"><i>${x.r}</i><span>${'★'.repeat(STARS[x.r])}</span><b>${itemName(kind, x.id)}</b>${owned[x.id] ? `<em>${l.owned}</em>` : ''}</div>
+      <div class="gp-art"><img src="${itemPic(kind, x.id, 'happy')}" alt=""></div>
+      <div class="gp-info"><small>${kind === 'weapon' ? l.gWeapon : l.skinTab}</small><span>${itemInfo(kind, x)}</span></div>
+      <button class="gp-nav l no-swipe" data-d="-1">‹</button><button class="gp-nav r no-swipe" data-d="1">›</button>
+      <div class="gp-dots">${picks.map((_, i) => `<i class="${i === pickIdx % picks.length ? 'on' : ''}"></i>`).join('')}</div>`;
+    $('gachaPick').querySelectorAll('.gp-nav').forEach(b => { b.onclick = e => { e.stopPropagation(); pickIdx = (pickIdx + picks.length + +b.dataset.d) % picks.length; showPick(); restart(); }; });
+  };
+  const restart = () => { clearInterval(pickTimer); pickTimer = setInterval(() => { if (tab !== 'gacha' || $('home').hidden) return clearInterval(pickTimer); pickIdx = (pickIdx + 1) % picks.length; showPick(); }, 3600); };
+  showPick(); restart();
+  $('btnLineup').textContent = l.lineup;
+  $('btnLineup').onclick = () => { sfx('gate'); openLineup(kind); };
+  $('gachaPity').innerHTML = `${l.pity(PITY - (SLOT.pity[kind] || 0))}`;
+  const free = SLOT.free[kind];
+  $('btnPull').innerHTML = free ? `${l.pull1}<span class="free">${l.freeOnce}</span>` : `${l.pull1}<span><i class="ic-pearl"></i>${GACHA_COST}</span>`;
+  $('btnPull').disabled = !free && SLOT.pearls < GACHA_COST;
+  $('btnPull10').innerHTML = `${l.pull10}<span><i class="ic-pearl"></i>${GACHA_COST * 10}</span><small>${l.srSure}</small>`;
+  $('btnPull10').disabled = SLOT.pearls < GACHA_COST * 10;
+  $('gachaRates').textContent = `SSR 2%　SR 10%　R 28%　N 60%`;
   $('gachaHow').textContent = l.pearlHow;
-  $('gachaListHead').textContent = l.collection;
-  const list = kind === 'weapon' ? WEAPON_DEF : SKIN_DEF;
+  $('gachaListHead').textContent = `${l.collection}　${list.filter(x => owned[x.id]).length} / ${list.length}`;
   $('gachaList').innerHTML = list.map(x => {
-    const own = kind === 'weapon' ? SLOT.weapons[x.id] : SLOT.skins[x.id];
-    const name = own ? (kind === 'weapon' ? l.wname[x.id] : l.sname[x.id]) : l.unknown;
-    const pic = kind === 'skin' ? `<img src="${crocURL(x.id, 0, 'normal')}" alt="">` : `<em>${own ? l.wp[x.pat] : '？'}</em>`;
-    return `<div class="g-tile ${own ? 'own' : ''}" style="--rc:${RARITY[x.r].col}"><i>${x.r}</i>${pic}<span>${name}</span>${own ? `<small>Lv${own}</small>` : ''}</div>`;
+    const own = owned[x.id];
+    return `<div class="g-tile ${own ? 'own' : ''}" style="--rc:${RARITY[x.r].col}"><i>${x.r}</i><img src="${itemPic(kind, x.id)}" alt=""><span>${itemName(kind, x.id)}</span><small>${own ? `Lv${own}` : l.notOwned}</small></div>`;
   }).join('');
 }
 
@@ -1167,12 +1280,12 @@ function renderEquip() {
   renderSeg('gearSeg', gearTab, k => { gearTab = k; renderEquip(); });
   // いま装備しているもの
   const w = weaponOf(SLOT.weapon), wl = SLOT.weapons[w.id], sk = skinOf(SLOT.skin), sl = SLOT.skins[sk.id];
-  $('gearNow').innerHTML = `<img src="${crocURL(SLOT.skin, 0, 'normal')}" alt="">
+  $('gearNow').innerHTML = `<img class="${isW ? 'wimg' : ''}" src="${isW ? weaponURL(w.id) : crocURL(SLOT.skin, 0, 'normal')}" alt="">
     <div><small>${l.equipped}</small><b>${isW ? l.wname[w.id] : l.sname[sk.id]} <em>Lv${isW ? wl : sl}</em></b>
-    <span>${isW ? `${l.wp[w.pat]}　${l.stat.rate} ${wRate(w, wl)}　${l.stat.lines} ${w.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(w, wl) * 10) / 10)}` : l.pas[sk.pas](sk.v * sl)}</span></div>`;
+    <span>${isW ? `${l.wp[w.pat]}：${l.wdesc[w.pat]}<br>${l.stat.rate} ${wRate(w, wl)}　${l.stat.lines} ${w.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(w, wl) * 10) / 10)}` : l.pas[sk.pas](sk.v * sl)}</span></div>`;
   const rows = isW ? WEAPON_DEF.filter(x => SLOT.weapons[x.id]).map(x => {
     const lv = SLOT.weapons[x.id], max = lv >= WLV_MAX, cost = wUpCost(x, lv);
-    return { id: x.id, r: x.r, on: SLOT.weapon === x.id, lv, max, cost, name: l.wname[x.id], pic: `<em class="eq-wp">${l.wp[x.pat]}</em>`,
+    return { id: x.id, r: x.r, on: SLOT.weapon === x.id, lv, max, cost, name: l.wname[x.id], pic: `<img class="eq-wimg" src="${weaponURL(x.id)}" alt="">`,
       stat: `${l.stat.rate} ${wRate(x, lv)}　${l.stat.lines} ${x.lines}　${l.stat.dmg} ${fmt(Math.round(wDmg(x, lv) * 10) / 10)}` };
   }) : SKIN_DEF.filter(x => SLOT.skins[x.id]).map(x => {
     const lv = SLOT.skins[x.id], max = lv >= SLV_MAX, cost = sUpCost(x, lv);
@@ -1240,6 +1353,8 @@ function gameOver() {
   if (R.newBest) SLOT.best = m;
   const gain = coinsFor(m, Math.min(R.stage - 1, STAGES)) + Math.round((R.bonus || 0) * (1 + skinBonus('coin')));
   SLOT.coins += gain;
+  const pm = Math.floor(m * METER / PEARL_PER_M);   // 進んだ距離の真珠（600米ごとに1）
+  SLOT.pearls += pm; R.pearls = (R.pearls || 0) + pm;
   SLOT.run = null; writeSlot();
   sfx('hurt');
   const l = L();
@@ -1295,7 +1410,8 @@ $('btnInfoClose').onclick = () => show('info', false);
 $('title').onclick = e => { if (!e.target.closest('#tsMenu')) leaveTitle(); };
 $('tsMenu').onclick = () => leaveTitle('opt');
 document.querySelectorAll('.plus').forEach(b => { b.onclick = () => { sfx('gate'); toast(b.dataset.plus === 'coin' ? L().plusCoin : L().plusPearl, 3200); }; });
-$('btnPull').onclick = () => pull(gachaTab);
+$('btnPull').onclick = () => pull(gachaTab, 1);
+$('btnPull10').onclick = () => pull(gachaTab, 10);
 $('btnResume').onclick = resumeGame;
 $('btnQuit').onclick = () => { persist(); tutHide(); showHome('home'); };
 $('btnRetry').onclick = () => startRun(false);
@@ -1458,12 +1574,13 @@ function render(now) {
   }
   // 自機と仲間
   if (!R.over) {
-    const n = Math.min(R.st.crew, 8);
+    const n = Math.min(R.st.crew, CMAX);
     const wf = Math.floor(now / 130) % 4;
     const mood = R.hurt > 0 ? 'hurt' : R.happy > 0 ? 'happy' : 'normal';
-    for (let si = 1; si < n; si++) {
-      const h = heroImg((wf + si) % 4, R.happy > 0 ? 'happy' : 'normal', true), hx = shooterX(si);
-      if (h) ctx.drawImage(h, Math.round(hx - HELP_W / 2), PY + 12 - HELP_H, HELP_W, HELP_H);
+    for (const back of [true, false]) for (let si = 1; si < n; si++) {   // 後ろの列から描く
+      if (shooterBack(si) !== back) continue;
+      const h = heroImg((wf + si) % 4, R.happy > 0 ? 'happy' : 'normal', true), hx = shooterX(si), dy = back ? 9 : 0, k = back ? 0.85 : 1;
+      if (h) ctx.drawImage(h, Math.round(hx - HELP_W * k / 2), PY + 12 + dy - HELP_H * k, HELP_W * k, HELP_H * k);
     }
     if (R.hurt > 0 && Math.floor(R.hurt * 20) % 2) ctx.globalAlpha = 0.35;
     const hero = heroImg(wf, mood, false);
@@ -1547,7 +1664,7 @@ function drawHUD() {
   for (let i = 0; i < HP_MAX; i++) { ctx.fillStyle = SHU; ctx.globalAlpha = i < R.hp ? 1 : .15; ctx.beginPath(); ctx.arc(32 + i * 13, H - 35, 4.5, 0, 6.283); ctx.fill(); }
   ctx.globalAlpha = 1;
   text(L().stat.dmg + ' ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 30, 18, SUMI, 'center', true);
-  text(`${L().stat.rate}${R.st.rate}・${L().stat.lines}${R.st.lines}・${L().stat.crew}${R.st.crew}・${L().wp[R.st.wp] || L().wp.normal}`, W / 2, H - 15, 10, '#4a443d', 'center');
+  text(`${L().stat.rate}${R.st.rate}・${L().stat.lines}${R.st.lines}・${L().stat.crew}${R.st.crew}・${L().wp[R.st.wp] || L().wp.normal}${Object.entries(R.st.subs || {}).map(([k, v]) => `＋${L().wp[k]}${v > 1 ? v : ''}`).join('')}`, W / 2, H - 15, 10, '#4a443d', 'center');
 }
 
 // ---------- メインループ ----------
