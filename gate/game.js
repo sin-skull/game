@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.13.0';
+const VERSION = '0.14.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -15,10 +15,12 @@ const TS = DEV ? Math.min(60, Math.max(0.1, +Q.get('ts') || 1)) : 1;   // 開発
 const BOT = DEV && Q.has('bot');                                     // 開発用：自動操縦
 
 // ---------- 進行のペース ----------
-// ステージ制：100 ステージ。毎ステージ最後にボス、10 の倍数で大ボス。101 から先は ∞ MODE
-const STAGES = 100;
+// ステージ制：本編は 10 ステージ（6分ほど）。毎ステージ最後にボス、10 の倍数で大ボス。
+// 11 から先は ∞ COIN RUSH：速さは上限で止まり、クリアするたびにコインが雪だるま式に増える腕前勝負
+const STAGES = 10;
+const SPEED_CAP = 2.6;
 const STAGE_SEC = (DEV && +Q.get('stage')) || 24;   // 1ステージの道のり（秒）。ボス戦を足して 30〜40 秒
-const stageSpeed = n => (n <= STAGES ? 1 + 0.03 * (n - 1) : 1 + 0.03 * (STAGES - 1) + 0.08 * (n - STAGES));   // ステージごとに速く
+const stageSpeed = n => (n <= STAGES ? 1 + (n - 1) / (STAGES - 1) : Math.min(SPEED_CAP, 2 + 0.06 * (n - STAGES)));   // ステージ10で2倍、その先は上限まで
 const stageLen = n => STAGE_SEC * stageSpeed(n);
 
 // ---------- 盤面 ----------
@@ -122,7 +124,10 @@ const I18N = {
     item: { crew: '仲間', heal: '回復', power: 'パワー' },
     food: 'エサ', gate: 'ゲート', best: 'ベスト', speed: '速さ', menu: 'メニュー',
     boss: 'ボス', bigBoss: '大ボス', bossDown: '撃破！', bigDown: '大ボス撃破！',
-    stageClear: n => `ステージ ${n} クリア！`, stageName: n => (n > STAGES ? `∞ ${n}` : `ステージ ${n}`), hit: '当たった！',
+    stageClear: n => `ステージ ${n} クリア！`, stageName: n => (n > STAGES ? `∞ ${n}` : `ステージ ${n}/${STAGES}`), hit: '当たった！',
+    mods: { normal: '', school: '魚の群れ', current: '急流', golden: '金の魚（食べるとコイン）', minus: '逆流ゲート', rush: 'ゲートラッシュ', dark: '深海' },
+    attacks: { plain: '', bubble: '泡を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
+    coinRush: n => `コイン +${n}`,
     lifeUp: 'ライフ+1', crewUp: '仲間+1', hpUp: 'ライフ+1', powerUp: '威力×1.3',
     start: 'スタート', newRun: '新しく始める', cont: 'つづきから', light: '軽量', sound: '音', slot: 'スロット',
     how: '遊び方', lang: 'English', on: 'ON', off: 'OFF',
@@ -156,8 +161,8 @@ const I18N = {
       ['右：ゲート', '弾1発ごとに数値が1良くなる。くぐると 威力・連射・段数・仲間 が変わる。くぐらなければ何も起きない'],
       ['アイテム', '点線の箱は壊すと手に入る。壊さずにぶつかるとライフ-1（0で負け）。避けてもいい'],
       ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
-      ['ボス', '毎ステージの最後に大きな魚。10の倍数は大ボス。下まで来られたら負け'],
-      ['ゴール', '100ステージで GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
+      ['ボス', '毎ステージの最後に大きな魚。泡・突進・墨などで攻撃してくる。当たるか、下まで来られたら負け。10の倍数は大ボス'],
+      ['ゴール', '10ステージで GAME CLEAR。その先は ∞ COIN RUSH：クリアするたびにコインが雪だるま式に増える'],
       ['コイン・パール', '進んだ距離はコインになり、装備の強化に使う。ステージを初めてクリアするとパールがもらえ、ガチャで武器とスキンが手に入る'],
     ],
   },
@@ -167,7 +172,10 @@ const I18N = {
     item: { crew: 'CREW', heal: 'HEAL', power: 'POWER' },
     food: 'FOOD', gate: 'GATE', best: 'BEST', speed: 'SPEED', menu: 'MENU',
     boss: 'BOSS', bigBoss: 'BIG BOSS', bossDown: 'BOSS DOWN', bigDown: 'BIG BOSS DOWN!',
-    stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}`), hit: 'HIT!',
+    stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}/${STAGES}`), hit: 'HIT!',
+    mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'GOLDEN FISH (coins)', minus: 'BACKFLOW GATES', rush: 'GATE RUSH', dark: 'DEEP SEA' },
+    attacks: { plain: '', bubble: 'BUBBLES', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK' },
+    coinRush: n => `+${n} COINS`,
     lifeUp: '+1 LIFE', crewUp: '+1 CREW', hpUp: '+1 LIFE', powerUp: 'DMG ×1.3',
     start: 'START', newRun: 'NEW RUN', cont: 'CONTINUE', light: 'LIGHT', sound: 'SOUND', slot: 'SLOT',
     how: 'HOW TO PLAY', lang: '日本語', on: 'ON', off: 'OFF',
@@ -201,8 +209,8 @@ const I18N = {
       ['Right: gates', 'Each shot improves the number by 1. Pass through to change DMG / RATE / LINE / CREW; skip it and nothing happens'],
       ['Items', 'Break dashed boxes to get them. Run into an unbroken one: -1 life (0 = game over). You can dodge'],
       ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
-      ['Boss', 'A big fish ends every stage; every 10th is a big boss. If it reaches the bottom, you lose'],
-      ['Goal', 'Stage 100 = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
+      ['Boss', 'A big fish ends every stage and attacks with bubbles, charges, ink and more. Get hit or let it reach the bottom and you lose'],
+      ['Goal', 'Stage 10 = GAME CLEAR. Beyond it is ∞ COIN RUSH: every clear snowballs your coins'],
       ['Coins & pearls', 'Distance becomes coins for upgrading gear. First-time stage clears give pearls for the weapon / skin gacha'],
     ],
   },
@@ -234,6 +242,7 @@ const FF = [
 ];
 const FCOL = ['#cfe0ff', '#ffb35a', '#ff6a8a'];
 const FISH = FCOL.map(col => FF.map(f => spr(f, { '#': col }, 2)));
+const GOLD_FISH = FF.map(f => spr(f, { '#': '#ffd84a' }, 2));
 const MEAT = spr(['.....ww', '....ww.', '..###..', '.####..', '#####..', '####...', '.##....'], { '#': '#e0664a', w: '#fff' }, 2);
 const PLAYER_ROWS = ['.....w.....', '....###....', '...#####...', '...#####...', '..#e###e#..', '.##d###d##.', '###########', '#.#######.#', '#..#####..#', '...##.##...', '..##...##..'];
 // ボス：大きな魚（食べごたえのある獲物）
@@ -295,7 +304,7 @@ function newRun() {
   const r = {
     m: 0, stage: 1, stageM: 0, hp: 1, food: FOOD_MAX, foodMax: FOOD_MAX, nextLife: stageLen(1) * 2.5, t: 0, fire: 0, rowAcc: 0, gateAcc: GATE_GAP - 40, uid: 0, inv: 0,
     st: { ...ST0 }, x: MID, tx: MID, nextWeapon: stageLen(1) * 1.5,
-    mobs: [], b: [], objs: [],
+    mobs: [], b: [], objs: [], eb: [], ink: [], mod: 'normal', bonus: 0,
     boss: null, cleared: false, fightKills: 0, kills: 0,
     pops: [], parts: [], popT: 0, bossAcc: 0, bossAccT: 0, hurt: 0, banner: null, over: false, newBest: false,
   };
@@ -308,8 +317,8 @@ function newRun() {
 }
 function snapshot() {
   if (!R || R.over) return null;
-  const { m, stage, stageM, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, cleared, fightKills, kills } = R;
-  return JSON.parse(JSON.stringify({ m, stage, stageM, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, cleared, fightKills, kills }));
+  const { m, stage, stageM, mod, bonus, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, cleared, fightKills, kills } = R;
+  return JSON.parse(JSON.stringify({ m, stage, stageM, mod, bonus, hp, food, foodMax, base, nextLife, nextWeapon, t, rowAcc, gateAcc, uid, st, x, mobs, objs, boss, cleared, fightKills, kills }));
 }
 function loadRun(snap) {
   const r = newRun();
@@ -334,9 +343,9 @@ function clearFrac() {
 const mEff = () => R.m;
 // 今のステージの進み具合（道のり 75% + ボス 25%）
 const stageFrac = () => (R.boss ? 0.75 + 0.25 * clearFrac() : 0.75 * Math.min(1, R.stageM / stageLen(R.stage)));
-const stageP = () => (R.stage - 1) / STAGES;   // 全体の進み具合（100 ステージで 1。∞ MODE では 1 を超える）
+const stageP = () => (R.stage - 1) / STAGES;   // 全体の進み具合（ステージ10の手前で約1。∞ では 1 を超える）
 // 強さの上限は進み具合で少しずつ開く（序盤つらい → 70% 前後で全開 → 終盤はマイナスゲートと速さで苦しい）
-const pOf = () => Math.min(1, R ? (R.stage - 1) / 70 : 0);   // 70 ステージ前後で全開
+const pOf = () => Math.min(1, R ? (R.stage - 1) / 7 : 0);   // ステージ8で全開
 const baseOf = k => (R && R.base ? R.base[k] : 1);
 const linesCap = () => Math.max(baseOf('lines'), Math.min(OPT.light ? 9 : LMAX, 2 + Math.floor(pOf() * 18)));
 const crewCap = () => Math.max(baseOf('crew'), Math.min(CMAX, 1 + Math.floor(pOf() * 10)));
@@ -355,7 +364,7 @@ function makeGate(slot, safe) {
   else if (q < 0.4 && room.lines) stat = 'lines';
   else if (q < 0.5 && room.crew) stat = 'crew';
   else stat = 'dmg';
-  const bad = !safe && Math.random() < 0.3 + 0.4 * pc + (p > 1 ? 0.1 : 0);
+  const bad = !safe && Math.random() < 0.3 + 0.4 * pc + (p > 1 ? 0.1 : 0) + (mod() === 'minus' ? 0.3 : 0);
   if (stat === 'dmg') {
     const mag = Math.pow(10, p * 5);   // 100% で 十万くらいの桁
     if (pc > 0.12 && Math.random() < 0.06) {
@@ -456,9 +465,9 @@ function breakItem(o) {
 const ZSLOTS = 12, ZX0 = 9, ZDX = 14;
 function spawnRow() {
   const p = Math.min(1, stageP());
-  const dens = Math.min(0.92, 0.08 + 0.6 * Math.pow(p, 0.7) + (stageP() > 1 ? 0.25 * Math.min(1, stageP() - 1) : 0));
+  const dens = Math.min(0.95, (0.025 + 0.5 * Math.pow(p, 0.8) + (stageP() > 1 ? 0.25 * Math.min(1, stageP() - 1) : 0)) * (mod() === 'school' ? 1.8 : 1));
   const k = p < 0.35 ? 0 : p < 0.7 ? 1 : 2;
-  for (let i = 0; i < ZSLOTS; i++) if (Math.random() < dens) R.mobs.push({ x: ZX0 + i * ZDX + rnd(-1, 1), y: -10, k: Math.random() < 0.85 ? k : Math.min(2, k + 1), ph: Math.random() * 6.28, d: 0 });
+  for (let i = 0; i < ZSLOTS; i++) if (Math.random() < dens) R.mobs.push({ x: ZX0 + i * ZDX + rnd(-1, 1), y: -10, k: Math.random() < 0.85 ? k : Math.min(2, k + 1), ph: Math.random() * 6.28, d: 0, gold: mod() === 'golden' && Math.random() < 0.2 ? 1 : 0 });
 }
 // 弾が当たる場所を素早く引くための格子
 const GC = 16, GCOLS = 23, GROWS = 44;
@@ -474,15 +483,66 @@ function buildGrid() {
   }
 }
 
+// ---------- ステージごとの変化（繰り返しの中に、毎回ちがうルール） ----------
+// normal：ふつう / school：魚の群れ（多い）/ current：急流（速い）/ golden：金の魚（食べるとコイン）
+// minus：逆流（マイナスゲートが多い）/ rush：ゲートラッシュ（ゲートが多い）/ dark：深海（上が見えにくい）
+const MODS = ['school', 'current', 'golden', 'minus', 'rush', 'dark'];
+function modOf(n) { if (n <= 1) return 'normal'; return MODS[(n * 5 + 3) % MODS.length]; }
+const mod = () => (R ? R.mod || 'normal' : 'normal');
+function curSpeed() { return Math.min(SPEED_CAP * 1.2, stageSpeed(R.stage) * (mod() === 'current' ? 1.25 : 1)); }
+function enterStage(n) {
+  R.mod = modOf(n);
+  R.banner = { text: L().stageName(n), t: 2.2, sub: L().mods[R.mod] };
+}
+
+// ---------- ボス：攻撃してくる ----------
+// plain：何もしない / bubble：泡を撃つ / charge：突進 / summon：魚を呼ぶ / ink：墨でゲートを隠す。大ボスは2つ組み合わせ
+const BOSS_ATTACKS = ['bubble', 'charge', 'summon', 'ink'];
+function bossKinds(k, big) {
+  if (k <= 1) return ['plain'];
+  const a = BOSS_ATTACKS[(k - 2) % 4];
+  return big ? [a, BOSS_ATTACKS[(k + 1) % 4]] : [a];
+}
+function bossAct(bo, dt, s) {
+  const lvl = 1 + Math.max(0, bo.k - 2) * 0.12;   // 先のステージほど激しく
+  for (const kind of bo.kinds) {
+    bo.cd[kind] = (bo.cd[kind] || 0) - dt;
+    if (bo.cd[kind] > 0) continue;
+    if (kind === 'bubble') {
+      const n = bo.big ? 5 : 3;
+      for (let i = 0; i < n; i++) {
+        const a = Math.atan2(PY - bo.y, R.x - bo.x) + (i - (n - 1) / 2) * 0.22;
+        R.eb.push({ x: bo.x, y: bo.y + 30, vx: Math.cos(a) * 150 * lvl, vy: Math.sin(a) * 150 * lvl, r: 6 });
+      }
+      bo.cd[kind] = 2.2 / lvl;
+    } else if (kind === 'charge') {
+      bo.charge = 0.9;   // 0.9秒の予告のあと突進
+      bo.cd[kind] = 5.5 / lvl;
+    } else if (kind === 'summon') {
+      for (let i = 0; i < 8; i++) R.mobs.push({ x: ZX0 + Math.floor(Math.random() * ZSLOTS) * ZDX, y: bo.y + rnd(-10, 20), k: 2, ph: Math.random() * 6.28, d: 0 });
+      bo.cd[kind] = 3.5 / lvl;
+    } else if (kind === 'ink') {
+      R.ink.push({ x: MID + rnd(10, MID - 90), y: rnd(150, 420), r: 70, t: 3.2 });
+      bo.cd[kind] = 5 / lvl;
+    }
+  }
+  if (bo.charge > 0) {
+    bo.charge -= dt;
+    if (bo.charge <= 0) { bo.dash = 0.35; sfx('hurt'); }
+  }
+  if (bo.dash > 0) { bo.dash -= dt; bo.y += 420 * dt; if (bo.dash <= 0) bo.back = 0.8; }
+  else if (bo.back > 0) { bo.back -= dt; bo.y -= 184 * dt; }   // 突進したぶん戻る
+}
+
 // ---------- ボス ----------
 const bossFightSec = (k, big) => (big ? 16 : 8) * (1 + 0.01 * k + Math.max(0, k - STAGES) * 0.05);
 function spawnBoss() {
   const k = R.stage, big = k % 10 === 0;
   // HP は今の火力に合わせる（数字はインフレするが、戦う時間は変わらない）
   const max = Math.max(20, dpsOf(R.st) * 0.35 * bossFightSec(k, big));
-  R.boss = { k, big, hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0 };
+  R.boss = { k, big, hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0, kinds: bossKinds(k, big), cd: { bubble: 1.5, charge: 3, summon: 1, ink: 2 } };
   R.fightKills = 0;
-  R.banner = { text: big ? L().bigBoss : L().boss, t: 2 };
+  R.banner = { text: big ? L().bigBoss : L().boss, t: 2, sub: R.boss.kinds.map(x => L().attacks[x]).join(' ＋ ') };
   sfx('boss');
 }
 function killBoss() {
@@ -497,8 +557,14 @@ function killBoss() {
     pop(W / 2, 330, L().firstClear(p), true, '#ffc6f0');
   }
   sfx('boss');
-  if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
-  else R.banner = { text: L().stageClear(b.k), t: 1.8, sub: b.big ? L().bigDown : '' };
+  if (b.k >= STAGES) {   // 11 から先は、クリアごとにコインが 1.35 倍ずつ増える
+    const bonus = Math.round(40 * Math.pow(1.35, b.k - STAGES));
+    R.bonus = (R.bonus || 0) + bonus;
+    pop(W / 2, 360, L().coinRush(bonus), true, '#ffd84a');
+  }
+  R.eb = []; R.ink = [];
+  if (b.k === STAGES && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ COIN RUSH' }; R.mod = modOf(R.stage); }
+  else enterStage(R.stage);
 }
 function burst(x, y, n, col) {
   if (OPT.light) return;
@@ -558,7 +624,7 @@ function volley() {
 function step(dt) {
   if (!R || R.over) return;
   const st = R.st;
-  const s = stageSpeed(R.stage);
+  const s = curSpeed();
   R.t += dt;
 
   // 進行：ボスが出たらその場で止まり、ボス戦の進み具合でバーが動く
@@ -603,7 +669,7 @@ function step(dt) {
           for (let j = head[xx + yy * GCOLS]; j !== -1; j = nxt[j]) {
             const mo = R.mobs[j];
             if (mo.d || Math.abs(b.x - mo.x) > 8 || Math.abs(b.y - mo.y) > 8) continue;
-            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; R.food = Math.min(R.foodMax, R.food + FOOD_EAT * (1 + skinBonus('eat')));
+            mo.d = 1; R.kills++; if (R.boss) R.fightKills++; if (mo.gold) { R.bonus = (R.bonus || 0) + 2; pop(mo.x, mo.y - 10, '+2', false, '#ffd84a'); } R.food = Math.min(R.foodMax, R.food + FOOD_EAT * (1 + skinBonus('eat')));
             if (!OPT.light && R.parts.length < 120 && Math.random() < 0.5) R.parts.push({ x: mo.x, y: mo.y, vx: rnd(-60, 60), vy: rnd(-60, 60), life: 0.35, col: FCOL[mo.k] });
             if (R.popT <= 0) { pop(mo.x, mo.y, fmt(b.d), false, '#fff'); R.popT = 0.09; }
             sfx('kill');
@@ -625,13 +691,23 @@ function step(dt) {
   const bo = R.boss;
   if (bo) {
     bo.ph += dt; bo.hit = Math.max(0, bo.hit - dt);
-    if (bo.y < 150) bo.y += 130 * dt; else bo.y += (bo.big ? 9 : 14) * s * dt;
+    if (bo.y < 150) bo.y += 130 * dt;
+    else { bo.y += (bo.big ? 9 : 14) * s * dt; bossAct(bo, dt, s); }
     bo.x = MID + Math.sin(bo.ph * 0.7) * 90;
     R.bossAccT -= dt;
     if (R.bossAccT <= 0 && R.bossAcc > 0) { pop(bo.x + rnd(-30, 30), bo.y + 30, fmt(R.bossAcc), true, '#b8ffd2'); R.bossAcc = 0; R.bossAccT = 0.25; }
     if (bo.hp <= 0) killBoss();
     else if (bo.y > PY - 40) R.hp = 0;
   }
+
+  // ボスの弾（泡）：当たったら負け
+  for (let i = R.eb.length - 1; i >= 0; i--) {
+    const e = R.eb[i];
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    if (Math.abs(e.x - R.x) < 12 + e.r * 0.5 && Math.abs(e.y - (PY - 4)) < 14) { R.eb.splice(i, 1); damage(); pop(R.x, PY - 30, L().hit, true, '#ff5a5a'); continue; }
+    if (e.y > H || e.x < -20 || e.x > W + 20) R.eb.splice(i, 1);
+  }
+  for (let i = R.ink.length - 1; i >= 0; i--) { R.ink[i].t -= dt; if (R.ink[i].t <= 0) R.ink.splice(i, 1); }
 
   // 魚：前進、到達（食べ逃すと飢餓ゲージ-1）
   R.rowAcc += MOB_VY * s * dt * (R.boss ? 0.4 : 1);
@@ -646,7 +722,7 @@ function step(dt) {
 
   // ゲート・アイテム：前進。くぐったら確定（ゲートは効果、壊せなかったアイテムにぶつかったらライフ-1）
   R.gateAcc += GATE_VY * s * dt;
-  if (R.gateAcc >= GATE_GAP) { R.gateAcc -= GATE_GAP; spawnGateRow(); }
+  if (R.gateAcc >= GATE_GAP * (mod() === 'rush' ? 0.55 : 1)) { R.gateAcc = 0; spawnGateRow(); }
   for (const o of R.objs) {
     o.hit = Math.max(0, o.hit - dt);
     if (o.dead) continue;
@@ -681,6 +757,9 @@ function damage() {
 
 // 開発用の自動操縦：ワニが詰まってきたら左へ、そうでなければ右のゲートとアイテムを撃つ
 function botControl() {
+  // 泡が近づいたら避ける
+  const e = R.eb.find(e => e.y > PY - 160 && Math.abs(e.x + e.vx * 0.4 - R.x) < 34);
+  if (e) { R.tx = R.x + (e.x < R.x ? 60 : -60); return; }
   const near = R.objs.filter(o => !o.dead && o.y + o.h > PY - 90);
   if (near.length) {
     const good = near.find(o => o.cls === 'gate' && isGood(o));
@@ -856,7 +935,7 @@ function renderEquip() {
 }
 function startRun(resume) {
   show('menu', false); show('result', false); show('pause', false);
-  if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; if (!OPT.tutDone) tutStart(); }
+  if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; enterStage(1); if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
   countdown(() => { state = 'play'; });
 }
@@ -894,7 +973,7 @@ function gameOver() {
   SLOT.runs++;
   R.newBest = m > SLOT.best;
   if (R.newBest) SLOT.best = m;
-  const gain = coinsFor(m, R.stage - 1);
+  const gain = coinsFor(m, Math.min(R.stage - 1, STAGES)) + Math.round((R.bonus || 0) * (1 + skinBonus('coin')));
   SLOT.coins += gain;
   SLOT.run = null; writeSlot();
   sfx('hurt');
@@ -1034,7 +1113,7 @@ function render(now) {
   // ワニ（小さく大量に）
   const fr = Math.floor(now / 380) % 2;
   for (const mo of R.mobs) {
-    const im = FISH[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
+    const im = mo.gold ? GOLD_FISH[(fr + (mo.ph > 3.14 ? 1 : 0)) % 2] : FISH[mo.k][(fr + (mo.ph > 3.14 ? 1 : 0)) % 2];
     ctx.drawImage(im, Math.round(mo.x + Math.sin(now / 500 + mo.ph) * 1.5 - 7), Math.round(mo.y - 6));
   }
 
@@ -1076,6 +1155,15 @@ function render(now) {
     text(fmt(Math.max(0, Math.ceil(bo.hp))), bo.x, by - 5, 12, '#fff', 'center');
   }
 
+  // ボスの弾（泡）と、突進の予告
+  for (const e of R.eb) {
+    ctx.strokeStyle = '#ffb3d9'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,179,217,.35)'; ctx.fill();
+  }
+  if (R.boss && R.boss.charge > 0 && Math.floor(R.boss.charge * 10) % 2) {
+    ctx.fillStyle = 'rgba(255,80,80,.18)'; ctx.fillRect(R.boss.x - 60, R.boss.y, 120, PY - R.boss.y);
+  }
   // 弾
   for (const b of R.b) {
     ctx.fillStyle = bulletColor(b.d);
@@ -1083,6 +1171,17 @@ function render(now) {
     else ctx.fillRect(b.x - 1.5, b.y - 4, 3, 8);
   }
 
+  // 墨（ゲートを隠す）と深海（上が暗い）
+  for (const k of R.ink) {
+    ctx.globalAlpha = Math.min(1, k.t) * 0.92; ctx.fillStyle = '#05070c';
+    ctx.beginPath(); ctx.arc(k.x, k.y, k.r, 0, 6.283); ctx.arc(k.x + 30, k.y + 20, k.r * 0.7, 0, 6.283); ctx.arc(k.x - 26, k.y + 26, k.r * 0.6, 0, 6.283); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (mod() === 'dark') {
+    const g = ctx.createLinearGradient(0, 84, 0, 380);
+    g.addColorStop(0, 'rgba(0,0,0,.92)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 84, W, 300);
+  }
   // 自機と仲間
   if (!R.over) {
     const n = Math.min(R.st.crew, 8);
@@ -1124,6 +1223,7 @@ function drawHUD() {
   ctx.fillRect(bx, by, bw * stageFrac(), bh);
   ctx.fillStyle = '#000'; ctx.fillRect(bx + bw * 0.75 - 0.5, by, 1, bh);   // ここからボス
   text(L().stageName(R.stage), bx + bw + 8, by + 10, 12, R.stage % 10 === 0 ? '#ff8a7a' : '#fff');
+  if (R.mod && R.mod !== 'normal') text(L().mods[R.mod], W - 10, 64, 11, '#ffd84a', 'right');
   text(L().best + ' ' + fmt(Math.floor(Math.max(SLOT.best, m) * METER)) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
   // 飢餓ゲージ（🍖）
   ctx.drawImage(MEAT, 9, 26);
@@ -1136,7 +1236,7 @@ function drawHUD() {
   }
   if (R.hungry > 0) { ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(26.5, 27.5, fm * cw, 11); }
   text(fmt(Math.floor(m * METER)) + ' m', 10, 62, 18, '#fff');
-  text(L().speed + ' ×' + stageSpeed(R.stage).toFixed(2), 10, 77, 11, '#6b7a70');
+  text(L().speed + ' ×' + curSpeed().toFixed(2), 10, 77, 11, '#6b7a70');
   text(L().food, MID / 2, 96, 11, 'rgba(170,230,255,.7)', 'center');
   text(L().gate, MID + MID / 2, 96, 11, 'rgba(120,255,170,.6)', 'center');
   // 下段：ハートと今の強さ
@@ -1159,7 +1259,7 @@ function frame(now) {
     R.tx = clamp(R.tx, 14, W - 14);
     let dt = Math.min(0.05, raw) * TS;
     while (dt > 0 && state === 'play') { const d = Math.min(1 / 30, dt); step(d); dt -= d; }
-    starY += stageSpeed(R.stage) * 40 * raw * TS % H;
+    starY += curSpeed() * 40 * raw * TS % H;
     // 最初の数秒で重そうなら、軽量モードを提案して自動で切り替える
     if (!OPT.lightAsked && !OPT.light && lightSamples < 240) {
       lightSamples++; lightSum += raw;
