@@ -4,7 +4,7 @@
 //  無限の次へ / Beyond ∞ — モノクロ合成インクリメンタル
 // =====================================================
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const SLOT_KEYS = ['infinity-merge-v2', 'infinity-merge-v2-s1', 'infinity-merge-v2-s2'];
 const OLD_SAVE_KEY = 'infinity-merge-v1';
 const BACKUP_KEY = 'infinity-merge-backup';
@@ -15,7 +15,7 @@ const OMEGA_DIM = 10;            // 次元10で ∞ を作ると Ω（ゴール�
 const SPACE_CAPS = [16, 20, 24, 30, 36];   // 画面に置ける上限（ごちゃつかせない）
 const SIZE_MULT = { S: 0.85, M: 1, L: 1.15 };
 const CONFIRM_SELL_TIER = 10;
-const PANELS = ['play', 'shop', 'inf', 'vs', 'menu'];
+const PANELS = ['play', 'shop', 'gacha', 'vs', 'menu'];
 const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
 
 // ---------- 言語 ----------
@@ -83,14 +83,17 @@ const I18N = {
     ],
     tutBonus: 'チュートリアルボーナス',
     tips: {
-      rebirth: '転生できるようになった。<br>∞ タブの REBIRTH で魂を得よう。∞ を作っていれば次の次元へ進める。',
+      rebirth: '転生できるようになった。<br>UPGRADE → ∞ ETERNAL の REBIRTH で魂を得よう。∞ を作っていれば次の次元へ進める。',
       soul: '魂で永遠強化を買える。<br>転生しても消えず、上限もない。',
       versus: 'VERSUS：ステージや他のプレイヤーの分身と、全自動のタイムアタックで勝負。<br>勝つと COIN と SP がもらえる。',
-      gacha: 'ガチャが解放された。<br>MENU → GACHA で SP を使ってスキンと背景を集めよう。毎日1回無料。',
+      gacha: 'ガチャが解放された。<br>GACHA タブで SP を使ってスキンと背景を集めよう。毎日1回無料。',
       weekly: '週間チャレンジが解放された。<br>VERSUS → RANKING で、全員同じ条件のタイムアタックに挑戦できる。',
     },
-    whatsNewTitle: 'アップデート v2.0',
+    whatsNewTitle: 'アップデート v2.1',
     whatsNew: [
+      'UPGRADE タブを「NORMAL / ∞ ETERNAL」に。転生と永遠強化はここへ',
+      'GACHA タブを新設：今週のピックアップ・図鑑・排出率・履歴',
+      '旧データの魂は新しい基準（今の次元までに得られる量）に置き換えた',
       '∞ を作るたびに上限が伸びる。下限は 1 から',
       '強化の上限が次元ごとに大きく伸び、新しい強化も増える（次元5で倍速モード）',
       '永遠強化5種。上限なし',
@@ -186,14 +189,17 @@ const I18N = {
     ],
     tutBonus: 'Tutorial bonus',
     tips: {
-      rebirth: 'You can rebirth now.<br>Use REBIRTH in the ∞ tab to earn Souls. With an ∞ you move on to the next dimension.',
+      rebirth: 'You can rebirth now.<br>Use REBIRTH in UPGRADE → ∞ ETERNAL to earn Souls. With an ∞ you move on to the next dimension.',
       soul: 'Spend Souls on Eternal upgrades.<br>They survive every rebirth and have no cap.',
       versus: 'VERSUS: automatic time attacks against stages and copies of other players.<br>Wins give COIN and SP.',
-      gacha: 'The Gacha is open.<br>Spend SP in MENU → GACHA to collect skins and backgrounds. One free pull a day.',
+      gacha: 'The Gacha is open.<br>Spend SP in the GACHA tab to collect skins and backgrounds. One free pull a day.',
       weekly: 'The Weekly Challenge is open.<br>In VERSUS → RANKING, race everyone under the same rules.',
     },
-    whatsNewTitle: 'Update v2.0',
+    whatsNewTitle: 'Update v2.1',
     whatsNew: [
+      'UPGRADE now has NORMAL / ∞ ETERNAL. Rebirth and Eternal upgrades live there',
+      'New GACHA tab: weekly pick-up, collection, rates and history',
+      'Souls from old saves are converted to the new scale (what this dimension would have earned)',
       'Each ∞ raises the ceiling. The floor always starts at 1',
       'Upgrade caps grow each dimension, with new upgrades (Speed Mode at dimension 5)',
       'Five eternal upgrades with no cap',
@@ -249,7 +255,7 @@ const L = () => I18N[OPT.lang] || I18N.ja;
 
 // ---------- プロフィール（アカウント共通：BP・スキン・戦績） ----------
 function normalizeProfile(p) {
-  const def = { bp: 0, bpTotal: 0, stage: 0, skins: ['CIRCLE'], skin: 'CIRCLE', bgs: ['DOTS'], bg: 'DOTS', tickets: {}, pity: 0, pulls: 0, dailyAt: 0, loginAt: 0, maxDim: 1, everInf: false, weekly: {}, weeklyClaimed: 0, wins: 0, losses: 0, name: '', updated: 0, history: [] };
+  const def = { bp: 0, bpTotal: 0, stage: 0, skins: ['CIRCLE'], skin: 'CIRCLE', bgs: ['DOTS'], bg: 'DOTS', tickets: {}, pity: 0, pulls: 0, dailyAt: 0, loginAt: 0, maxDim: 1, everInf: false, weekly: {}, weeklyClaimed: 0, pickGuard: false, gachaLog: [], lgCount: 0, wins: 0, losses: 0, name: '', updated: 0, history: [] };
   p = { ...def, ...(p || {}) };
   if (!Array.isArray(p.skins)) p.skins = ['CIRCLE'];
   p.skins = [...new Set(['CIRCLE', ...p.skins.filter(isSkinId)])];
@@ -258,10 +264,13 @@ function normalizeProfile(p) {
   p.bgs = [...new Set(['DOTS', ...p.bgs.filter(isBgId)])];
   if (!p.bgs.includes(p.bg)) p.bg = 'DOTS';
   if (!Array.isArray(p.history)) p.history = [];
+  if (!Array.isArray(p.gachaLog)) p.gachaLog = [];
+  p.gachaLog = p.gachaLog.filter(e => e && (e.k === 'bg' ? isBgId(e.id) : isSkinId(e.id))).slice(0, 50);
+  p.pickGuard = !!p.pickGuard;
   if (!p.tickets || typeof p.tickets !== 'object') p.tickets = {};
   ['x2', 'rank', 'jump'].forEach(k => { p.tickets[k] = Math.max(0, Math.floor(p.tickets[k] || 0)); });
   if (!p.weekly || typeof p.weekly !== 'object') p.weekly = {};
-  ['bp', 'bpTotal', 'stage', 'wins', 'losses', 'updated', 'pity', 'pulls', 'dailyAt', 'loginAt', 'maxDim', 'weeklyClaimed'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  ['bp', 'bpTotal', 'stage', 'wins', 'losses', 'updated', 'pity', 'pulls', 'dailyAt', 'loginAt', 'maxDim', 'weeklyClaimed', 'lgCount'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
   p.maxDim = Math.max(1, p.maxDim);
   p.bpTotal = Math.max(p.bpTotal, p.bp);   // 以前のデータは今の BP から
   return p;
@@ -412,12 +421,6 @@ const ETERNAL = [
   { id: 'eSoul', jp: '魂の共鳴', en: 'Soul Resonance', cost: lv => eCost(120, lv),
     desc: lv => ({ ja: `魂 +${lv * 25}% → +${(lv + 1) * 25}%`, en: `Souls +${lv * 25}% → +${(lv + 1) * 25}%` }) },
 ];
-// 以前の魂スキル（上限あり）の値段。移行時にかかった魂を返す
-const OLD_SKILL_COST = {
-  startAuto: lv => Math.ceil(3 * Math.pow(2, lv)), startSpace: lv => Math.ceil(10 * Math.pow(4, lv)),
-  dupMerge: lv => Math.ceil(5 * Math.pow(2.2, lv)), golden: lv => Math.ceil(4 * Math.pow(1.8, lv)),
-  idle: lv => Math.ceil(6 * Math.pow(2, lv)), resonance: lv => Math.ceil(8 * Math.pow(2, lv)),
-};
 
 // ---------- 状態（スロットごと） ----------
 function freshBoost() { return { x2: 0, rank: 0, jump: 0, used: 0 }; }
@@ -472,10 +475,11 @@ function normalize(d) {
   ['coins', 'soul', 'shards', 'runEarned', 'runMaxTier', 'runRanks', 'clearTime'].forEach(k => { if (!Number.isFinite(s[k]) || s[k] < 0) s[k] = 0; });
   s.shards = Math.floor(s.shards);
   // 以前の魂スキルは、使った魂を返して永遠強化へ
+  // 旧データ（魂スキルがあり永遠強化がない）：魂は桁が違うので、v2 で今の次元までに得られる量に置き換える
   if (d.skills && !d.eternal) {
-    let refund = 0;
-    Object.entries(d.skills).forEach(([k, lv]) => { const c = OLD_SKILL_COST[k]; if (c) for (let i = 0; i < Math.floor(lv || 0); i++) refund += c(i); });
-    s.soul += refund;
+    let v2 = 0;
+    for (let k = 0; k < s.shards; k++) v2 += 40 + 10 * k;
+    s.soul = v2;
   }
   delete s.skills;
   if (!Array.isArray(s.objs)) s.objs = [];
@@ -608,7 +612,7 @@ const els = {
   upgrades: $('upgrades'), infPath: $('infPath'), infMain: $('infMain'), infSub: $('infSub'), infNote: $('infNote'),
   omegaBar: $('omegaBar'), rebirth: $('rebirth'), skills: $('skills'),
   prestigeBtn: $('prestigeBtn'), stats: $('stats'), dex: $('dex'), options: $('options'),
-  account: $('sub-account'), skinList: $('sub-skin'),
+  account: $('sub-account'), gachaBadge: $('gachaBadge'), segNormalDot: $('segNormalDot'),
   shopBadge: $('shopBadge'), infBadge: $('infBadge'), vsBadge: $('vsBadge'), menuBadge: $('menuBadge'),
   modal: $('modal'), modalRings: $('modalRings'), modalBody: $('modalBody'), modalButtons: $('modalButtons'),
   toast: $('toast'), toastText: $('toastText'), toastAction: $('toastAction'),
@@ -1051,10 +1055,12 @@ function renderHeader() {
   }
   els.count.textContent = `${S.objs.length} / ${cap()}`;
   const affordable = UPGRADES.some(u => uUnlocked(u) && S.up[u.id] < umax(u) && S.coins >= upCost(u));
-  els.shopBadge.classList.toggle('on', affordable);
   const eAffordable = !MODE && ETERNAL_OPEN(S) && ETERNAL.some(k => S.soul >= eternalCost(k));
-  els.infBadge.classList.toggle('on', !MODE && (infCount() > 0 || eAffordable));
-  els.menuBadge.classList.toggle('on', !!(window.Gacha && Gacha.badge()));
+  const eHot = !MODE && (infCount() > 0 || eAffordable);
+  els.shopBadge.classList.toggle('on', affordable || eHot);
+  els.segNormalDot.classList.toggle('on', affordable);
+  els.infBadge.classList.toggle('on', eHot);
+  els.gachaBadge.classList.toggle('on', !!(window.Gacha && Gacha.badge()));
   if (!MODE && soulBase() >= 1) showTip('rebirth');
 }
 
@@ -1167,7 +1173,6 @@ function renderInf() {
     return upgradeRow(i, ja ? k.jp : k.en, `${ja ? k.en.toUpperCase() + ' · ' : ''}LV ${lv}`, ja ? dsc.ja : dsc.en,
       lv, Infinity, `◇ ${fmt(cost)}`, S.soul >= cost, false, `data-skill="${k.id}"`, k.id);
   }).join('');
-  document.getElementById('eternalWrap').hidden = !(S.soul > 0 || S.stats.rebirths > 0 || S.shards > 0 || ETERNAL.some(k => S.eternal[k.id] > 0));
 }
 
 function renderStats() {
@@ -1207,9 +1212,17 @@ function renderAccount() {
   els.account.innerHTML = `${online}<div class="opt-group">${sl.title}</div>${slots}`;
 }
 
-function renderSkins() {
-  if (window.Gacha) Gacha.render();
+// UPGRADE タブの切り替え（通常 / 永遠）
+let shopView = 'normal';
+function setShopView(v) {
+  shopView = v;
+  document.querySelectorAll('#shopSeg [data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+  $('shopNormal').hidden = v !== 'normal';
+  $('shopEternal').hidden = v !== 'eternal';
+  if (v === 'eternal') { renderInf(); if (S.soul > 0) showTip('soul'); } else renderShop();
 }
+function openEternal() { switchPanel('shop'); setShopView('eternal'); }
+$('shopSeg').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) { setShopView(b.dataset.view); sfx.buy(); } });
 
 function segHTML(key, choices) {
   return `<div class="seg">${choices.map(([v, label]) =>
@@ -1251,7 +1264,6 @@ function renderOptions() {
 
 function renderMenu() {
   renderAccount();
-  renderSkins();
   renderStats();
   renderOptions();
 }
@@ -1271,6 +1283,7 @@ function renderAll() {
   renderInf();
   renderMenu();
   if (window.Online) Online.render();
+  if (window.Gacha && currentPanel === 'gacha') Gacha.render();
 }
 
 function refresh() {
@@ -1294,7 +1307,8 @@ function switchPanel(name) {
   selected = null;
   if (name === 'play') { fieldBox = null; dirty = true; }
   if (name === 'shop') renderShop();
-  if (name === 'inf') { renderInf(); if (S.soul > 0) showTip('soul'); }
+  if (name === 'shop' && shopView === 'eternal') renderInf();
+  if (name === 'gacha' && window.Gacha) Gacha.render();
   if (name === 'menu') renderMenu();
   if (name === 'vs') { if (window.Online) Online.render(); showTip('versus'); }
   tutUpdate(true);
@@ -1406,7 +1420,7 @@ function showInfinityReached() {
     title: l.reachedTitle,
     text: l.reachedText,
     buttons: [
-      { label: 'BEYOND ∞ &nbsp;→', primary: true, onClick: () => switchPanel('inf') },
+      { label: 'BEYOND ∞ &nbsp;→', primary: true, onClick: openEternal },
       { label: l.keepPlaying },
     ],
   });

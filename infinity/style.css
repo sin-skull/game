@@ -910,3 +910,80 @@ body.sleeping main, body.sleeping .top, body.sleeping .tabs { visibility: hidden
 body.calm *, body.calm *::before, body.calm *::after { animation: none !important; transition: none !important; }
 body.calm .legend::before { opacity: 0.4; }
 body.calm .gfx-orb { display: none; }
+
+/* =====================================================
+   v2.1：UPGRADE の切り替え・GACHA タブ
+   ===================================================== */
+.shop-seg { margin: 0 0 18px; }
+.shop-seg button { position: relative; }
+.shop-seg .dot { position: absolute; top: 6px; right: 8px; }
+#shopEternal[hidden], #shopNormal[hidden] { display: none; }
+
+.g-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-bottom: 14px; }
+.g-tix { display: flex; gap: 10px; font-family: var(--jp); font-size: 10px; color: var(--dim); flex-wrap: wrap; justify-content: flex-end; }
+.g-tix b { font-family: var(--mono); color: var(--fg); font-weight: 400; }
+
+.g-banner { position: relative; display: grid; grid-template-columns: 1fr 112px; gap: 10px; align-items: center; padding: 16px; margin-bottom: 12px; overflow: hidden;
+  border: 1px solid var(--lg1); background: radial-gradient(circle at 85% 50%, color-mix(in srgb, var(--lg1) 22%, transparent), transparent 60%), radial-gradient(circle at 10% 100%, color-mix(in srgb, var(--lg2) 16%, transparent), transparent 60%); }
+.g-bn-text small { font-size: 9px; letter-spacing: 0.2em; color: var(--lg1); font-family: var(--jp); }
+.g-bn-text b { display: block; font-family: var(--jp); font-weight: 500; font-size: 22px; margin: 4px 0 2px; }
+.g-bn-text em { font-style: normal; font-size: 9px; letter-spacing: 0.2em; color: var(--dim); }
+.g-bn-text p { font-family: var(--jp); font-size: 10px; line-height: 1.6; color: var(--dim); margin: 8px 0 0; }
+.g-bn-text .g-guard { color: var(--lg1); font-weight: 500; }
+.g-bn-art { width: 104px; height: 104px; display: flex; align-items: center; justify-content: center; }
+.g-bn-art svg { overflow: visible; }
+
+.g-pity { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.g-pity i, .g-comp-row i { flex: 1; height: 3px; background: var(--line); position: relative; display: block; }
+.g-pity i b, .g-comp-row i b { position: absolute; left: 0; top: 0; bottom: 0; background: var(--fg); }
+.g-pity span { font-family: var(--jp); font-size: 10px; color: var(--dim); white-space: nowrap; }
+.g-pity span b { color: var(--fg); font-family: var(--mono); }
+
+.g-tabs { margin: 20px 0 14px; }
+.g-comp { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.g-comp-row { display: grid; grid-template-columns: 72px 1fr 64px; align-items: center; gap: 10px; }
+.g-comp-row span { font-size: 9px; letter-spacing: 0.2em; color: var(--dim); }
+.g-comp-row em { font-style: normal; font-size: 10px; text-align: right; font-variant-numeric: tabular-nums; }
+.g-comp-row.r-L i b, .g-comp-row.r-S i b { background: #ffd76a; }
+.g-comp-row.r-R i b { background: rgba(255, 255, 255, 0.75); }
+.g-comp-row.r-C i b { background: rgba(255, 255, 255, 0.4); }
+.g-miss { font-family: var(--jp); font-size: 10px; color: var(--dim); display: flex; align-items: center; gap: 6px; }
+.g-miss input { accent-color: #fff; }
+.g-chips { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.g-chips button { border: 1px solid var(--line); padding: 5px 10px; font-size: 9px; letter-spacing: 0.15em; color: var(--dim); }
+.g-chips button.on { border-color: var(--fg); color: var(--fg); }
+.coll.miss { opacity: 0.35; }
+.coll.miss .gart svg { filter: grayscale(1) brightness(0.6); }
+
+.g-rates { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.g-rates th { font-weight: 400; font-size: 9px; letter-spacing: 0.15em; color: var(--dim); text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+.g-rates td { padding: 7px 4px; border-bottom: 1px solid var(--line); font-family: var(--jp); color: var(--dim); }
+.g-rates tr.head td { color: var(--fg); font-family: var(--mono); letter-spacing: 0.1em; }
+.g-rates tr.r-L.head td:first-child { color: #ffd76a; }
+.g-notes { margin: 14px 0 0; padding-left: 16px; font-family: var(--jp); font-size: 10px; line-height: 1.8; color: var(--dim); }
+
+.g-logstat { font-family: var(--jp); font-size: 11px; color: var(--dim); margin: 0 0 10px; }
+.g-log-row { display: grid; grid-template-columns: 28px 1fr auto auto; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
+.g-log-art { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; position: relative; }
+.g-log-art .bg-chip { width: 24px; height: 20px; display: block; }
+.g-log-name { font-family: var(--jp); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-log-r { font-size: 8px; letter-spacing: 0.15em; color: var(--faint); }
+.g-log-row.r-L .g-log-r { color: #ffd76a; }
+.g-log-row.r-R .g-log-r { color: var(--fg); }
+.g-log-at { font-size: 9px; color: var(--faint); }
+
+.g-teaser { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 18px 0; }
+.gacha.locked .sp-now { margin-top: 6px; }
+
+.g-detail { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.g-detail-art { width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; position: relative; margin: 8px 0; }
+.g-detail-art svg { overflow: visible; }
+.g-detail-ranks { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.g-detail-ranks span { width: 44px; display: flex; flex-direction: column; align-items: center; gap: 4px; position: relative; }
+.g-detail-ranks svg { width: 40px; height: 40px; overflow: visible; }
+.g-detail-ranks small { font-size: 9px; color: var(--dim); }
+.g-detail-own { font-family: var(--jp); font-size: 11px; color: var(--dim); margin: 0; }
+.bg-chip.big { width: 180px; height: 120px; }
+.modal .g-detail .g-rar { color: var(--dim); }
+.modal .g-detail { background: #000; color: #fff; padding: 16px 12px 14px; margin-top: 4px; }
+.modal .g-detail .g-detail-own, .modal .g-detail .g-detail-ranks small { color: rgba(255, 255, 255, 0.6); }
