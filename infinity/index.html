@@ -26,6 +26,13 @@
         <feGaussianBlur stdDeviation="3" result="b"/>
         <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
+      <!-- LEGEND スキンの色 -->
+      <linearGradient id="lgAurora" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5ef2c9"/><stop offset=".5" stop-color="#6b8cff"/><stop offset="1" stop-color="#d36bff"/></linearGradient>
+      <linearGradient id="lgPrism" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff5f6d"/><stop offset=".25" stop-color="#ffc371"/><stop offset=".5" stop-color="#7cff8a"/><stop offset=".75" stop-color="#5ec8ff"/><stop offset="1" stop-color="#b86bff"/></linearGradient>
+      <radialGradient id="lgEmber"><stop offset="0" stop-color="#fff3c4"/><stop offset=".45" stop-color="#ff9a3c"/><stop offset="1" stop-color="#c2261b"/></radialGradient>
+      <radialGradient id="lgNeon"><stop offset="0" stop-color="#e8ffff"/><stop offset=".6" stop-color="#3cf2ff"/><stop offset="1" stop-color="#0a7cff"/></radialGradient>
+      <linearGradient id="lgGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2b0"/><stop offset=".45" stop-color="#f2c14e"/><stop offset=".7" stop-color="#b8862b"/><stop offset="1" stop-color="#ffe9a0"/></linearGradient>
+      <radialGradient id="lgNova"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#9fc8ff"/><stop offset="1" stop-color="#4b3cff"/></radialGradient>
     </defs>
   </svg>
 
@@ -39,15 +46,17 @@
       <div class="label" id="dim">DIM 01</div>
       <div class="count" id="count">0 / 16</div>
       <div class="label faint">OBJECTS</div>
+      <button class="sleep-btn" id="sleepBtn" aria-label="sleep">☾</button>
     </div>
   </header>
 
   <main id="main">
     <!-- MERGE -->
     <section class="panel active" id="panel-play">
-      <div class="field" id="field">
+      <div class="field bg-DOTS" id="field">
         <div class="field-hint" id="fieldHint">TAP ANYWHERE</div>
       </div>
+      <button class="wk-quit" id="wkQuit" hidden>✕ QUIT</button>
       <button class="rail" id="rail">
         <span id="railText"></span>
         <span id="railPrice"></span>
@@ -61,23 +70,27 @@
       <div id="upgrades"></div>
     </section>
 
-    <!-- ∞ / REBIRTH / SOUL / Ω -->
+    <!-- ∞ / 転生 / ブースト / 永遠強化 / Ω -->
     <section class="panel scroll" id="panel-inf">
       <div class="inf-rings"><span>∞</span></div>
       <div class="inf-path" id="infPath"></div>
       <p class="inf-main" id="infMain"></p>
       <p class="inf-sub" id="infSub"></p>
-      <button class="beyond" id="prestigeBtn">BEYOND ∞ &nbsp;→</button>
-      <p class="inf-note" id="infNote"></p>
-      <div class="omega-bar" id="omegaBar"></div>
 
       <h3>REBIRTH</h3>
       <p class="sec-sub" data-i18n="rebirthSub"></p>
       <div class="rebirth" id="rebirth"></div>
+      <button class="beyond" id="prestigeBtn">REBIRTH</button>
+      <p class="inf-note" id="infNote"></p>
+      <div class="omega-bar" id="omegaBar"></div>
 
-      <h3>SOUL</h3>
-      <p class="sec-sub" data-i18n="soulSub"></p>
-      <div id="skills"></div>
+      <div id="boostWrap"></div>
+
+      <div id="eternalWrap" hidden>
+        <h3>ETERNAL</h3>
+        <p class="sec-sub" data-i18n="soulSub"></p>
+        <div id="skills"></div>
+      </div>
     </section>
 
     <!-- VERSUS -->
@@ -98,7 +111,7 @@
       <p class="h-sub" data-i18n="menuSub"></p>
       <div class="subnav" id="menuNav">
         <button data-sub="account" class="on">ACCOUNT</button>
-        <button data-sub="skin">SKIN</button>
+        <button data-sub="skin">GACHA</button>
         <button data-sub="log">LOG</button>
         <button data-sub="opt">OPTION</button>
       </div>
@@ -152,6 +165,24 @@
     </div>
   </div>
 
+  <!-- 起動画面 -->
+  <div class="boot" id="boot">
+    <div class="boot-stage" id="bootStage"></div>
+    <div class="boot-skip" id="bootSkip">TAP</div>
+  </div>
+
+  <!-- 省エネ（画面オフ） -->
+  <div class="sleep" id="sleep" hidden>
+    <div class="sleep-info"><span id="sleepCoins">0</span><small id="sleepClock"></small></div>
+    <div class="sleep-hint">TAP TO WAKE</div>
+  </div>
+
+  <!-- ガチャ演出 -->
+  <div class="gfx" id="gfx" hidden>
+    <div class="gfx-stage" id="gfxStage"></div>
+    <div class="gfx-hint" id="gfxHint">TAP</div>
+  </div>
+
   <div class="modal" id="modal" hidden>
     <div class="modal-rings" id="modalRings"></div>
     <div class="modal-inner">
@@ -162,7 +193,10 @@
   <div class="toast" id="toast"><span id="toastText"></span><button id="toastAction" hidden></button></div>
 
   <script src="skins.js"></script>
+  <script src="boot.js"></script>
   <script src="game.js"></script>
+  <script src="gacha.js"></script>
   <script src="online.js"></script>
+  <script src="weekly.js"></script>
 </body>
 </html>

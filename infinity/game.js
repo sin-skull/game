@@ -4,7 +4,7 @@
 //  無限の次へ / Beyond ∞ — モノクロ合成インクリメンタル
 // =====================================================
 
-const VERSION = '1.2.0';
+const VERSION = '2.0.0';
 const SLOT_KEYS = ['infinity-merge-v2', 'infinity-merge-v2-s1', 'infinity-merge-v2-s2'];
 const OLD_SAVE_KEY = 'infinity-merge-v1';
 const BACKUP_KEY = 'infinity-merge-backup';
@@ -27,8 +27,8 @@ const I18N = {
       'コインは、オブジェクトを売る・生成ボーナス・ステージで勝つ、で手に入る',
     ]],
     shopSub: 'ステータス強化', menuSub: 'アカウント・スキン・記録・設定', vsSub: 'バトルとランキング',
-    rebirthSub: '今の周回を終えて「魂」を得る。次元とスキルは残る。',
-    soulSub: '魂で買う永続スキル。転生しても消えない。',
+    rebirthSub: '今の周回を終えて「魂」を得る。∞ を作っていれば次の次元へ。',
+    soulSub: '魂で買う永遠強化。転生しても消えない。上限なし。',
     railDrop: '↓ ドロップで売却', railTap: 'タップで売却',
     tapAnywhere: 'どこでもタップ',
     full: '空間がいっぱい。合成するか売却しよう',
@@ -37,9 +37,9 @@ const I18N = {
     sold: v => `${v} で売却`, undo: '取り消す', undone: '売却を取り消した',
     autoSellDesc: '満杯なら最小を売って生成を続ける',
     infHave: n => `フィールドに ∞ が ${n} つある。`,
-    infHaveSub: (n, m) => `次へ進むと、コイン・オブジェクト・強化はリセット。<br>次元 +${n} ／ 収入 ×${m}`,
+    infHaveSub: '∞ を増やすほど魂が増える。今転生すれば次の次元へ。',
     infGone: '∞ はもう、ここにはない。',
-    infLeft: n => `無限まで、あと ${n} 段階。`,
+    infLeft: (n, g) => `この次元の ∞ は ${g}。あと ${n} 段階。`,
     infDim: (d, m) => `次元 ${d} ／ 収入 ×${m}`,
     infCurious: '無限の次、気にならない？',
     infLocked: 'LOCKED — ∞ を作ると解放',
@@ -49,7 +49,14 @@ const I18N = {
     time: (h, m, s) => (h ? `${h}時間${m}分` : m ? `${m}分${s}秒` : `${s}秒`),
     reachedTitle: '無限に到達した。', reachedText: '…でも、無限の次って<br>気にならない？', keepPlaying: 'まだ続ける',
     beyondTitle: '無限の次へ進む？', beyondText: (n, m, s) => `コイン・オブジェクト・強化はリセット。<br>次元 +${n} ／ 収入 ×${m}${s ? ` ／ 魂 +${s}` : ''}`, cancel: 'やめる',
-    dimTitle: d => `次元 ${d}`, dimText: m => `すべての収入が ×${m} になった。<br>無限の、さらに次へ。`,
+    dimTitle: d => `次元 ${d}`, dimText: (g, m) => `上限が ${g} まで伸びた。収入 ×${m}。<br>無限の、さらに次へ。`,
+    newUpgrade: x => `新しい強化：${x}`, capUp: '強化の上限が伸びた。前より速く登れる。',
+    eta: t => `あと約 ${t}`, unlockAt: d => `次元 ${d} で解放`,
+    rebirthNext: d => `REBIRTH → DIM ${d}`, rebirthSame: 'REBIRTH', rebirthNextTitle: d => `次元 ${d} へ転生する？`, rebirthSameTitle: '転生する？',
+    rebirthHintNext: '∞ を作ったので、転生すると次の次元へ進む。もう少し ∞ を作ってから押すと魂が増える。',
+    rebirthHintSame: 'まだ ∞ がないので、転生しても同じ次元でやり直し。',
+    rebirthConfirm: (n, k) => `コイン・オブジェクト・強化は 0 に戻る。永遠強化はそのまま。<br>魂 +${n}${k ? '<br>次の次元へ進む' : ''}`,
+    rebirthDone: n => `転生した。魂 +${n}`,
     omegaTitle: 'Ω に到達した。', omegaText: t => `クリアタイム ${t}。<br>無限の次の、そのまた先。<br>ここからは、終わりのない旅。`, omegaReward: 'スキン「墨」を解放した',
     offlineText: t => `留守の間（${t}）も、生成は続いていた。`,
     sellConfirmTitle: '本当に売る？', sellConfirmText: (r, p) => `${r} を ${p} コインで売却します。`, sell: 'SELL',
@@ -60,7 +67,7 @@ const I18N = {
       clear: ['清算転生', 'すべて 0 に戻る。魂をまるごと得る。'],
       gain: n => `魂 +${n}`, locked: n => `あと ${n} コイン稼ぐと転生できる`,
       how: '魂の量は、この周回で稼いだコインと、どこまで到達したかで決まる。',
-      rows: ['稼ぎ', '到達ランク', '次元', '共鳴'],
+      rows: ['稼ぎ', '到達ランク', '次元', '共鳴', '∞ の数'],
       pickTitle: '残す強化を選ぶ', confirmTitle: '転生する？',
       confirmText: (n, keep) => `コイン・オブジェクト・強化は 0 に戻る${keep ? `（${keep} は残る）` : ''}。<br>次元とスキルはそのまま。魂 +${n}`,
       done: n => `転生した。魂 +${n}`,
@@ -76,16 +83,21 @@ const I18N = {
     ],
     tutBonus: 'チュートリアルボーナス',
     tips: {
-      rebirth: '転生できるようになった。<br>∞ タブで「継承」か「清算」を選んで、魂を得よう。',
-      soul: '魂で永続スキルを買える。<br>転生しても消えない。',
-      versus: 'VERSUS：相手のセーブデータの「分身」と全自動で戦う。<br>魂を賭けて、勝てば BP でスキンを解放。',
+      rebirth: '転生できるようになった。<br>∞ タブの REBIRTH で魂を得よう。∞ を作っていれば次の次元へ進める。',
+      soul: '魂で永遠強化を買える。<br>転生しても消えず、上限もない。',
+      versus: 'VERSUS：ステージや他のプレイヤーの分身と、全自動のタイムアタックで勝負。<br>勝つと COIN と SP がもらえる。',
+      gacha: 'ガチャが解放された。<br>MENU → GACHA で SP を使ってスキンと背景を集めよう。毎日1回無料。',
+      weekly: '週間チャレンジが解放された。<br>VERSUS → RANKING で、全員同じ条件のタイムアタックに挑戦できる。',
     },
-    whatsNewTitle: 'アップデート v1.2',
+    whatsNewTitle: 'アップデート v2.0',
     whatsNew: [
-      'ステージバトルを追加。勝つとコイン。負けても何も失わない',
-      'バトルに運が絡むように。同じ強さなら五分五分',
-      '挑む前に勝率の目安を表示',
-      '強化のページに「COIN の使い道」を表示',
+      '∞ を作るたびに上限が伸びる。下限は 1 から',
+      '強化の上限が次元ごとに大きく伸び、新しい強化も増える（次元5で倍速モード）',
+      '永遠強化5種。上限なし',
+      '転生はボタン1つ。魂は ∞ の数で増える',
+      'ガチャ：毎日1回無料。スキン700種以上と背景',
+      'ランキングは「週間」と「超越者」に',
+      '起動画面・省エネモード',
     ],
     slot: {
       title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
@@ -105,6 +117,7 @@ const I18N = {
       export: ['データを書き出す', '機種変更・バックアップ用のコード'], import: ['データを読み込む', '書き出したコードを貼り付け'],
       restore: ['ひとつ前のデータに戻す', '読み込み・消去の直前の状態へ'], restored: 'ひとつ前のデータに戻した', noBackup: 'バックアップがない',
       reset: ['このスロットを消去', ''], on: 'ON', off: 'OFF',
+      calm: ['動きを減らす', '揺れ・光・演出をおさえる'], sleep: ['省エネ画面', '画面を暗くして放置する（タップで戻る）'], autoSleep: ['自動で省エネ', '操作がないとき、省エネ画面にする'],
       exportTitle: '書き出しコード', exportText: 'このコードを保存しておけば、別の端末でも続きから遊べる。', copy: 'COPY', copied: 'コピーした', close: '閉じる',
       importTitle: 'データを読み込む', importText: '書き出しコードを貼り付けてください。今のスロットは上書きされます。', load: 'LOAD',
       imported: '読み込んだ', importFail: 'コードが正しくない',
@@ -117,8 +130,8 @@ const I18N = {
       'Get coins by selling objects, from Spawn Bonus, and by winning stages',
     ]],
     shopSub: 'Status upgrades', menuSub: 'Account, skins, records and settings', vsSub: 'Battle & ranking',
-    rebirthSub: 'End this run to earn Souls. Dimension and skills stay.',
-    soulSub: 'Permanent skills bought with Souls. They survive rebirth.',
+    rebirthSub: 'End this run to earn Souls. If you made ∞, you move to the next dimension.',
+    soulSub: 'Eternal upgrades bought with Souls. They survive rebirth. No cap.',
     railDrop: '↓ DROP TO SELL', railTap: 'TAP TO SELL',
     tapAnywhere: 'TAP ANYWHERE',
     full: 'No space. Merge or sell something.',
@@ -127,9 +140,9 @@ const I18N = {
     sold: v => `Sold for ${v}`, undo: 'UNDO', undone: 'Sale undone',
     autoSellDesc: 'When full, sells the smallest to keep spawning',
     infHave: n => `There ${n > 1 ? 'are' : 'is'} ${n} ∞ on the field.`,
-    infHaveSub: (n, m) => `Going beyond resets coins, objects and upgrades.<br>Dimension +${n} / Income ×${m}`,
+    infHaveSub: 'More ∞ means more Souls. Rebirth now to reach the next dimension.',
     infGone: '∞ is no longer here.',
-    infLeft: n => `${n} step${n > 1 ? 's' : ''} to infinity.`,
+    infLeft: (n, g) => `This dimension\u2019s ∞ is ${g}. ${n} step${n > 1 ? 's' : ''} to go.`,
     infDim: (d, m) => `Dimension ${d} / Income ×${m}`,
     infCurious: 'Aren’t you curious what lies beyond?',
     infLocked: 'LOCKED — make ∞ to unlock',
@@ -139,7 +152,14 @@ const I18N = {
     time: (h, m, s) => (h ? `${h}h ${m}m` : m ? `${m}m ${s}s` : `${s}s`),
     reachedTitle: 'You reached infinity.', reachedText: '…but aren’t you curious<br>what lies beyond?', keepPlaying: 'Keep playing',
     beyondTitle: 'Go beyond infinity?', beyondText: (n, m, s) => `Coins, objects and upgrades reset.<br>Dimension +${n} / Income ×${m}${s ? ` / Souls +${s}` : ''}`, cancel: 'Cancel',
-    dimTitle: d => `Dimension ${d}`, dimText: m => `All income is now ×${m}.<br>Beyond infinity, and further.`,
+    dimTitle: d => `Dimension ${d}`, dimText: (g, m) => `The ceiling rose to ${g}. Income ×${m}.<br>Beyond infinity, and further.`,
+    newUpgrade: x => `New upgrade: ${x}`, capUp: 'Upgrade caps rose. You will climb faster than before.',
+    eta: t => `about ${t} to go`, unlockAt: d => `Unlocks in dimension ${d}`,
+    rebirthNext: d => `REBIRTH → DIM ${d}`, rebirthSame: 'REBIRTH', rebirthNextTitle: d => `Rebirth into dimension ${d}?`, rebirthSameTitle: 'Rebirth?',
+    rebirthHintNext: 'You made ∞, so rebirth takes you to the next dimension. Make more ∞ first for more Souls.',
+    rebirthHintSame: 'No ∞ yet, so rebirth restarts this same dimension.',
+    rebirthConfirm: (n, k) => `Coins, objects and upgrades reset. Eternal upgrades stay.<br>Souls +${n}${k ? '<br>You move on to the next dimension' : ''}`,
+    rebirthDone: n => `Reborn. Souls +${n}`,
     omegaTitle: 'You reached Ω.', omegaText: t => `Clear time ${t}.<br>Beyond the beyond.<br>From here, the journey never ends.`, omegaReward: 'Skin “Sumi” unlocked',
     offlineText: t => `While you were away (${t}), spawning continued.`,
     sellConfirmTitle: 'Sell this?', sellConfirmText: (r, p) => `Sell ${r} for ${p} coins.`, sell: 'SELL',
@@ -150,7 +170,7 @@ const I18N = {
       clear: ['Liquidate', 'Everything back to 0. All the Souls.'],
       gain: n => `Souls +${n}`, locked: n => `Earn ${n} more coins to rebirth`,
       how: 'Souls depend on the coins earned this run and how far you reached.',
-      rows: ['Earnings', 'Rank reached', 'Dimension', 'Resonance'],
+      rows: ['Earnings', 'Rank reached', 'Dimension', 'Resonance', '∞ count'],
       pickTitle: 'Choose an upgrade to keep', confirmTitle: 'Rebirth?',
       confirmText: (n, keep) => `Coins, objects and upgrades reset${keep ? ` (${keep} stays)` : ''}.<br>Dimension and skills stay. Souls +${n}`,
       done: n => `Reborn. Souls +${n}`,
@@ -166,16 +186,21 @@ const I18N = {
     ],
     tutBonus: 'Tutorial bonus',
     tips: {
-      rebirth: 'You can rebirth now.<br>Pick Inherit or Liquidate in the ∞ tab to earn Souls.',
-      soul: 'Spend Souls on permanent skills.<br>They survive every rebirth.',
-      versus: 'VERSUS: an automatic battle against a copy of another player’s save.<br>Bet Souls, win BP, unlock skins.',
+      rebirth: 'You can rebirth now.<br>Use REBIRTH in the ∞ tab to earn Souls. With an ∞ you move on to the next dimension.',
+      soul: 'Spend Souls on Eternal upgrades.<br>They survive every rebirth and have no cap.',
+      versus: 'VERSUS: automatic time attacks against stages and copies of other players.<br>Wins give COIN and SP.',
+      gacha: 'The Gacha is open.<br>Spend SP in MENU → GACHA to collect skins and backgrounds. One free pull a day.',
+      weekly: 'The Weekly Challenge is open.<br>In VERSUS → RANKING, race everyone under the same rules.',
     },
-    whatsNewTitle: 'Update v1.2',
+    whatsNewTitle: 'Update v2.0',
     whatsNew: [
-      'Stage battles: win coins, lose nothing',
-      'Battles now include luck: equal builds are about 50/50',
-      'See your win chance before you fight',
-      'The upgrade page explains what coins are for',
+      'Each ∞ raises the ceiling. The floor always starts at 1',
+      'Upgrade caps grow each dimension, with new upgrades (Speed Mode at dimension 5)',
+      'Five eternal upgrades with no cap',
+      'One rebirth button. Souls grow with how many ∞ you made',
+      'Gacha: one free pull a day, 700+ skins and backgrounds',
+      'Rankings: Weekly and Transcendent',
+      'Title screens and a power-saving mode',
     ],
     slot: {
       title: 'SAVE SLOT', empty: 'EMPTY', playing: 'PLAYING', use: 'USE', start: 'NEW',
@@ -195,6 +220,7 @@ const I18N = {
       export: ['Export data', 'A code for backups or moving devices'], import: ['Import data', 'Paste an exported code'],
       restore: ['Restore previous data', 'State right before the last import/erase'], restored: 'Previous data restored', noBackup: 'No backup found',
       reset: ['Erase this slot', ''], on: 'ON', off: 'OFF',
+      calm: ['Reduce motion', 'Tone down wobble, glow and effects'], sleep: ['Power save', 'Dim the screen while idling (tap to return)'], autoSleep: ['Auto power save', 'Switch to power save when idle'],
       exportTitle: 'Export code', exportText: 'Keep this code to continue on another device.', copy: 'COPY', copied: 'Copied', close: 'Close',
       importTitle: 'Import data', importText: 'Paste an export code. The current slot will be overwritten.', load: 'LOAD',
       imported: 'Imported', importFail: 'Invalid code',
@@ -208,6 +234,7 @@ function loadSettings() {
     lang: /^ja/i.test(navigator.language || '') ? 'ja' : 'en',
     sound: true, vibe: true, size: 'M', confirmSell: true, tutorialDone: false,
     slot: 0, tips: {}, seenVersion: '',
+    calm: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), autoSleep: 0,
   };
   try {
     const o = { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
@@ -222,13 +249,20 @@ const L = () => I18N[OPT.lang] || I18N.ja;
 
 // ---------- プロフィール（アカウント共通：BP・スキン・戦績） ----------
 function normalizeProfile(p) {
-  const def = { bp: 0, bpTotal: 0, stage: 0, skins: ['CIRCLE'], skin: 'CIRCLE', wins: 0, losses: 0, name: '', updated: 0, history: [] };
+  const def = { bp: 0, bpTotal: 0, stage: 0, skins: ['CIRCLE'], skin: 'CIRCLE', bgs: ['DOTS'], bg: 'DOTS', tickets: {}, pity: 0, pulls: 0, dailyAt: 0, loginAt: 0, maxDim: 1, everInf: false, weekly: {}, weeklyClaimed: 0, wins: 0, losses: 0, name: '', updated: 0, history: [] };
   p = { ...def, ...(p || {}) };
   if (!Array.isArray(p.skins)) p.skins = ['CIRCLE'];
-  p.skins = [...new Set(['CIRCLE', ...p.skins.filter(id => SKIN_LIST.some(s => s.id === id))])];
+  p.skins = [...new Set(['CIRCLE', ...p.skins.filter(isSkinId)])];
   if (!p.skins.includes(p.skin)) p.skin = 'CIRCLE';
+  if (!Array.isArray(p.bgs)) p.bgs = ['DOTS'];
+  p.bgs = [...new Set(['DOTS', ...p.bgs.filter(isBgId)])];
+  if (!p.bgs.includes(p.bg)) p.bg = 'DOTS';
   if (!Array.isArray(p.history)) p.history = [];
-  ['bp', 'bpTotal', 'stage', 'wins', 'losses', 'updated'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  if (!p.tickets || typeof p.tickets !== 'object') p.tickets = {};
+  ['x2', 'rank', 'jump'].forEach(k => { p.tickets[k] = Math.max(0, Math.floor(p.tickets[k] || 0)); });
+  if (!p.weekly || typeof p.weekly !== 'object') p.weekly = {};
+  ['bp', 'bpTotal', 'stage', 'wins', 'losses', 'updated', 'pity', 'pulls', 'dailyAt', 'loginAt', 'maxDim', 'weeklyClaimed'].forEach(k => { if (!Number.isFinite(p[k]) || p[k] < 0) p[k] = 0; });
+  p.maxDim = Math.max(1, p.maxDim);
   p.bpTotal = Math.max(p.bpTotal, p.bp);   // 以前のデータは今の BP から
   return p;
 }
@@ -264,114 +298,131 @@ const HELP = {
     'Each new object has this chance to be born one rank higher (double value). At 5%, about 1 in 20 spawns is a 2 instead of a 1.'],
   space: ['フィールドに置けるオブジェクトの上限が増える。高いランクを作るには、途中のランクを置いておく場所が必要になる。',
     'Raises how many objects fit on the field. Building high ranks needs room to hold the ranks in between.'],
-  baseTier: ['生まれるオブジェクトの最低ランクが上がる。Lv1 なら 1 ではなく 2 から、Lv3 なら 8 から生まれる。∞ への一番の近道。',
-    'Raises the rank objects are born at. Lv1 starts at 2 instead of 1, Lv3 at 8. The fastest road to ∞.'],
-  autoSell: ['フィールドが満杯のとき、一番小さいオブジェクトを自動で売って、自動生成を止めない。',
-    'When the field is full, sells the smallest object so Auto Spawn never stops.'],
-  startAuto: ['転生や「無限の次へ」のあと、自動生成と自動合成のレベルが上がった状態から始まる。',
-    'After a rebirth or going beyond ∞, you start with Auto Spawn and Auto Merge already levelled.'],
-  startSpace: ['転生や「無限の次へ」のあと、最初から空間が広い状態で始まる。',
-    'After a rebirth or going beyond ∞, you start with a larger field.'],
-  dupMerge: ['合成したとき、この確率でランクが1つではなく2つ上がる（価値が4倍）。',
-    'Each merge has this chance to jump two ranks instead of one (four times the value).'],
-  golden: ['売却・生成ボーナスなど、すべてのコイン収入が増える。',
-    'Multiplies every coin you earn: sales, spawn bonus, everything.'],
-  idle: ['アプリを閉じていた間の報酬が、より長い時間分・より多くもらえる。',
-    'Offline earnings cover more hours and pay out more.'],
-  resonance: ['転生や「無限の次へ」で得られる魂が増える。',
-    'Increases the Souls you get from rebirth and going beyond ∞.'],
+  baseTier: ['生まれるオブジェクトの最低ランクが上がる。Lv1 なら 1 ではなく 2 から、Lv3 なら 8 から生まれる。∞ への一番の近道。次元が上がるほど上限が伸びる。',
+    'Raises the rank objects are born at. Lv1 starts at 2 instead of 1, Lv3 at 8. The fastest road to ∞. The cap grows with each dimension.'],
+  autoSell: ['フィールドが満杯のとき、一番小さいオブジェクトを自動で売って、自動生成を止めない。次元2からは最初から付いている。',
+    'When the field is full, sells the smallest object so Auto Spawn never stops. Included for free from dimension 2.'],
+  chain: ['合成してできたオブジェクトに同じランクの相手がいれば、この確率ですぐに続けて合成する。連鎖すると一気にランクが上がる。',
+    'When a merge creates an object that has a twin on the field, it merges again right away at this chance. Chains climb fast.'],
+  multi: ['自動生成のたびに、この確率でもう1つ追加で生まれる。',
+    'Each automatic spawn has this chance to spawn one extra object.'],
+  speed: ['ゲーム全体の時間が速く進む。自動生成・自動合成・倍速中の放置すべてが速くなる。',
+    'Makes the whole game run faster: auto spawn, auto merge, everything.'],
+  eRank: ['最初から、生成ランクより上のランクで生まれる。1レベルごとに +1 段。転生しても消えない。上限なし。',
+    'Objects are born this many ranks above your Base Rank. +1 per level. Survives rebirth. No cap.'],
+  eSpeed: ['自動生成と自動合成が速くなる。1レベルごとに ×1.1。転生しても消えない。上限なし。',
+    'Auto Spawn and Auto Merge run faster, ×1.1 per level. Survives rebirth. No cap.'],
+  eCoin: ['すべてのコイン収入が増える。1レベルごとに +50%。転生しても消えない。上限なし。',
+    'All coin income +50% per level. Survives rebirth. No cap.'],
+  eLuck: ['幸運に上乗せして、ひとつ上のランクで生まれる確率が1レベルごとに +3%。転生しても消えない。上限なし（確率は最大95%）。',
+    'Adds +3% per level to the chance of being born one rank higher. Survives rebirth. No cap (the chance tops out at 95%).'],
+  eSoul: ['転生で得られる魂が1レベルごとに +25%。転生しても消えない。上限なし。',
+    'Souls from rebirth +25% per level. Survives rebirth. No cap.'],
 };
 const helpOpen = new Set();
 
+// ---------- 次元と上限 ----------
+// 下限はいつも 1。上限（∞ になるランク）が次元ごとに +2 伸びる
+const dimOf = (s = S) => s.shards + 1;
+const infTier = (s = S) => MAX_TIER + 2 * (dimOf(s) - 1);
+let MODE = null;   // 'weekly' のときは週間チャレンジ中
+function INF() { return MODE === 'weekly' ? MAX_TIER : infTier(S); }
+const speedMultOf = lv => (lv <= 0 ? 1 : lv === 1 ? 1.5 : lv);
+
 // ---------- ステータス強化 ----------
+// max(d)：次元 d での上限。unlock：その次元から出てくる
 const UPGRADES = [
   {
-    id: 'autoGen', jp: '自動生成', en: 'Auto Spawn', max: 25,
-    cost: lv => 15 * Math.pow(1.55, lv),
+    id: 'autoGen', jp: '自動生成', en: 'Auto Spawn', unlock: 1, max: d => 25 + 10 * (d - 1),
+    cost: lv => 15 * Math.pow(1.5, lv),
     desc: lv => lv === 0 ? 'OFF → 3.00s' : `${genInterval(lv).toFixed(2)}s → ${genInterval(lv + 1).toFixed(2)}s`,
   },
   {
-    id: 'autoMerge', jp: '自動合成', en: 'Auto Merge', max: 25,
-    cost: lv => 40 * Math.pow(1.6, lv),
+    id: 'autoMerge', jp: '自動合成', en: 'Auto Merge', unlock: 1, max: d => 25 + 10 * (d - 1),
+    cost: lv => 40 * Math.pow(1.55, lv),
     desc: lv => lv === 0 ? 'OFF → 2.50s' : `${mergeInterval(lv).toFixed(2)}s → ${mergeInterval(lv + 1).toFixed(2)}s`,
   },
   {
-    id: 'spawnCoin', jp: '生成ボーナス', en: 'Spawn Bonus', max: 50,
+    id: 'spawnCoin', jp: '生成ボーナス', en: 'Spawn Bonus', unlock: 1, max: d => 50 + 25 * (d - 1),
     cost: lv => 10 * Math.pow(1.45, lv),
     desc: lv => `+${fmt(0.1 * lv)} → +${fmt(0.1 * (lv + 1))}`,
   },
   {
-    id: 'sellMult', jp: '売却倍率', en: 'Sell Rate', max: 60,
+    id: 'sellMult', jp: '売却倍率', en: 'Sell Rate', unlock: 1, max: d => 60 + 30 * (d - 1),
     cost: lv => 25 * Math.pow(1.5, lv),
     desc: lv => `×${(1 + 0.25 * lv).toFixed(2)} → ×${(1 + 0.25 * (lv + 1)).toFixed(2)}`,
   },
   {
-    id: 'tapPower', jp: 'タップ強化', en: 'Multi Tap', max: 4,
-    cost: lv => 60 * Math.pow(5, lv),
+    id: 'tapPower', jp: 'タップ強化', en: 'Multi Tap', unlock: 1, max: d => Math.min(12, 4 + (d - 1)),
+    cost: lv => 60 * Math.pow(3.5, lv),
     desc: lv => `${lv + 1} → ${lv + 2}`,
   },
   {
-    id: 'luck', jp: '幸運', en: 'Luck', max: 10,
+    id: 'luck', jp: '幸運', en: 'Luck', unlock: 1, max: d => Math.min(19, 10 + 2 * (d - 1)),
     cost: lv => 80 * Math.pow(1.9, lv),
     desc: lv => `${lv * 5}% → ${(lv + 1) * 5}%`,
   },
   {
-    id: 'space', jp: '空間拡張', en: 'Space', max: SPACE_CAPS.length - 1,
+    id: 'space', jp: '空間拡張', en: 'Space', unlock: 1, max: () => SPACE_CAPS.length - 1,
     cost: lv => 150 * Math.pow(12, lv),
     desc: lv => `${SPACE_CAPS[lv]} → ${SPACE_CAPS[Math.min(lv + 1, SPACE_CAPS.length - 1)]} objects`,
   },
   {
-    id: 'baseTier', jp: '生成ランク', en: 'Base Rank', max: 10,
-    cost: lv => 400 * Math.pow(7, lv),
+    id: 'baseTier', jp: '生成ランク', en: 'Base Rank', unlock: 1, max: d => Math.min(MAX_TIER + 2 * (d - 1) - 4, 10 + 3 * (d - 1)),
+    cost: lv => 400 * Math.pow(3.2, lv),
     desc: lv => `${pow2(lv)} → ${pow2(lv + 1)}`,
   },
   {
-    id: 'autoSell', jp: '自動売却', en: 'Auto Sell', max: 1,
+    id: 'autoSell', jp: '自動売却', en: 'Auto Sell', unlock: 1, max: () => 1,
     cost: () => 300,
     desc: () => L().autoSellDesc,
   },
+  {
+    id: 'chain', jp: '連鎖合成', en: 'Chain Merge', unlock: 2, max: () => 10,
+    cost: lv => 5e3 * Math.pow(2.2, lv),
+    desc: lv => `${lv * 10}% → ${(lv + 1) * 10}%`,
+  },
+  {
+    id: 'multi', jp: 'まとめ生成', en: 'Multi Spawn', unlock: 3, max: () => 10,
+    cost: lv => 5e4 * Math.pow(2.3, lv),
+    desc: lv => `${lv * 10}% → ${(lv + 1) * 10}%`,
+  },
+  {
+    id: 'speed', jp: '倍速モード', en: 'Speed Mode', unlock: 5, max: d => Math.max(0, 2 + (d - 5)),
+    cost: lv => 1e6 * Math.pow(25, lv),
+    desc: lv => `×${speedMultOf(lv)} → ×${speedMultOf(lv + 1)}`,
+  },
 ];
+const umax = (u, s = S) => u.max(dimOf(s));
+const uUnlocked = (u, s = S) => dimOf(s) >= u.unlock;
 
-// ---------- 魂の永続スキル ----------
-const SKILLS = [
-  {
-    id: 'startAuto', jp: '自動化の記憶', en: 'Automation Memory', max: 5,
-    cost: lv => Math.ceil(3 * Math.pow(2, lv)),
-    desc: lv => ({ ja: `開始時 自動生成 Lv${lv * 2}・自動合成 Lv${lv} → Lv${(lv + 1) * 2}・Lv${lv + 1}`, en: `Start with Auto Spawn Lv${lv * 2} / Merge Lv${lv} → Lv${(lv + 1) * 2} / Lv${lv + 1}` }),
-  },
-  {
-    id: 'startSpace', jp: '広い宇宙', en: 'Wide Universe', max: 2,
-    cost: lv => Math.ceil(10 * Math.pow(4, lv)),
-    desc: lv => ({ ja: `開始時の空間 ${SPACE_CAPS[lv]} → ${SPACE_CAPS[lv + 1]}`, en: `Starting space ${SPACE_CAPS[lv]} → ${SPACE_CAPS[lv + 1]}` }),
-  },
-  {
-    id: 'dupMerge', jp: '二重合成', en: 'Double Merge', max: 5,
-    cost: lv => Math.ceil(5 * Math.pow(2.2, lv)),
-    desc: lv => ({ ja: `合成で2段階上がる確率 ${lv * 4}% → ${(lv + 1) * 4}%`, en: `Chance a merge jumps two ranks ${lv * 4}% → ${(lv + 1) * 4}%` }),
-  },
-  {
-    id: 'golden', jp: '黄金律', en: 'Golden Ratio', max: 10,
-    cost: lv => Math.ceil(4 * Math.pow(1.8, lv)),
-    desc: lv => ({ ja: `すべてのコイン ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}`, en: `All coins ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}` }),
-  },
-  {
-    id: 'idle', jp: '放置の達人', en: 'Idle Master', max: 5,
-    cost: lv => Math.ceil(6 * Math.pow(2, lv)),
-    desc: lv => ({ ja: `留守報酬 ${8 + lv * 4}時間・${50 + lv * 10}% → ${12 + lv * 4}時間・${60 + lv * 10}%`, en: `Offline ${8 + lv * 4}h at ${50 + lv * 10}% → ${12 + lv * 4}h at ${60 + lv * 10}%` }),
-  },
-  {
-    id: 'resonance', jp: '魂の共鳴', en: 'Soul Resonance', max: 5,
-    cost: lv => Math.ceil(8 * Math.pow(2, lv)),
-    desc: lv => ({ ja: `得られる魂 +${lv * 20}% → +${(lv + 1) * 20}%`, en: `Souls earned +${lv * 20}% → +${(lv + 1) * 20}%` }),
-  },
+// ---------- 永遠強化（魂で買う・上限なし） ----------
+const ETERNAL = [
+  { id: 'eRank', jp: '永遠の生成ランク', en: 'Eternal Rank', cost: lv => Math.ceil(20 * Math.pow(2.3, lv)),
+    desc: lv => ({ ja: `+${lv} → +${lv + 1} 段`, en: `+${lv} → +${lv + 1} ranks` }) },
+  { id: 'eSpeed', jp: '永遠の速さ', en: 'Eternal Speed', cost: lv => Math.ceil(8 * Math.pow(1.7, lv)),
+    desc: lv => ({ ja: `×${Math.pow(1.1, lv).toFixed(2)} → ×${Math.pow(1.1, lv + 1).toFixed(2)}`, en: `×${Math.pow(1.1, lv).toFixed(2)} → ×${Math.pow(1.1, lv + 1).toFixed(2)}` }) },
+  { id: 'eCoin', jp: '永遠の富', en: 'Eternal Wealth', cost: lv => Math.ceil(5 * Math.pow(1.6, lv)),
+    desc: lv => ({ ja: `コイン ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}`, en: `Coins ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}` }) },
+  { id: 'eLuck', jp: '永遠の幸運', en: 'Eternal Luck', cost: lv => Math.ceil(10 * Math.pow(1.8, lv)),
+    desc: lv => ({ ja: `+${lv * 3}% → +${(lv + 1) * 3}%`, en: `+${lv * 3}% → +${(lv + 1) * 3}%` }) },
+  { id: 'eSoul', jp: '魂の共鳴', en: 'Soul Resonance', cost: lv => Math.ceil(12 * Math.pow(1.9, lv)),
+    desc: lv => ({ ja: `魂 +${lv * 25}% → +${(lv + 1) * 25}%`, en: `Souls +${lv * 25}% → +${(lv + 1) * 25}%` }) },
 ];
+// 以前の魂スキル（上限あり）の値段。移行時にかかった魂を返す
+const OLD_SKILL_COST = {
+  startAuto: lv => Math.ceil(3 * Math.pow(2, lv)), startSpace: lv => Math.ceil(10 * Math.pow(4, lv)),
+  dupMerge: lv => Math.ceil(5 * Math.pow(2.2, lv)), golden: lv => Math.ceil(4 * Math.pow(1.8, lv)),
+  idle: lv => Math.ceil(6 * Math.pow(2, lv)), resonance: lv => Math.ceil(8 * Math.pow(2, lv)),
+};
 
 // ---------- 状態（スロットごと） ----------
+function freshBoost() { return { x2: 0, rank: 0, jump: 0, used: 0 }; }
 function freshState(keep) {
   const up = {};
   UPGRADES.forEach(u => (up[u.id] = 0));
-  const skills = {};
-  SKILLS.forEach(k => (skills[k.id] = 0));
+  const eternal = {};
+  ETERNAL.forEach(k => (eternal[k.id] = 0));
   const s = {
     coins: 0,
     objs: [],          // { id, t, x, y }  x,y はフィールド比率 0..1
@@ -379,10 +430,12 @@ function freshState(keep) {
     up,
     shards: 0,
     soul: 0,
-    skills,
+    eternal,
     runEarned: 0,
     runMaxTier: 0,
+    runRanks: 0,       // この周回で SP をもらった最高ランク
     clearTime: 0,
+    boost: freshBoost(),
     stats: {
       spawned: 0, merged: 0, sold: 0, earned: 0, maxTier: 0,
       infinities: 0, playTime: 0, taps: 0, bought: 0, rebirths: 0,
@@ -393,19 +446,12 @@ function freshState(keep) {
   };
   if (keep) {
     Object.assign(s, {
-      shards: keep.shards, soul: keep.soul, skills: { ...skills, ...keep.skills },
+      shards: keep.shards, soul: keep.soul, eternal: { ...eternal, ...keep.eternal },
       stats: keep.stats, clearTime: keep.clearTime, created: keep.created, seenInf: keep.seenInf,
     });
   }
-  applySkillStarts(s);
+  if (dimOf(s) >= 2) s.up.autoSell = 1;   // 次元2からは最初から付いている
   return s;
-}
-
-function applySkillStarts(s) {
-  const k = s.skills || {};
-  s.up.autoGen = Math.max(s.up.autoGen, (k.startAuto || 0) * 2);
-  s.up.autoMerge = Math.max(s.up.autoMerge, k.startAuto || 0);
-  s.up.space = Math.max(s.up.space, k.startSpace || 0);
 }
 
 function clamp01(v) { return Number.isFinite(v) ? Math.min(0.97, Math.max(0.03, v)) : 0.5; }
@@ -415,18 +461,29 @@ function normalize(d) {
   const s = {
     ...base, ...d,
     up: { ...base.up, ...(d.up || {}) },
-    skills: { ...base.skills, ...(d.skills || {}) },
+    eternal: { ...base.eternal, ...(d.eternal || {}) },
     stats: { ...base.stats, ...(d.stats || {}) },
+    boost: { ...freshBoost(), ...(d.boost || {}) },
   };
+  ['coins', 'soul', 'shards', 'runEarned', 'runMaxTier', 'runRanks', 'clearTime'].forEach(k => { if (!Number.isFinite(s[k]) || s[k] < 0) s[k] = 0; });
+  s.shards = Math.floor(s.shards);
+  // 以前の魂スキルは、使った魂を返して永遠強化へ
+  if (d.skills && !d.eternal) {
+    let refund = 0;
+    Object.entries(d.skills).forEach(([k, lv]) => { const c = OLD_SKILL_COST[k]; if (c) for (let i = 0; i < Math.floor(lv || 0); i++) refund += c(i); });
+    s.soul += refund;
+  }
+  delete s.skills;
   if (!Array.isArray(s.objs)) s.objs = [];
-  s.objs = s.objs.filter(o => o && Number.isFinite(o.t) && o.t >= 0 && o.t <= MAX_TIER)
-    .map(o => ({ id: o.id, t: o.t, x: clamp01(o.x), y: clamp01(o.y) }));
+  const top = infTier(s);
+  s.objs = s.objs.filter(o => o && Number.isFinite(o.t) && o.t >= 0)
+    .map(o => ({ id: o.id, t: Math.min(Math.floor(o.t), top), x: clamp01(o.x), y: clamp01(o.y) }));
   if (!Number.isFinite(d.runMaxTier)) s.runMaxTier = s.objs.reduce((m, o) => Math.max(m, o.t), 0);
-  ['coins', 'soul', 'shards', 'runEarned', 'runMaxTier', 'clearTime'].forEach(k => { if (!Number.isFinite(s[k]) || s[k] < 0) s[k] = 0; });
   s.nextId = Math.max(s.nextId || 1, ...s.objs.map(o => (o.id || 0) + 1), 1);
   s.objs.forEach(o => { if (!o.id) o.id = s.nextId++; });
-  UPGRADES.forEach(u => { s.up[u.id] = Math.min(u.max, Math.max(0, Math.floor(s.up[u.id] || 0))); });
-  SKILLS.forEach(k => { s.skills[k.id] = Math.min(k.max, Math.max(0, Math.floor(s.skills[k.id] || 0))); });
+  UPGRADES.forEach(u => { s.up[u.id] = Math.min(u.max(dimOf(s)), Math.max(0, Math.floor(s.up[u.id] || 0))); });
+  if (dimOf(s) >= 2) s.up.autoSell = 1;
+  ETERNAL.forEach(k => { s.eternal[k.id] = Math.max(0, Math.floor(s.eternal[k.id] || 0)); });
   delete s.up.board;
   return s;
 }
@@ -454,47 +511,54 @@ function readSlot(i) {
 
 let S = readSlot(OPT.slot) || freshState();
 let paused = false;   // 別タブで起動したとき
+let booting = true;   // 起動画面の間はゲームを進めない
 
 function save() {
-  if (paused) return;
+  if (paused || MODE) return;   // 週間チャレンジ中はスロットに書かない
   S.last = Date.now();
   try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(S)); } catch (e) { /* 保存不可 */ }
   if (window.Online) Online.markDirty();
 }
 
 function backup() {
+  if (MODE) return;
   try { localStorage.setItem(BACKUP_KEY, JSON.stringify(S)); } catch (e) { /* 保存不可 */ }
 }
 
 // ---------- 計算 ----------
-const genInterval = lv => Math.max(0.15, 3 * Math.pow(0.86, lv - 1));
-const mergeInterval = lv => Math.max(0.1, 2.5 * Math.pow(0.86, lv - 1));
+const genInterval = lv => Math.max(0.03, 3 * Math.pow(0.86, lv - 1));
+const mergeInterval = lv => Math.max(0.03, 2.5 * Math.pow(0.86, lv - 1));
+const E = id => (MODE ? 0 : S.eternal[id] || 0);   // 週間チャレンジでは永遠強化を使わない
 const prestigeMult = () => Math.pow(2, S.shards);
-const goldenMult = () => 1 + 0.5 * (S.skills.golden || 0);
-const incomeMult = () => prestigeMult() * goldenMult();
+const incomeMult = () => prestigeMult() * (1 + 0.5 * E('eCoin'));
 const sellMult = () => (1 + 0.25 * S.up.sellMult) * incomeMult();
 const sellPrice = t => Math.pow(2, t) * sellMult();
 const spawnCoin = () => 0.1 * S.up.spawnCoin * incomeMult();
 const cap = () => SPACE_CAPS[S.up.space];
 const upCost = u => Math.ceil(u.cost(S.up[u.id]));
-const skillCost = k => k.cost(S.skills[k.id]);
+const eternalCost = k => k.cost(S.eternal[k.id]);
+// ゲームの進む速さ（倍速モード × 2倍速券）
+const gameSpeed = () => speedMultOf(S.up.speed || 0) * (S.boost.x2 > 0 ? 2 : 1);
+const autoRate = () => Math.pow(1.1, E('eSpeed'));
 function pow2(t) { return '2' + String(t).split('').map(c => SUP[c]).join(''); }
-const rankName = t => (t >= MAX_TIER ? '∞' : pow2(t));
+const rankName = t => (t >= INF() ? '∞' : pow2(t));
 const dimStr = (s = S) => String(s.shards + 1).padStart(2, '0');
-const offlineCapSec = () => (8 + 4 * (S.skills.idle || 0)) * 3600;
-const offlineRate = () => 0.5 + 0.1 * (S.skills.idle || 0);
+const offlineCapSec = () => 12 * 3600;
+const offlineRate = () => 0.6;
 
-// 転生で得られる魂：今回の稼ぎ × 到達ランク × 次元 × 共鳴
-const REBIRTH_MIN = 1000;   // 今回これだけ稼ぐと転生できる
+// 転生で得られる魂：今回の稼ぎ × 到達ランク × ∞の数 × 次元 × 共鳴
+const REBIRTH_MIN = 1000;   // ∞ を作っていなければ、今回これだけ稼ぐと転生できる
 function soulParts() {
-  const earn = Math.floor(Math.sqrt(S.runEarned / 50));
-  const rank = 1 + 0.2 * Math.min(S.runMaxTier, MAX_TIER);   // 2¹⁰で×3、∞で×5
+  const n = infCount();
+  const earn = Math.max(1, Math.floor(Math.sqrt(S.runEarned / 50)));
+  const rank = 1 + 0.2 * Math.min(S.runMaxTier, INF());
+  const inf = n > 0 ? 1 + 3 * Math.pow(n, 0.7) : 1;   // ∞1つで×4、2つで×5.9、3つで×7.4
   const dim = 1 + 0.25 * S.shards;
-  const res = 1 + 0.2 * (S.skills.resonance || 0);
-  return { earn, rank, dim, res, total: S.runEarned >= REBIRTH_MIN ? Math.floor(earn * rank * dim * res) : 0 };
+  const res = 1 + 0.25 * E('eSoul');
+  const ok = n > 0 || S.runEarned >= REBIRTH_MIN;
+  return { n, earn, rank, inf, dim, res, total: ok && !MODE ? Math.floor(earn * rank * inf * dim * res) : 0 };
 }
 const soulBase = () => soulParts().total;
-const soulInherit = () => Math.max(1, Math.floor(soulBase() * 0.5));
 const soulToNext = () => Math.max(0, Math.ceil(REBIRTH_MIN - S.runEarned));
 
 function fmt(n) {
@@ -573,7 +637,8 @@ function vibe(ms) { if (OPT.vibe && navigator.vibrate) { try { navigator.vibrate
 let fieldBox = null;
 function fieldRect() { return fieldBox || (fieldBox = els.field.getBoundingClientRect()); }
 function scale() { return Math.min(1.25, Math.max(0.8, fieldRect().width / 390)) * SIZE_MULT[OPT.size]; }
-function diameter(t) { return (t >= MAX_TIER ? 136 : 24 + t * 5.2) * scale(); }
+// 大きさは「上限に対してどこまで来たか」で決める（次元が上がっても画面に収まる）
+function diameter(t) { const inf = INF(); return (t >= inf ? 136 : 24 + t * 104 / inf) * scale(); }
 function toPx(o) { const r = fieldRect(); return { x: o.x * r.width, y: o.y * r.height }; }
 
 function clampPos(t, x, y) {
@@ -590,7 +655,7 @@ function findSpot(t) {
   const y0 = tut ? 0.35 : 0, yr = tut ? 0.5 : 1;   // チュートリアル中は説明カードに隠れないよう中央寄り
   let best = null, bestGap = -Infinity;
   for (let i = 0; i < 30; i++) {
-    const p = clampPos(t, Math.random(), y0 + Math.random() * yr);
+    const p = clampPos(t, RNG(), y0 + RNG() * yr);
     let minGap = Infinity;
     for (const o of S.objs) {
       const q = toPx(o);
@@ -631,11 +696,20 @@ function separate(o) {
 const byId = id => S.objs.find(o => o.id === id);
 const busy = new Set();   // 合成アニメ中
 let selected = null;
+let RNG = Math.random;   // 週間チャレンジ中は全員同じ乱数に差し替える
 
 function rollTier() {
-  let t = S.up.baseTier;
-  if (Math.random() < S.up.luck * 0.05) t++;
-  return Math.min(t, MAX_TIER - 1);
+  let t = S.up.baseTier + E('eRank') + (MODE ? 0 : S.boost.rank);
+  if (RNG() < Math.min(0.95, S.up.luck * 0.05 + E('eLuck') * 0.03)) t++;
+  return Math.min(t, INF() - 1);
+}
+
+// SP（スキンポイント）を得る
+function addSP(n, why) {
+  if (MODE || !n) return;
+  addBP(n);
+  saveProfile();
+  if (why) toast(`+${n} SP · ${why}`);
 }
 
 function addCoins(n) {
@@ -673,14 +747,14 @@ function spawnByTap() {
 // a を b に吸収させて b のランクを上げる
 function merge(a, b) {
   if (!a || !b || a === b || a.t !== b.t) return false;
-  if (a.t >= MAX_TIER) {
+  if (a.t >= INF()) {
     toast(L().infNoMerge);
     return false;
   }
   S.objs = S.objs.filter(o => o !== a);
   const from = b.t;
   b.t++;
-  if (b.t < MAX_TIER && Math.random() < (S.skills.dupMerge || 0) * 0.04) b.t++;   // 二重合成
+  if (b.t < INF() && S.boost.jump > 0 && !MODE) { b.t++; S.boost.jump--; }   // 跳躍券
   Object.assign(b, clampPos(b.t, b.x, b.y));
   S.stats.merged++;
   fx.pop.add(b.id);
@@ -688,10 +762,15 @@ function merge(a, b) {
   floatAt(b, b.t - from > 1 ? `${pow2(from)} ×4 = ${rankName(b.t)}` : `${pow2(from)} + ${pow2(from)} = ${rankName(b.t)}`, 'formula');
   if (selected === a.id || selected === b.id) selected = null;
   sfx.merge(b.t);
-  vibe(b.t >= MAX_TIER ? [30, 40, 60] : 8);
+  vibe(b.t >= INF() ? [30, 40, 60] : 8);
   noteTier(b.t);
   dirty = true;
   S.objs.forEach(o => { if (o !== b && !busy.has(o.id)) separate(o); });
+  // 連鎖合成：できたものに同じランクの相手がいれば、続けて合成
+  if (S.up.chain && b.t < INF() && RNG() < S.up.chain * 0.1) {
+    const twin = S.objs.find(o => o !== b && o.t === b.t && !busy.has(o.id) && !(drag && drag.id === o.id));
+    if (twin) setTimeout(() => { if (byId(b.id) && byId(twin.id) && b.t === twin.t) mergeAnimated(twin, b); }, 90);
+  }
   return true;
 }
 
@@ -771,7 +850,7 @@ function autoMergeStep() {
   const seen = {};
   let pair = null;
   for (const o of S.objs) {
-    if (busy.has(o.id) || o.t >= MAX_TIER || (drag && drag.id === o.id)) continue;
+    if (busy.has(o.id) || o.t >= INF() || (drag && drag.id === o.id)) continue;
     if (seen[o.t]) {
       if (!pair || o.t < pair[0].t) pair = [o, seen[o.t]];
     } else {
@@ -782,10 +861,15 @@ function autoMergeStep() {
 }
 
 function noteTier(t) {
+  if (MODE === 'weekly') { if (window.Weekly) Weekly.onTier(t); return; }
   if (t > S.stats.maxTier) S.stats.maxTier = t;
   if (t > S.runMaxTier) S.runMaxTier = t;
-  if (t === MAX_TIER) {
+  // この周回で初めて届いたランク（2⁶以上）ごとに SP +1
+  if (t >= 6 && t > S.runRanks && t < INF()) { S.runRanks = t; addSP(1); }
+  if (t === INF()) {
     S.stats.infinities++;
+    PROFILE.everInf = true;
+    addSP(30, '∞');
     if (S.shards + 1 >= OMEGA_DIM && !S.clearTime) {
       S.clearTime = Math.max(1, Math.floor(S.stats.playTime));
       save();
@@ -802,7 +886,7 @@ function noteTier(t) {
 
 function buy(u) {
   const cost = upCost(u);
-  if (S.up[u.id] >= u.max || S.coins < cost) { sfx.deny(); return; }
+  if (!uUnlocked(u) || S.up[u.id] >= umax(u) || S.coins < cost) { sfx.deny(); return; }
   S.coins -= cost;
   S.up[u.id]++;
   S.stats.bought++;
@@ -813,12 +897,11 @@ function buy(u) {
   save();
 }
 
-function buySkill(k) {
-  const cost = skillCost(k);
-  if (S.skills[k.id] >= k.max || S.soul < cost) { sfx.deny(); return; }
+function buyEternal(k) {
+  const cost = eternalCost(k);
+  if (S.soul < cost) { sfx.deny(); return; }
   S.soul -= cost;
-  S.skills[k.id]++;
-  applySkillStarts(S);
+  S.eternal[k.id]++;
   sfx.buy();
   vibe(6);
   dirty = true;
@@ -826,7 +909,7 @@ function buySkill(k) {
   save();
 }
 
-const infCount = () => S.objs.filter(o => o.t >= MAX_TIER).length;
+const infCount = () => S.objs.filter(o => o.t >= INF()).length;
 
 function clearField() {
   selected = null;
@@ -839,44 +922,40 @@ function clearField() {
 
 function keepFrom(s, extra = {}) {
   return {
-    shards: s.shards, soul: s.soul, skills: s.skills, stats: s.stats,
+    shards: s.shards, soul: s.soul, eternal: s.eternal, stats: s.stats,
     clearTime: s.clearTime, created: s.created, seenInf: s.seenInf, ...extra,
   };
 }
 
-function prestige() {
-  const gain = infCount();
-  if (!gain) return;
-  const souls = soulBase();
-  S = freshState(keepFrom(S, { shards: S.shards + gain, soul: S.soul + souls }));
-  clearField();
-  save();
-  renderAll();
-  switchPanel('play');
-  const l = L();
-  showModal({
-    rings: 'DIM',
-    title: l.dimTitle(dimStr()),
-    text: l.dimText(fmt(prestigeMult())) + (souls ? `<br>${l.soul('+' + fmt(souls))}` : ''),
-    buttons: [{ label: 'START', primary: true }],
-  });
-  if (window.Online) Online.syncSoon();
-}
-
-function rebirth(keepId) {
-  const base = soulBase();
-  if (base < 1) return;
-  const gain = keepId ? soulInherit() : base;
-  const kept = keepId ? S.up[keepId] : 0;
+// 転生（ボタンは1つ）：∞ を作っていれば次の次元へ。魂は ∞ の数と到達具合で決まる
+function rebirth() {
+  const p = soulParts();
+  if (p.total < 1 && p.n === 0) return;
+  const next = p.n > 0;
+  const before = dimOf();
   S.stats.rebirths = (S.stats.rebirths || 0) + 1;
-  S = freshState(keepFrom(S, { soul: S.soul + gain }));
-  if (keepId) S.up[keepId] = Math.max(S.up[keepId], kept);
+  S = freshState(keepFrom(S, { shards: S.shards + (next ? 1 : 0), soul: S.soul + p.total }));
+  PROFILE.maxDim = Math.max(PROFILE.maxDim || 1, dimOf());
+  saveProfile();
   clearField();
   save();
   renderAll();
   switchPanel('play');
   sfx.inf();
-  toast(L().rebirth.done(fmt(gain)));
+  const l = L();
+  if (next) {
+    const fresh = UPGRADES.filter(u => u.unlock === dimOf()).map(u => (OPT.lang === 'ja' ? u.jp : u.en));
+    showModal({
+      rings: 'DIM',
+      title: l.dimTitle(dimStr()),
+      text: l.dimText(pow2(INF()), fmt(prestigeMult())) + `<br>${l.soul('+' + fmt(p.total))}` +
+        (fresh.length ? `<br><br>${l.newUpgrade(fresh.join(' / '))}` : `<br><br>${l.capUp}`),
+      buttons: [{ label: 'START', primary: true }],
+    });
+  } else {
+    toast(l.rebirthDone(fmt(p.total)));
+  }
+  void before;
   showTip('soul');
   if (window.Online) Online.syncSoon();
 }
@@ -889,9 +968,9 @@ const nodes = new Map();   // id -> element
 
 function bodyHTML(t, skin = PROFILE.skin, d) {
   if (skin && skin !== 'CIRCLE') {
-    return `<div class="body sk">${skinSVG(skin, t, d || diameter(t))}</div>`;
+    return `<div class="body sk ${skinClass(skin)}">${skinSVG(skin, t, d || diameter(t), INF())}</div>`;
   }
-  if (t >= MAX_TIER) return '<div class="body inf"><span class="v">∞</span></div>';
+  if (t >= INF()) return '<div class="body inf"><span class="v">∞</span></div>';
   const fs = Math.min(15, 9 + t * 0.45) * SIZE_MULT[OPT.size];
   const label = `<span class="v" style="font-size:${fs.toFixed(1)}px">${fmt(Math.pow(2, t))}</span>`;
   return `<div class="body ${t % 2 === 0 ? 'fill' : 'line'}">${t >= 10 ? '<i class="orbit"></i>' : ''}${label}</div>`;
@@ -949,22 +1028,33 @@ function renderField() {
 
 function renderHeader() {
   els.coins.textContent = fmtCoins(S.coins);
-  const rate = S.up.autoGen ? spawnCoin() / genInterval(S.up.autoGen) : 0;
-  els.rate.textContent = rate > 0 ? `+${fmt(Math.round(rate * 10) / 10)} / s` : '';
-  els.dim.textContent = `DIM ${dimStr()}${S.clearTime ? ' · Ω' : ''}`;
+  if (MODE === 'weekly' && window.Weekly) {
+    els.rate.textContent = Weekly.headerText();
+    els.dim.textContent = 'WEEKLY';
+  } else {
+    els.rate.textContent = coinRate > 0.05 ? `+${fmt(Math.round(coinRate * 10) / 10)} / s` : '';
+    els.dim.textContent = `DIM ${dimStr()}${S.clearTime ? ' · Ω' : ''}`;
+  }
   els.count.textContent = `${S.objs.length} / ${cap()}`;
-  const affordable = UPGRADES.some(u => S.up[u.id] < u.max && S.coins >= upCost(u));
+  const affordable = UPGRADES.some(u => uUnlocked(u) && S.up[u.id] < umax(u) && S.coins >= upCost(u));
   els.shopBadge.classList.toggle('on', affordable);
-  const skillAffordable = SKILLS.some(k => S.skills[k.id] < k.max && S.soul >= skillCost(k));
-  els.infBadge.classList.toggle('on', infCount() > 0 || skillAffordable || (soulBase() >= 1 && S.stats.rebirths === 0));
-  const skinAffordable = SKIN_LIST.some(s => s.cost > 0 && !PROFILE.skins.includes(s.id) && PROFILE.bp >= s.cost);
-  els.menuBadge.classList.toggle('on', skinAffordable);
-  if (soulBase() >= 1) showTip('rebirth');
+  const eAffordable = !MODE && ETERNAL.some(k => S.soul >= eternalCost(k));
+  els.infBadge.classList.toggle('on', !MODE && (infCount() > 0 || eAffordable));
+  els.menuBadge.classList.toggle('on', !!(window.Gacha && Gacha.badge()));
+  if (!MODE && soulBase() >= 1) showTip('rebirth');
 }
 
-function upgradeRow(i, name, sub, desc, lv, max, costLabel, can, maxed, attr, id) {
-  const n = Math.min(max, 20);
-  const on = Math.ceil((lv / max) * n);
+// 次に買えるまでの目安（待ち時間が見えると、待つことが作戦になる）
+function etaText(cost) {
+  if (S.coins >= cost || coinRate <= 0.01) return '';
+  const sec = (cost - S.coins) / coinRate;
+  if (sec > 99 * 3600) return '';
+  return L().eta(fmtTime(Math.max(1, sec)));
+}
+
+function upgradeRow(i, name, sub, desc, lv, max, costLabel, can, maxed, attr, id, eta = '') {
+  const n = Math.min(max === Infinity ? 20 : max, 20);
+  const on = max === Infinity ? Math.min(20, lv) : Math.ceil((lv / max) * n);
   const ticks = Array.from({ length: n }, (_, k) => `<i class="${k < on ? 'on' : ''}"></i>`).join('');
   const help = HELP[id] ? HELP[id][OPT.lang === 'ja' ? 0 : 1] : '';
   return `<div class="up ${!maxed && !can ? 'locked' : ''} ${helpOpen.has(id) ? 'open' : ''}">
@@ -973,6 +1063,7 @@ function upgradeRow(i, name, sub, desc, lv, max, costLabel, can, maxed, attr, id
       <div class="up-jp">${name}<i class="up-q">?</i></div>
       <div class="up-en">${sub}</div>
       <div class="up-desc"><span>${maxed ? 'MAX' : desc}</span><span class="ticks">${ticks}</span></div>
+      <div class="up-eta" data-eta="${id}">${maxed ? '' : eta}</div>
     </div>
     <button class="pill ${maxed ? 'max' : ''}" ${attr} ${maxed || !can ? 'disabled' : ''}>${maxed ? 'MAX' : costLabel}</button>
     <p class="up-help">${help}</p>
@@ -992,85 +1083,91 @@ function toggleHelp(e) {
 function renderShop() {
   const ja = OPT.lang === 'ja';
   const [cTitle, cLines] = L().coinUse;
-  els.upgrades.innerHTML = `<div class="coin-use"><div class="coin-use-t">${cTitle}</div><ol>${cLines.map(x => `<li>${x}</li>`).join('')}</ol></div>` + UPGRADES.map((u, i) => {
-    const lv = S.up[u.id], cost = upCost(u);
-    return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv}`, u.desc(lv),
-      lv, u.max, fmt(cost), S.coins >= cost, lv >= u.max, `data-id="${u.id}"`, u.id);
-  }).join('');
+  const list = UPGRADES.filter(u => uUnlocked(u) && !(u.id === 'autoSell' && dimOf() >= 2));
+  const locked = UPGRADES.filter(u => !uUnlocked(u) && !MODE);
+  els.upgrades.innerHTML = `<div class="coin-use"><div class="coin-use-t">${cTitle}</div><ol>${cLines.map(x => `<li>${x}</li>`).join('')}</ol></div>` +
+    list.map((u, i) => {
+      const lv = S.up[u.id], cost = upCost(u), mx = umax(u);
+      return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv} / ${mx}`, u.desc(lv),
+        lv, mx, fmt(cost), S.coins >= cost, lv >= mx, `data-id="${u.id}"`, u.id, etaText(cost));
+    }).join('') +
+    (locked.length ? `<div class="up-locked">${locked.map(u => `<div><span>${ja ? u.jp : u.en}</span><em>${L().unlockAt(u.unlock)}</em></div>`).join('')}</div>` : '');
 }
 
 function refreshShop() {
-  els.upgrades.querySelectorAll('.pill').forEach(b => {
+  els.upgrades.querySelectorAll('.pill[data-id]').forEach(b => {
     const u = UPGRADES.find(x => x.id === b.dataset.id);
-    const maxed = S.up[u.id] >= u.max;
-    const can = !maxed && S.coins >= upCost(u);
+    const maxed = S.up[u.id] >= umax(u);
+    const cost = upCost(u);
+    const can = !maxed && S.coins >= cost;
     b.disabled = !can;
     b.closest('.up').classList.toggle('locked', !maxed && !can);
+    const eta = b.closest('.up').querySelector('.up-eta');
+    if (eta) eta.textContent = maxed ? '' : etaText(cost);
   });
 }
 
 function renderInf() {
   const l = L();
-  const mt = S.stats.maxTier;
-  els.infPath.innerHTML = Array.from({ length: MAX_TIER + 1 }, (_, t) =>
-    `<i class="${t <= mt ? 'got' : ''} ${t === MAX_TIER ? 'last' : ''}"></i>`).join('');
-  els.infPath.style.setProperty('--prog', (mt / MAX_TIER) * 100 + '%');
+  const inf = INF();
+  const mt = Math.min(S.runMaxTier, inf);
+  // ∞ までの道のり（段数が多いときは線だけ）
+  els.infPath.classList.toggle('bar', inf > 30);
+  els.infPath.innerHTML = inf > 30 ? '' : Array.from({ length: inf + 1 }, (_, t) =>
+    `<i class="${t <= mt ? 'got' : ''} ${t === inf ? 'last' : ''}"></i>`).join('');
+  els.infPath.style.setProperty('--prog', (mt / inf) * 100 + '%');
   const count = infCount();
-  if (count) {
-    els.infMain.innerHTML = l.infHave(count);
-    els.infSub.innerHTML = l.infHaveSub(count, fmt(Math.pow(2, S.shards + count) * goldenMult()));
-    els.infNote.textContent = '';
-  } else {
-    els.infMain.innerHTML = mt >= MAX_TIER ? l.infGone : l.infLeft(MAX_TIER - mt);
-    els.infSub.innerHTML = S.shards ? l.infDim(dimStr(), fmt(prestigeMult())) : l.infCurious;
-    els.infNote.textContent = l.infLocked;
-  }
-  els.prestigeBtn.disabled = !count;
+  const p = soulParts(), r = l.rebirth;
+  els.infMain.innerHTML = count ? l.infHave(count) : l.infLeft(inf - mt, pow2(inf));
+  els.infSub.innerHTML = count ? l.infHaveSub : (S.shards ? l.infDim(dimStr(), fmt(prestigeMult())) : l.infCurious);
 
-  // Ω までの道のり
-  const dimNow = S.shards + 1;
-  els.omegaBar.innerHTML = `<div class="omega-text">${S.clearTime ? l.omegaDone(fmtTime(S.clearTime)) : l.omegaLeft(dimNow, OMEGA_DIM)}</div>
-    <div class="omega-steps">${Array.from({ length: OMEGA_DIM }, (_, i) => `<i class="${i < dimNow ? 'on' : ''}"></i>`).join('')}<b class="${S.clearTime ? 'on' : ''}">Ω</b></div>`;
-
-  // 転生
-  const r = l.rebirth, base = soulBase(), sp = soulParts();
+  // 転生（ボタン1つ）：魂の内訳
   const x = v => '×' + v.toFixed(2).replace(/\.?0+$/, '');
   els.rebirth.innerHTML = `
     <div class="soul-now">◇ ${l.soul(fmt(S.soul))}</div>
-    <p class="sec-sub">${r.how}</p>
     <div class="soul-calc">
-      <div><span>${r.rows[0]}</span><b>${fmt(sp.earn)}</b></div>
-      <div><span>${r.rows[1]} ${rankName(S.runMaxTier)}</span><b>${x(sp.rank)}</b></div>
-      <div><span>${r.rows[2]} ${dimStr()}</span><b>${x(sp.dim)}</b></div>
-      ${sp.res > 1 ? `<div><span>${r.rows[3]}</span><b>${x(sp.res)}</b></div>` : ''}
-      <div class="sum"><span>=</span><b>◇ ${fmt(base)}</b></div>
-    </div>
-    <div class="rb-row">
-      <button class="rb" data-rb="inherit" ${base < 1 ? 'disabled' : ''}><b>${r.inherit[0]}</b><small>${r.inherit[1]}</small><em>${r.gain(fmt(base ? soulInherit() : 0))}</em></button>
-      <button class="rb" data-rb="clear" ${base < 1 ? 'disabled' : ''}><b>${r.clear[0]}</b><small>${r.clear[1]}</small><em>${r.gain(fmt(base))}</em></button>
-    </div>
-    ${base < 1 ? `<p class="inf-note">${r.locked(fmt(soulToNext()))}</p>` : ''}`;
+      <div><span>${r.rows[0]}</span><b>${fmt(p.earn)}</b></div>
+      <div><span>${r.rows[1]} ${rankName(S.runMaxTier)}</span><b>${x(p.rank)}</b></div>
+      <div class="${p.n ? 'hot' : ''}"><span>${r.rows[4]} ${p.n}</span><b>${x(p.inf)}</b></div>
+      <div><span>${r.rows[2]} ${dimStr()}</span><b>${x(p.dim)}</b></div>
+      ${p.res > 1 ? `<div><span>${r.rows[3]}</span><b>${x(p.res)}</b></div>` : ''}
+      <div class="sum"><span>=</span><b>◇ ${fmt(p.total)}</b></div>
+    </div>`;
+  const can = !MODE && (p.total >= 1 || p.n > 0);
+  els.prestigeBtn.disabled = !can;
+  els.prestigeBtn.innerHTML = p.n > 0 ? l.rebirthNext(String(dimOf() + 1).padStart(2, '0')) : l.rebirthSame;
+  els.infNote.textContent = MODE ? '' : !can ? r.locked(fmt(soulToNext())) : p.n > 0 ? l.rebirthHintNext : l.rebirthHintSame;
 
-  // 魂スキル
+  // Ω までの道のり
+  const dimNow = dimOf();
+  els.omegaBar.innerHTML = `<div class="omega-text">${S.clearTime ? l.omegaDone(fmtTime(S.clearTime)) : l.omegaLeft(dimNow, OMEGA_DIM)}</div>
+    <div class="omega-steps">${Array.from({ length: OMEGA_DIM }, (_, i) => `<i class="${i < dimNow ? 'on' : ''}"></i>`).join('')}<b class="${S.clearTime ? 'on' : ''}">Ω</b></div>`;
+
+  // ブースト券
+  if (window.Gacha) Gacha.renderBoost();
+
+  // 永遠強化（上限なし）
   const ja = OPT.lang === 'ja';
-  els.skills.innerHTML = SKILLS.map((k, i) => {
-    const lv = S.skills[k.id], cost = skillCost(k), dsc = k.desc(lv);
+  els.skills.innerHTML = ETERNAL.map((k, i) => {
+    const lv = S.eternal[k.id], cost = eternalCost(k), dsc = k.desc(lv);
     return upgradeRow(i, ja ? k.jp : k.en, `${ja ? k.en.toUpperCase() + ' · ' : ''}LV ${lv}`, ja ? dsc.ja : dsc.en,
-      lv, k.max, `◇ ${fmt(cost)}`, S.soul >= cost, lv >= k.max, `data-skill="${k.id}"`, k.id);
+      lv, Infinity, `◇ ${fmt(cost)}`, S.soul >= cost, false, `data-skill="${k.id}"`, k.id);
   }).join('');
+  document.getElementById('eternalWrap').hidden = !(S.soul > 0 || S.stats.rebirths > 0 || S.shards > 0 || ETERNAL.some(k => S.eternal[k.id] > 0));
 }
 
 function renderStats() {
   const st = S.stats;
   const vals = [
     fmtTime(st.playTime), fmt(st.taps), fmt(st.spawned), fmt(st.merged), fmt(st.sold),
-    fmt(Math.floor(st.earned)), rankName(st.maxTier), fmt(st.infinities), dimStr(), fmt(st.rebirths || 0),
+    fmt(Math.floor(st.earned)), pow2(st.maxTier), fmt(st.infinities), dimStr(), fmt(st.rebirths || 0),
     S.clearTime ? fmtTime(S.clearTime) : '—',
   ];
   els.stats.innerHTML = L().stats.map((k, i) => `<dt>${k}</dt><dd>${vals[i]}</dd>`).join('');
-  els.dex.innerHTML = Array.from({ length: MAX_TIER + 1 }, (_, t) => {
-    const known = t <= st.maxTier;
-    return `<div class="dex-cell ${known ? '' : 'unknown'}"><div class="mini">${known ? skinSVG(PROFILE.skin, t, t >= MAX_TIER ? 34 : Math.min(34, 14 + t)) : '<i class="q"></i>'}</div>${rankName(t)}</div>`;
+  const inf = INF();
+  els.dex.innerHTML = Array.from({ length: inf + 1 }, (_, t) => {
+    const known = t <= Math.max(st.maxTier, S.runMaxTier);
+    return `<div class="dex-cell ${known ? '' : 'unknown'}"><div class="mini ${skinClass(PROFILE.skin)}">${known ? skinSVG(PROFILE.skin, t, t >= inf ? 34 : Math.min(34, 14 + t * 20 / inf), inf) : '<i class="q"></i>'}</div>${rankName(t)}</div>`;
   }).join('');
 }
 
@@ -1097,21 +1194,7 @@ function renderAccount() {
 }
 
 function renderSkins() {
-  const sk = L().skin, ja = OPT.lang === 'ja';
-  els.skinList.innerHTML = `<div class="bp-now">BP ${fmt(PROFILE.bp)}</div><div class="skin-grid">${SKIN_LIST.map(s => {
-    const owned = PROFILE.skins.includes(s.id), on = PROFILE.skin === s.id;
-    const btn = on ? `<button class="opt-btn" disabled>${sk.equipped}</button>`
-      : owned ? `<button class="opt-btn" data-equip="${s.id}">${sk.equip}</button>`
-        : s.cost < 0 ? `<button class="opt-btn" disabled>${sk.omegaOnly}</button>`
-          : `<button class="pill" data-unlock="${s.id}" ${PROFILE.bp < s.cost ? 'disabled' : ''}>${sk.bp(s.cost)}</button>`;
-    const prev = [0, 5, 11, MAX_TIER].map(t => `<span>${skinSVG(s.id, t, t >= MAX_TIER ? 40 : 18 + t * 1.6)}</span>`).join('');
-    return `<div class="skin-card ${on ? 'on' : ''} ${owned ? '' : 'lock'}">
-      <div class="skin-prev">${prev}</div>
-      <div class="skin-name">${s.id}<small>${ja ? s.jp : s.en}</small></div>
-      <div class="skin-desc">${SKIN_DESC[s.id][ja ? 0 : 1]}</div>
-      ${btn}
-    </div>`;
-  }).join('')}</div>`;
+  if (window.Gacha) Gacha.render();
 }
 
 function segHTML(key, choices) {
@@ -1135,6 +1218,9 @@ function renderOptions() {
     ${row(o.lang, segHTML('lang', [['ja', '日本語'], ['en', 'English']]))}
     ${row(o.sound, segHTML('sound', onoff))}
     ${row(o.vibe, segHTML('vibe', onoff))}
+    ${row(o.calm, segHTML('calm', onoff))}
+    ${row(o.sleep, btn('sleep', 'SLEEP'))}
+    ${row(o.autoSleep, segHTML('autoSleep', [[0, o.off], [60, '1m'], [300, '5m']]))}
     ${install}
     <div class="opt-group">${o.control}</div>
     ${row(o.size, segHTML('size', [['S', 'S'], ['M', 'M'], ['L', 'L']]))}
@@ -1158,6 +1244,7 @@ function renderMenu() {
 
 function applyLanguage() {
   document.documentElement.lang = OPT.lang;
+  document.body.classList.toggle('calm', !!OPT.calm);
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = L()[el.dataset.i18n]; });
 }
 
@@ -1514,46 +1601,19 @@ els.upgrades.addEventListener('click', e => {
 els.skills.addEventListener('click', e => {
   if (toggleHelp(e)) return;
   const b = e.target.closest('button[data-skill]');
-  if (b) buySkill(SKILLS.find(k => k.id === b.dataset.skill));
+  if (b) buyEternal(ETERNAL.find(k => k.id === b.dataset.skill));
 });
 
-els.rebirth.addEventListener('click', e => {
-  const b = e.target.closest('[data-rb]');
-  if (!b || b.disabled) return;
-  const l = L(), r = l.rebirth, ja = OPT.lang === 'ja';
-  const base = soulBase();
-  const confirm = keepId => {
-    const gain = keepId ? soulInherit() : base;
-    const u = keepId && UPGRADES.find(x => x.id === keepId);
-    showModal({
-      rings: '◇',
-      title: r.confirmTitle,
-      text: r.confirmText(fmt(gain), u ? `${ja ? u.jp : u.en} Lv${S.up[keepId]}` : ''),
-      buttons: [{ label: 'REBIRTH', primary: true, onClick: () => rebirth(keepId) }, { label: l.cancel }],
-    });
-  };
-  if (b.dataset.rb === 'clear') { confirm(null); return; }
-  const opts = UPGRADES.filter(u => S.up[u.id] > 0);
-  if (!opts.length) { confirm(null); return; }
-  showModal({
-    title: r.pickTitle,
-    html: `<div class="pick">${opts.map(u => `<button data-keep="${u.id}">${ja ? u.jp : u.en}<span>Lv ${S.up[u.id]}</span></button>`).join('')}</div>`,
-    buttons: [{ label: l.cancel }],
-  });
-  els.modalBody.querySelectorAll('[data-keep]').forEach(k => {
-    k.onclick = () => { closeModal(); setTimeout(() => confirm(k.dataset.keep), 150); };
-  });
-});
-
+// 転生ボタン（1つだけ）
 els.prestigeBtn.addEventListener('click', () => {
-  const gain = infCount();
-  if (!gain) return;
+  const p = soulParts();
+  if (MODE || (p.total < 1 && p.n === 0)) return;
   const l = L();
   showModal({
-    rings: '∞',
-    title: l.beyondTitle,
-    text: l.beyondText(gain, fmt(Math.pow(2, S.shards + gain) * goldenMult()), soulBase() ? fmt(soulBase()) : 0),
-    buttons: [{ label: 'BEYOND ∞ &nbsp;→', primary: true, onClick: prestige }, { label: l.cancel }],
+    rings: p.n ? '∞' : '◇',
+    title: p.n ? l.rebirthNextTitle(String(dimOf() + 1).padStart(2, '0')) : l.rebirthSameTitle,
+    text: l.rebirthConfirm(fmt(p.total), p.n),
+    buttons: [{ label: 'REBIRTH &nbsp;→', primary: true, onClick: rebirth }, { label: l.cancel }],
   });
 });
 
@@ -1576,34 +1636,12 @@ els.account.addEventListener('click', e => {
   if (b) switchSlot(Number(b.dataset.slot));
 });
 
-els.skinList.addEventListener('click', e => {
-  const eq = e.target.closest('[data-equip]');
-  if (eq) {
-    PROFILE.skin = eq.dataset.equip;
-    saveProfile();
-    renderAll();
-    return;
-  }
-  const un = e.target.closest('[data-unlock]');
-  if (un) {
-    const s = SKIN_LIST.find(x => x.id === un.dataset.unlock);
-    if (PROFILE.bp < s.cost) { toast(L().skin.needBp); sfx.deny(); return; }
-    PROFILE.bp -= s.cost;
-    PROFILE.skins.push(s.id);
-    PROFILE.skin = s.id;
-    saveProfile();
-    sfx.win();
-    toast(L().skin.unlocked(OPT.lang === 'ja' ? s.jp : s.id));
-    renderAll();
-  }
-});
-
 els.options.addEventListener('click', e => {
   const seg = e.target.closest('[data-opt]');
   if (seg) {
     const key = seg.dataset.opt;
     let v = seg.dataset.val;
-    if (v === 'true') v = true; else if (v === 'false') v = false;
+    if (v === 'true') v = true; else if (v === 'false') v = false; else if (/^\d+$/.test(v)) v = Number(v);
     OPT[key] = v;
     saveSettings();
     if (key === 'size') S.objs.forEach(o => Object.assign(o, clampPos(o.t, o.x, o.y)));
@@ -1631,6 +1669,7 @@ function replaceState(next) {
 function optionAction(action) {
   const l = L(), o = l.opt;
   if (action === 'tutorial') { switchPanel('play'); tutStart(); }
+  if (action === 'sleep' && window.Boot) Boot.sleep(true);
   if (action === 'install' && installPrompt) {
     installPrompt.prompt();
     installPrompt.userChoice.finally(() => { installPrompt = null; renderOptions(); });
@@ -1725,7 +1764,7 @@ function tutEnd() {
 function findPair() {
   const seen = {};
   for (const o of S.objs) {
-    if (o.t >= MAX_TIER || busy.has(o.id)) continue;
+    if (o.t >= INF() || busy.has(o.id)) continue;
     if (seen[o.t]) return [o, seen[o.t]];
     seen[o.t] = o;
   }
@@ -1761,7 +1800,7 @@ function tutUpdate(force) {
   if (tut.step === 4 && st.bought > b.bought) tut.step = 5;
   if (tut.step === 2 && S.objs.length === 0) spawnOne(false);
   if (tut.step === 4 && prev !== 4) {
-    const cheapest = Math.min(...UPGRADES.filter(u => S.up[u.id] < u.max).map(upCost));
+    const cheapest = Math.min(...UPGRADES.filter(u => uUnlocked(u) && S.up[u.id] < umax(u)).map(upCost));
     if (S.coins < cheapest) { addCoins(cheapest - S.coins); toast(`${L().tutBonus} +${fmt(cheapest)}`); }
     renderShop();
   }
@@ -1869,46 +1908,85 @@ function resumeHere() {
 let genAcc = 0, mergeAcc = 0, saveAcc = 0;
 let lastTick = performance.now();
 
+let coinRate = 0, rateAcc = 0, rateEarned0 = 0;   // 1秒あたりのコイン（平均）
+let sleeping = false;
+let lastInput = Date.now();
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => { lastInput = Date.now(); }, true));
+
 function tick() {
   const now = performance.now();
   const dt = Math.min(1, (now - lastTick) / 1000);
   lastTick = now;
-  if (paused) return;
+  if (paused || booting) return;
   S.stats.playTime += dt;
+  if (MODE === 'weekly' && window.Weekly) Weekly.tick(dt);
 
+  // ゲームの速さ（倍速モード・2倍速券）と永遠の速さ
+  const gdt = dt * gameSpeed();
+  if (S.boost.x2 > 0) S.boost.x2 = Math.max(0, S.boost.x2 - dt);
+  const rate = autoRate();
   if (S.up.autoGen) {
-    genAcc += dt;
+    genAcc += gdt * rate;
     const iv = genInterval(S.up.autoGen);
-    while (genAcc >= iv) { genAcc -= iv; spawnOne(false); }
+    let guard = 0;
+    while (genAcc >= iv && guard++ < 60) {
+      genAcc -= iv;
+      spawnOne(false);
+      if (S.up.multi && RNG() < S.up.multi * 0.1) spawnOne(false);   // まとめ生成
+    }
+    if (guard >= 60) genAcc = 0;
   }
   if (S.up.autoMerge && !(drag && drag.moving)) {
-    mergeAcc += dt;
+    mergeAcc += gdt * rate;
     const iv = mergeInterval(S.up.autoMerge);
-    while (mergeAcc >= iv) { mergeAcc -= iv; autoMergeStep(); }
+    let guard = 0;
+    while (mergeAcc >= iv && guard++ < 60) { mergeAcc -= iv; autoMergeStep(); }
+    if (guard >= 60) mergeAcc = 0;
   }
 
-  if (dirty && currentPanel === 'play') {
-    renderField();
-    dirty = false;
+  // 稼ぎの速さ（次の強化までの目安に使う）
+  rateAcc += dt;
+  if (rateAcc >= 2) {
+    const got = Math.max(0, S.stats.earned - rateEarned0) / rateAcc;
+    coinRate = coinRate ? coinRate * 0.6 + got * 0.4 : got;
+    rateAcc = 0;
+    rateEarned0 = S.stats.earned;
   }
-  renderHeader();
-  if (currentPanel === 'shop') refreshShop();
-  tutUpdate(false);
+
+  // 操作がなければ自動で省エネ画面
+  if (!sleeping && OPT.autoSleep && window.Boot && Date.now() - lastInput > OPT.autoSleep * 1000 && els.modal.hidden && !tut && !(window.Online && els.arena && !els.arena.hidden)) Boot.sleep(true);
+  if (sleeping) { if (window.Boot) Boot.sleepTick(); }
+  else {
+    if (dirty && currentPanel === 'play') {
+      renderField();
+      dirty = false;
+    }
+    renderHeader();
+    if (currentPanel === 'shop') refreshShop();
+    tutUpdate(false);
+  }
 
   saveAcc += dt;
   if (saveAcc > 5) { saveAcc = 0; save(); }
 }
 
-function offlineReward(away) {
+// 留守の間の稼ぎ（起動画面・画面復帰で使う）
+function offlineGain(away) {
   away = Math.min(offlineCapSec(), away);
-  if (away < 30 || !S.up.autoGen || paused) return;
-  const spawns = away / genInterval(S.up.autoGen);
-  const coins = spawns * (spawnCoin() + sellPrice(S.up.baseTier) * offlineRate());
-  if (coins < 1) return;
+  if (away < 30 || !S.up.autoGen || paused || MODE) return null;
+  const spawns = away * gameSpeed() * autoRate() / genInterval(S.up.autoGen);
+  const coins = spawns * (spawnCoin() + sellPrice(Math.min(INF() - 1, S.up.baseTier + E('eRank'))) * offlineRate());
+  if (coins < 1) return null;
   addCoins(coins);
+  return { coins, away };
+}
+
+function offlineReward(away) {
+  const g = offlineGain(away);
+  if (!g) return;
   showModal({
-    title: `+${fmt(Math.floor(coins))} COIN`,
-    text: L().offlineText(fmtTime(away)),
+    title: `+${fmt(Math.floor(g.coins))} COIN`,
+    text: L().offlineText(fmtTime(g.away)),
     buttons: [{ label: 'RECEIVE', primary: true }],
   });
 }
@@ -1939,9 +2017,17 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 // ---------- 起動 ----------
 announce();
 renderAll();
-offlineReward((Date.now() - (S.last || Date.now())) / 1000);
-if (!OPT.tutorialDone && S.stats.spawned === 0) tutStart();
-else if (OPT.seenVersion !== VERSION) showWhatsNew();
-OPT.seenVersion = VERSION;
-saveSettings();
 setInterval(tick, 100);
+// 起動画面（アイコン → クレジット → 注意事項 → スロット選択 → 留守の間に）のあとで始める
+function startGame() {
+  booting = false;
+  lastTick = performance.now();
+  rateEarned0 = S.stats.earned;
+  renderAll();
+  if (!OPT.tutorialDone && S.stats.spawned === 0) tutStart();
+  else if (OPT.seenVersion !== VERSION) showWhatsNew();
+  OPT.seenVersion = VERSION;
+  saveSettings();
+  if (window.Gacha) Gacha.onStart();
+}
+document.addEventListener('DOMContentLoaded', () => (window.Boot ? Boot.start() : startGame()));
