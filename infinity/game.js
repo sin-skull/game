@@ -538,9 +538,9 @@ const sellMult = () => (1 + 0.25 * S.up.sellMult) * incomeMult();
 const sellPrice = t => Math.pow(2, t) * sellMult();
 const spawnCoin = () => 0.1 * S.up.spawnCoin * incomeMult();
 const cap = () => SPACE_CAPS[S.up.space];
-// 通常強化の値段：次元ごとに ×8（物の価値 ×4・収入 ×2 を打ち消す）。
+// 通常強化の値段：次元ごとに ×2（収入 ×2 を打ち消す。毎回ランク1からやり直すので、序盤は次元1と同じ手ごたえ）。
 // 前の次元の上限までは今まで通りの伸び、それより上の新しいレベルは1段ごとにさらに ×1.5
-const DIM_COST = 8, NEW_LV_COST = 1.5;
+const DIM_COST = 2, NEW_LV_COST = 1.5;
 function upCostAt(u, lv, d) {
   if (u.id === 'autoSell') return u.cost(lv);
   const prev = d - 1 >= u.unlock ? u.max(d - 1) : Infinity;
