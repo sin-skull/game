@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=0.11.0">
+  <link rel="stylesheet" href="style.css?v=0.12.0">
 </head>
 <body>
   <div id="stage">
@@ -30,6 +30,10 @@
       <button class="btn big" id="btnContinue" hidden>CONTINUE</button>
       <button class="btn big" id="btnStart">START</button>
       <div class="row">
+        <button class="btn sm" id="btnEquip">GEAR</button>
+        <button class="btn sm" id="btnGacha">GACHA</button>
+      </div>
+      <div class="row">
         <button class="btn sm" id="btnLight">LIGHT: OFF</button>
         <button class="btn sm" id="btnSound">SOUND: ON</button>
       </div>
@@ -39,14 +43,26 @@
       </div>
     </div>
 
-    <!-- 出発準備（コインで次の1回ぶんの強化を買う） -->
-    <div class="layer" id="shop" hidden>
-      <div class="title" id="shopTitle">PREPARE</div>
-      <div class="coins" id="shopCoins"></div>
-      <div class="shop-list" id="shopList"></div>
-      <div class="sub" id="shopNote"></div>
-      <button class="btn big" id="btnDepart">DEPART</button>
-      <button class="btn sm ghost" id="btnShopBack">BACK</button>
+    <!-- ガチャ（武器 / スキン） -->
+    <div class="layer" id="gacha" hidden>
+      <div class="title" id="gachaTitle">GACHA</div>
+      <div class="coins" id="gachaCoins"></div>
+      <div class="row tabs2"><button class="btn sm" id="tabWeapon">WEAPON</button><button class="btn sm" id="tabSkin">SKIN</button></div>
+      <div class="g-result" id="gachaResult"></div>
+      <button class="btn big" id="btnPull">PULL</button>
+      <div class="sub" id="gachaRates"></div>
+      <div class="g-list" id="gachaList"></div>
+      <button class="btn sm ghost" id="btnGachaBack">BACK</button>
+    </div>
+
+    <!-- 装備 -->
+    <div class="layer" id="equip" hidden>
+      <div class="title" id="equipTitle">GEAR</div>
+      <div class="eq-head" id="equipWHead">WEAPON</div>
+      <div class="eq-list" id="equipWeapons"></div>
+      <div class="eq-head" id="equipSHead">SKIN</div>
+      <div class="eq-skins" id="equipSkins"></div>
+      <button class="btn sm ghost" id="btnEquipBack">BACK</button>
     </div>
 
     <!-- 一時停止 -->
@@ -89,7 +105,7 @@
     <div class="boot-skip" id="bootSkip">TAP</div>
   </div>
 
-  <script src="boot.js?v=0.11.0"></script>
-  <script src="game.js?v=0.11.0"></script>
+  <script src="boot.js?v=0.12.0"></script>
+  <script src="game.js?v=0.12.0"></script>
 </body>
 </html>
