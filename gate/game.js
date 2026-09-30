@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.17.0';
+const VERSION = '0.18.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -129,7 +129,16 @@ const I18N = {
     stageClear: n => `第${n}段 突破`, stageName: n => (n > STAGES ? `続 第${n}段` : `第${n}段／${STAGES}`), hit: '被弾',
     mods: { normal: '', school: '魚の群れ', current: '急流', golden: '朱の魚（食べると銭）', minus: '逆さ札', rush: '札の雨', dark: '夜の海' },
     attacks: { plain: '', bubble: '墨玉を撃つ', charge: '突進', summon: '魚を呼ぶ', ink: '墨を吐く' },
-    tabs: { rec: '記録', gear: '装備', home: 'ホーム', gacha: 'ガチャ', opt: '設定' },
+    side: { news: 'お知らせ', road: '道のり', how: '遊び方' }, road: '十段の道のり', contShort: '続きから', fromStart: 'はじめから',
+    roadLead: '各段を初めて突破すると真珠がもらえる。第十段（海坊主）は多め。', got: '済',
+    bn: { nextK: '初突破', next: (n, p) => `第${kan(n)}段を突破で　真珠 +${p}`, up: '強化できる装備があります', rec: n => `海の怪異 絵巻　${n} / 10` },
+    rankName: n => (n >= STAGES ? '十段 踏破' : n > 0 ? `第${kan(n)}段 突破` : '見習い'),
+    says: n => ['腹がへった…', `次は第${kan(Math.min(n, STAGES))}段だ`, '札は、くぐってこそ', '墨が乾く前に行こう', '海坊主…いつか会う'],
+    tapStart: 'タップしてはじめる', plusCoin: '銭は、進んだ距離と突破した段でたまる', plusPearl: '真珠は、各段を初めて突破するともらえる',
+    news: [['版 0.18.0', 'タイトル画面を追加。ホームを作り直し（左右のアイコン、下の角の大きな丸ボタン、バナー）。'],
+      ['版 0.17.0', '下のタブ（装備・ガチャ・ホーム・絵巻・設定）。アイコンを一新。'],
+      ['版 0.16.0', '墨絵と和紙の見た目に。ボスは海の怪異に。']],
+    tabs: { rec: '絵巻', gear: '装備', home: 'ホーム', gacha: 'ガチャ', opt: '設定' },
     go: '出陣', skinTab: '墨の色', equipped: '装備中', collection: '集めたもの',
     nextClear: (n, p) => `次の初突破　第${kan(n)}段　真珠 +${p}`, allClear: '十段 すべて突破',
     yokai: '海の怪異 絵巻', unknown: '？？？', notMet: 'まだ出会っていない',
@@ -189,7 +198,16 @@ const I18N = {
     stageClear: n => `STAGE ${n} CLEAR!`, stageName: n => (n > STAGES ? `∞ ${n}` : `STAGE ${n}/${STAGES}`), hit: 'HIT!',
     mods: { normal: '', school: 'FISH SCHOOL', current: 'FAST CURRENT', golden: 'RED FISH (coins)', minus: 'REVERSED TAGS', rush: 'TAG RAIN', dark: 'NIGHT SEA' },
     attacks: { plain: '', bubble: 'INK SHOTS', charge: 'CHARGE', summon: 'SUMMONS FISH', ink: 'INK CLOUD' },
-    tabs: { rec: 'RECORD', gear: 'GEAR', home: 'HOME', gacha: 'GACHA', opt: 'OPTION' },
+    side: { news: 'News', road: 'Road', how: 'How to' }, road: 'ROAD OF 10', contShort: 'CONTINUE', fromStart: 'NEW RUN',
+    roadLead: 'Clear each stage for the first time to earn pearls. Stage 10 (Umibozu) gives more.', got: 'DONE',
+    bn: { nextK: 'FIRST CLEAR', next: (n, p) => `Clear stage ${n}: +${p} pearls`, up: 'Gear ready to upgrade', rec: n => `Scroll of sea yokai  ${n} / 10` },
+    rankName: n => (n >= STAGES ? 'All cleared' : n > 0 ? `Stage ${n} cleared` : 'Novice'),
+    says: n => ['So hungry…', `Stage ${Math.min(n, STAGES)} next`, 'Tags count only when you pass', "Let's go before the ink dries", 'Umibozu… someday'],
+    tapStart: 'TAP TO START', plusCoin: 'Coins come from distance and stages cleared', plusPearl: 'Pearls come from first-time stage clears',
+    news: [['v0.18.0', 'New title screen. Rebuilt home (side icons, big round buttons, banner).'],
+      ['v0.17.0', 'Bottom tabs (Gear, Gacha, Home, Scroll, Option). New icon.'],
+      ['v0.16.0', 'Sumi-e ink look on washi paper. Bosses are sea yokai.']],
+    tabs: { rec: 'SCROLL', gear: 'GEAR', home: 'HOME', gacha: 'GACHA', opt: 'OPTION' },
     go: 'START', skinTab: 'INK', equipped: 'EQUIPPED', collection: 'COLLECTION',
     nextClear: (n, p) => `Next first clear: stage ${n}  ·  +${p} pearls`, allClear: 'All 10 stages cleared',
     yokai: 'SCROLL OF SEA YOKAI', unknown: '???', notMet: 'Not met yet',
@@ -900,13 +918,14 @@ function applyStatic() {
 }
 
 // ---------- ホーム：下のタブで 記録・装備・ホーム・ガチャ・設定 を切り替える ----------
-const TABS = ['rec', 'gear', 'home', 'gacha', 'opt'];
+const TABS = ['gear', 'gacha', 'home', 'rec', 'opt'];
 let tab = 'home', gearTab = 'weapon', gachaTab = 'weapon', heroTimer = 0;
 const crocURL = (skin, f, mood) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.croc(f, mood, skinInk(skin)));
 const bossURL = i => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.boss(i, 0, 'normal'));
-function showMenu() { showHome('home'); }
+function showMenu() { showTitle(); }
 function showHome(t) {
   state = 'menu';
+  show('title', false);
   show('result', false); show('pause', false);
   applyStatic();
   show('home', true);
@@ -927,41 +946,136 @@ function setTab(t, dir) {
   if (dir == null) dir = TABS.indexOf(t) - TABS.indexOf(prev);
   if (dir) { const el = $('p-' + t); void el.offsetWidth; el.classList.add(dir > 0 ? 'from-r' : 'from-l'); }
   $('hTitle').textContent = t === 'home' ? '' : l.tabs[t];
+  $('hProf').hidden = t !== 'home';
+  $('home').classList.toggle('at-home', t === 'home');
   $('p-' + t).scrollTop = 0;
   renderTab();
 }
 function renderTab() {
   $('hCoins').textContent = fmt(SLOT.coins);
+  $('hAva').src = crocURL(SLOT.skin, 0, 'normal');
+  $('hRank').textContent = OPT.lang === 'ja' ? kan(Math.max(1, cleared())) : Math.max(1, cleared());
+  $('hName').textContent = L().rankName(cleared());
+  $('hBest').textContent = `${L().best} ${fmt(Math.floor(SLOT.best * METER))}${L().meter}`;
   $('hPearls').textContent = fmt(SLOT.pearls);
   // 印：強化できるものがある／ガチャが引ける
-  const canUp = WEAPON_DEF.some(w => SLOT.weapons[w.id] && SLOT.weapons[w.id] < WLV_MAX && SLOT.coins >= wUpCost(w, SLOT.weapons[w.id]))
-    || SKIN_DEF.some(k => SLOT.skins[k.id] && SLOT.skins[k.id] < SLV_MAX && SLOT.coins >= sUpCost(k, SLOT.skins[k.id]));
-  $('dotGear').hidden = !canUp;
+  $('dotGear').hidden = !canUpgrade();
   $('dotGacha').hidden = SLOT.pearls < GACHA_COST;
   clearInterval(heroTimer);
   ({ rec: renderRec, gear: renderEquip, home: renderHomePanel, gacha: renderGacha, opt: renderOpt })[tab]();
 }
+// ホーム：まん中にワニ、左右に機能のアイコン、下の角に大きな丸ボタン、その間にバナー
+const canUpgrade = () => WEAPON_DEF.some(w => SLOT.weapons[w.id] && SLOT.weapons[w.id] < WLV_MAX && SLOT.coins >= wUpCost(w, SLOT.weapons[w.id]))
+  || SKIN_DEF.some(k => SLOT.skins[k.id] && SLOT.skins[k.id] < SLV_MAX && SLOT.coins >= sUpCost(k, SLOT.skins[k.id]));
+const cleared = () => Math.min(SLOT.maxStage, STAGES);
+const nextReward = () => (cleared() >= STAGES ? 0 : cleared() + 1 === STAGES ? FIRST_CLEAR.big : FIRST_CLEAR.normal);
+// 波（墨の線を何段か）
+function wavesSVG(w, h, rows = 5, op = .35) {
+  let d = '';
+  for (let r = 0; r < rows; r++) {
+    const y = 10 + r * (h - 20) / Math.max(1, rows - 1), off = (r % 2) * 22;
+    for (let x = -44 + off; x < w + 44; x += 44) d += `M${x} ${y} q11 -9 22 0 q11 9 22 0 `;
+  }
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><path d="${d}" fill="none" stroke="#1a1714" stroke-width="1.6" stroke-linecap="round" opacity="${op}"/></svg>`);
+}
+const fishURL = (f, gold) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.fish(f, gold));
+const fudaURL = neg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(Ink.fuda(60, 76, neg));
+function sceneHTML(big) {
+  // 遠くに海坊主の影、波、泳ぐ魚、流れてくる短冊
+  const fish = [[8, 30, 0, 0], [22, 44, 1, 0], [74, 36, 2, 1], [86, 52, 3, 0], [14, 60, 2, 0], [64, 58, 0, 0]].map(([x, y, f, g], i) =>
+    `<img class="sc-fish" style="left:${x}%;top:${y}%;animation-delay:${-i * .7}s" src="${fishURL(f, !!g)}" alt="">`).join('');
+  const tags = big ? `<div class="sc-tag" style="left:70%;top:31%;--r:6deg"><img src="${fudaURL(false)}" alt=""><b>+1</b></div>
+    <div class="sc-tag" style="left:12%;top:34%;--r:-5deg"><img src="${fudaURL(true)}" alt=""><b style="color:#c8321e">−2</b></div>` : '';
+  return `<img class="sc-yokai" src="${bossURL(9)}" alt=""><img class="sc-wave a" src="${wavesSVG(360, 90, 4, .28)}" alt="">
+    <img class="sc-wave b" src="${wavesSVG(360, 120, 5, .18)}" alt="">${fish}${tags}`;
+}
 function renderHomePanel() {
-  const l = L();
-  // 装備中のワニが歩く
+  const l = L(), done = cleared();
+  $('hmScene').innerHTML = sceneHTML(false);
+  // 装備中のワニが歩く。さわると喜んでひとこと
   let f = 0; const img = $('hmCroc');
   img.src = crocURL(SLOT.skin, 0, 'normal');
-  heroTimer = setInterval(() => { f = (f + 1) % 4; img.src = crocURL(SLOT.skin, f, 'normal'); }, 260);
+  heroTimer = setInterval(() => { if (!img.dataset.happy) { f = (f + 1) % 4; img.src = crocURL(SLOT.skin, f, 'normal'); } }, 280);
+  $('hmCrocBtn').onclick = () => {
+    img.dataset.happy = 1; img.src = crocURL(SLOT.skin, 0, 'happy'); sfx('count');
+    const lines = l.says(done + 1);
+    const say = $('hmSay'); say.textContent = lines[Math.floor(Math.random() * lines.length)]; say.classList.remove('on'); void say.offsetWidth; say.classList.add('on');
+    clearTimeout(img._t); img._t = setTimeout(() => { delete img.dataset.happy; }, 1200);
+  };
   const w = weaponOf(SLOT.weapon);
-  $('hmGear').innerHTML = `<span>${l.wname[w.id]} <small>Lv${SLOT.weapons[w.id]}</small></span><span>${l.sname[SLOT.skin]} <small>Lv${SLOT.skins[SLOT.skin]}</small></span>`;
-  // 十段の道のり：突破した段は朱、次の段は点滅
-  const done = Math.min(SLOT.maxStage, STAGES);
-  $('hmRoad').innerHTML = Array.from({ length: STAGES }, (_, i) => {
+  $('hmGear').innerHTML = `<span><small>${l.gWeapon}</small>${l.wname[w.id]}<em>Lv${SLOT.weapons[w.id]}</em></span><span><small>${l.skinTab}</small>${l.sname[SLOT.skin]}<em>Lv${SLOT.skins[SLOT.skin]}</em></span>`;
+  // 上：十段の道のり
+  $('hmRoad').innerHTML = `<small>${l.road}</small>` + Array.from({ length: STAGES }, (_, i) => {
     const n = i + 1, cls = n <= done ? 'done' : n === done + 1 ? 'next' : '';
     return `<i class="${cls} ${n === STAGES ? 'big' : ''}">${OPT.lang === 'ja' ? kan(n) : n}</i>`;
   }).join('');
-  $('hmNext').textContent = done >= STAGES ? l.allClear : l.nextClear(done + 1, done + 1 === STAGES ? FIRST_CLEAR.big : FIRST_CLEAR.normal);
-  show('btnContinue', !!SLOT.run);
-  $('btnContinue').textContent = SLOT.run ? `${l.cont}　${fmt(Math.floor(SLOT.run.m * METER))} ${l.meter}` : '';
-  $('btnStart').textContent = SLOT.run ? l.newRun : l.go;
-  $('btnStart').classList.toggle('sub', !!SLOT.run);
-  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best * METER)), SLOT.runs);
+  // 左右のアイコン
+  const side = (items) => items.map(([act, ic, label, dot]) => `<button class="side-btn" data-act="${act}"><i>${ic}</i><span>${label}</span>${dot ? '<b class="dot"></b>' : ''}</button>`).join('');
+  $('sideL').innerHTML = side([['news', '報', l.side.news, OPT.newsSeen !== VERSION], ['road', '道', l.side.road, false], ['how', '習', l.side.how, false]]);
+  $('sideR').innerHTML = side([['gacha', '引', l.tabs.gacha, SLOT.pearls >= GACHA_COST], ['skin', '墨', l.skinTab, false], ['rec', '巻', l.tabs.rec, false]]);
+  document.querySelectorAll('.side-btn').forEach(b => { b.onclick = () => { sfx('gate'); sideAct(b.dataset.act); }; });
+  // 下の角：左＝出陣（続きがあれば「続きから」）、右＝強化
+  const st = $('btnStart');
+  st.querySelector('b').textContent = SLOT.run ? l.contShort : l.go;
+  st.querySelector('small').textContent = SLOT.run ? `${fmt(Math.floor(SLOT.run.m * METER))}${l.meter}` : (OPT.lang === 'ja' ? `第${kan(Math.min(done + 1, STAGES))}段へ` : `to stage ${Math.min(done + 1, STAGES)}`);
+  $('btnStartNew').hidden = !SLOT.run; $('btnStartNew').textContent = l.fromStart;
+  $('btnUp').querySelector('b').textContent = l.up;
+  $('btnUp').querySelector('small').textContent = l.tabs.gear;
+  $('dotUp').hidden = !canUpgrade();
+  renderBanner();
 }
+function sideAct(act) {
+  const l = L();
+  if (act === 'gacha' || act === 'rec') return setTab(act);
+  if (act === 'skin') { gearTab = 'skin'; return setTab('gear'); }
+  if (act === 'how') { applyStatic(); return show('help', true); }
+  if (act === 'news') { OPT.newsSeen = VERSION; saveOpt(); renderTab();
+    return openInfo(l.side.news, l.news.map(([v, t]) => `<div class="news"><b>${v}</b><span>${t}</span></div>`).join('')); }
+  if (act === 'road') {
+    const done = cleared();
+    return openInfo(l.side.road, `<p class="info-lead">${l.roadLead}</p>` + Array.from({ length: STAGES }, (_, i) => {
+      const n = i + 1, p = n === STAGES ? FIRST_CLEAR.big : FIRST_CLEAR.normal;
+      return `<div class="road-row ${n <= done ? 'done' : ''}"><span>${OPT.lang === 'ja' ? `第${kan(n)}段` : `Stage ${n}`}　<small>${SLOT.maxStage >= n ? bossName(n - 1) : l.unknown}</small></span>
+        <em><i class="ic-pearl"></i>+${p}</em><b>${n <= done ? l.got : ''}</b></div>`;
+    }).join(''));
+  }
+}
+function openInfo(title, html) { $('infoTitle').textContent = title; $('infoBody').innerHTML = html; $('btnInfoClose').textContent = L().close; show('info', true); }
+// バナー：いま役に立つお知らせを横にめくる
+let bnIdx = 0, bnTimer = 0;
+function renderBanner() {
+  const l = L(), done = cleared(), slides = [];
+  if (done < STAGES) slides.push({ go: 'road', img: bossURL(done), k: l.bn.nextK, t: l.bn.next(done + 1, nextReward()) });
+  else slides.push({ go: 'road', img: bossURL(9), k: l.bn.nextK, t: l.allClear });
+  slides.push({ go: 'gacha', img: crocURL(SLOT.skin, 0, 'happy'), k: l.tabs.gacha, t: l.pity(PITY - Math.max(SLOT.pity.weapon || 0, SLOT.pity.skin || 0)) });
+  if (canUpgrade()) slides.push({ go: 'gear', img: crocURL(SLOT.skin, 1, 'normal'), k: l.tabs.gear, t: l.bn.up });
+  slides.push({ go: 'rec', img: bossURL(Math.max(0, done - 1)), k: l.tabs.rec, t: l.bn.rec(done) });
+  bnIdx %= slides.length;
+  $('bnTrack').innerHTML = slides.map(x => `<button class="bn" data-go="${x.go}"><img src="${x.img}" alt=""><span><small>${x.k}</small>${x.t}</span></button>`).join('');
+  $('bnDots').innerHTML = slides.map((_, i) => `<i class="${i === bnIdx ? 'on' : ''}"></i>`).join('');
+  const move = () => { $('bnTrack').style.transform = `translateX(${-bnIdx * 100}%)`; $('bnDots').querySelectorAll('i').forEach((d, i) => d.classList.toggle('on', i === bnIdx)); };
+  move();
+  $('bnTrack').querySelectorAll('.bn').forEach(b => { b.onclick = () => { sfx('gate'); const g = b.dataset.go; g === 'road' ? sideAct('road') : setTab(g); }; });
+  clearInterval(bnTimer);
+  bnTimer = setInterval(() => { if (tab !== 'home' || $('home').hidden) return clearInterval(bnTimer); bnIdx = (bnIdx + 1) % slides.length; move(); }, 3800);
+}
+
+// ---------- タイトル：絵巻の一場面。どこかをタップではじめる ----------
+let tsTimer = 0;
+function showTitle() {
+  state = 'menu';
+  applyStatic();
+  show('home', false);
+  const l = L();
+  $('tsScene').innerHTML = sceneHTML(true) + `<img class="ts-croc" id="tsCroc" src="${crocURL(SLOT.skin, 0, 'normal')}" alt="">
+    <img class="ts-mate l" src="${crocURL('sky', 1, 'normal')}" alt=""><img class="ts-mate r" src="${crocURL('pink', 3, 'happy')}" alt="">`;
+  $('tsVer').textContent = l.version(VERSION);
+  $('tsTap').textContent = l.tapStart;
+  let f = 0;
+  clearInterval(tsTimer); tsTimer = setInterval(() => { f = (f + 1) % 4; const c = $('tsCroc'); if (c) c.src = crocURL(SLOT.skin, f, 'normal'); }, 300);
+  show('title', true);
+}
+function leaveTitle(t) { clearInterval(tsTimer); show('title', false); sfx('go'); showHome(t || 'home'); }
 function renderRec() {
   const l = L();
   $('recStats').innerHTML = [[l.recStat.best, `${fmt(Math.floor(SLOT.best * METER))}<small>${l.meter}</small>`],
@@ -1085,7 +1199,7 @@ function preloadArt() {
 }
 function startRun(resume) {
   preloadArt();
-  clearInterval(heroTimer); show('home', false); show('result', false); show('pause', false); show('help', false);
+  clearInterval(heroTimer); clearInterval(tsTimer); show('title', false); show('info', false); show('home', false); show('result', false); show('pause', false); show('help', false);
   if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; enterStage(1); if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
   countdown(() => { state = 'play'; });
@@ -1174,8 +1288,13 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('pagehide', () => { if (state === 'play' || state === 'pause') persist(); });
 
-$('btnStart').onclick = () => startRun(false);
-$('btnContinue').onclick = () => startRun(true);
+$('btnStart').onclick = () => startRun(!!SLOT.run);
+$('btnStartNew').onclick = () => startRun(false);
+$('btnUp').onclick = () => { sfx('gate'); gearTab = 'weapon'; setTab('gear'); };
+$('btnInfoClose').onclick = () => show('info', false);
+$('title').onclick = e => { if (!e.target.closest('#tsMenu')) leaveTitle(); };
+$('tsMenu').onclick = () => leaveTitle('opt');
+document.querySelectorAll('.plus').forEach(b => { b.onclick = () => { sfx('gate'); toast(b.dataset.plus === 'coin' ? L().plusCoin : L().plusPearl, 3200); }; });
 $('btnPull').onclick = () => pull(gachaTab);
 $('btnResume').onclick = resumeGame;
 $('btnQuit').onclick = () => { persist(); tutHide(); showHome('home'); };
@@ -1459,7 +1578,7 @@ function frame(now) {
   render(now);
 }
 
-window.Game = { OPT, METER, readSlot, selectSlot, saveOpt, fmt, showMenu };
+window.Game = { OPT, METER, readSlot, selectSlot, saveOpt, fmt, showMenu, showTitle };
 if (DEV) window.__gate = { get R() { return R; }, step, startRun, get state() { return state; }, STAGES, stageLen, stageSpeed, mEff };   // 開発用
 
 // 画面（タイトルなど）の背景にも同じ和紙を敷く
