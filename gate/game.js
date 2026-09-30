@@ -7,7 +7,7 @@
 //        ゲートは撃つほど数値が動き、到達した瞬間に自分の強さ（ダメージ・段数・人数）が確定する。
 // =====================================================
 
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 const W = 360, H = 640;                 // 論理サイズ（縦画面）。画面に合わせて拡縮する
 const Q = new URLSearchParams(location.search);
 const DEV = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);   // 開発用パラメータは手元でだけ効く
@@ -38,13 +38,14 @@ const PIERCE_MAX = 6;                        // 1発で貫ける数の上限（�
 const ST0 = { dmg: 1, lines: 7, crew: 1, rate: 8, wp: 'normal' };
 // 武器：撃ち方が変わる（弾はまっすぐ上に飛ぶのが基本）
 const WEAPONS = ['normal', 'spread', 'bounce', 'beam'];
-const WP_NAME = { normal: 'NORMAL', spread: 'SPREAD', bounce: 'BOUNCE', beam: 'BEAM' };   // 初期グレード（転生で買う要素は次の段階）
+const WP_NAME = { normal: 'NORMAL', spread: 'SPREAD', bounce: 'BOUNCE', beam: 'BEAM' };
 
 // ---------- 設定・セーブ ----------
 const SETTINGS_KEY = 'gate-settings';
 const SLOT_KEYS = ['gate-slot-0', 'gate-slot-1', 'gate-slot-2'];
 function loadOpt() {
-  const d = { slot: 0, light: false, sound: true, bootSeen: false, noticeVer: '', lightAsked: false };
+  const d = { slot: 0, light: false, sound: true, bootSeen: false, noticeVer: '', lightAsked: false, tutDone: false,
+    lang: (navigator.language || '').startsWith('ja') ? 'ja' : 'en' };
   try { return Object.assign(d, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { return d; }
 }
 const OPT = loadOpt();
@@ -59,6 +60,75 @@ function readSlot(i) {
 let SLOT = readSlot(OPT.slot) || { best: 0, runs: 0, run: null };
 function writeSlot() { try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(SLOT)); } catch (e) { /* 保存不可 */ } }
 function selectSlot(i) { OPT.slot = i; saveOpt(); SLOT = readSlot(i) || { best: 0, runs: 0, run: null }; }
+
+// ---------- 文言（タイトルの GATE VADER 以外は 日本語 / English で切り替え） ----------
+const I18N = {
+  ja: {
+    stat: { dmg: '威力', lines: '段数', crew: '仲間', life: 'ライフ', weapon: '武器' },
+    wp: { normal: 'ノーマル', spread: '拡散', bounce: '反射', beam: 'ビーム' },
+    item: { crew: '仲間', heal: '回復', power: 'パワー' },
+    food: 'エサ', gate: 'ゲート', best: 'ベスト', speed: '速さ', menu: 'メニュー',
+    boss: 'ボス', bigBoss: '大ボス', bossDown: '撃破！', hit: '当たった！',
+    lifeUp: 'ライフ+1', crewUp: '仲間+1', hpUp: 'ライフ+1', powerUp: '威力×1.5',
+    start: 'スタート', newRun: '新しく始める', cont: 'つづきから', light: '軽量', sound: '音', slot: 'スロット',
+    how: '遊び方', lang: 'English', on: 'ON', off: 'OFF',
+    pause: '一時停止', resume: '再開', quit: '保存して終了', retry: 'もう一度', title: 'タイトル',
+    over: 'ゲームオーバー', starved: '餓死…', newBest: 'ベスト更新！', eaten: n => `${n}匹食べた`,
+    menuSub: (b, r, sl) => `ベスト ${b} m ・ ${r} 回 ・ スロット ${sl}`,
+    lightToast: '軽量モードにしました（タイトルで切り替えできます）',
+    skip: 'スキップ', close: 'とじる',
+    tut: [
+      '画面をドラッグして、ワニを左右に動かそう',
+      '左の魚を撃って食べよう。\n逃すと左上の🍖が減り、空になると餓死',
+      '右のゲートを撃つと、数値が良くなっていく。\nマイナスも撃てばプラスに変わる',
+      'ゲートは、ワニに届いた瞬間に効果が決まる',
+      '点線のアイテムは、壊すと手に入る。\n壊せずに当たると負け（ライフは1つ）',
+      'ライフ・武器のゲートは、たまにだけ出る。\nできるだけ遠くまで進もう！',
+    ],
+    help: [
+      ['動かす', '画面のどこでもドラッグすると、ワニが左右に動く。弾はまっすぐ上に飛ぶ'],
+      ['左：エサ', '魚を撃つと食べられる。逃すと🍖が減り、空になると餓死'],
+      ['右：ゲート', '撃つと数値が良くなる。ワニに届いた瞬間に 威力・段数・仲間 が変わる'],
+      ['アイテム', '点線の箱は壊すと手に入る。壊せずに当たるとライフ-1（0で負け）'],
+      ['ライフ・武器', 'たまにだけ出るゲート。武器ゲートは撃つと中身が切り替わる'],
+      ['ボス', '12.5%ごとに大きな魚。下まで来られたら負け'],
+      ['ゴール', '100%で GAME CLEAR、そのまま ∞ MODE へ。競うのは進んだメートル'],
+    ],
+  },
+  en: {
+    stat: { dmg: 'DMG', lines: 'LINE', crew: 'CREW', life: 'LIFE', weapon: 'WEAPON' },
+    wp: WP_NAME,
+    item: { crew: 'CREW', heal: 'HEAL', power: 'POWER' },
+    food: 'FOOD', gate: 'GATE', best: 'BEST', speed: 'SPEED', menu: 'MENU',
+    boss: 'BOSS', bigBoss: 'BIG BOSS', bossDown: 'BOSS DOWN', hit: 'HIT!',
+    lifeUp: '+1 LIFE', crewUp: '+1 CREW', hpUp: '+1 LIFE', powerUp: 'DMG ×1.5',
+    start: 'START', newRun: 'NEW RUN', cont: 'CONTINUE', light: 'LIGHT', sound: 'SOUND', slot: 'SLOT',
+    how: 'HOW TO PLAY', lang: '日本語', on: 'ON', off: 'OFF',
+    pause: 'PAUSE', resume: 'RESUME', quit: 'SAVE & EXIT', retry: 'RETRY', title: 'TITLE',
+    over: 'GAME OVER', starved: 'STARVED', newBest: 'NEW BEST!', eaten: n => `${n} EATEN`,
+    menuSub: (b, r, sl) => `BEST ${b} m  ·  ${r} RUNS  ·  SLOT ${sl}`,
+    lightToast: 'LIGHT MODE ON — change it on the title screen',
+    skip: 'SKIP', close: 'CLOSE',
+    tut: [
+      'Drag anywhere to move the croc left and right',
+      'Shoot the fish on the left to eat them.\nMiss them and the meat gauge drops — empty means starving',
+      'Shoot the gates on the right to improve their numbers.\nNegatives turn positive if you keep shooting',
+      'A gate takes effect the moment it reaches you',
+      'Break dashed items to get them.\nIf one hits you, you lose (you have 1 life)',
+      'LIFE and WEAPON gates show up only now and then.\nGo as far as you can!',
+    ],
+    help: [
+      ['Move', 'Drag anywhere to move the croc. Shots fly straight up'],
+      ['Left: food', 'Shoot fish to eat them. Missed fish drain the meat gauge; empty = starved'],
+      ['Right: gates', 'Shooting improves the number. It changes DMG / LINE / CREW when it reaches you'],
+      ['Items', 'Break dashed boxes to get them. If one hits you, -1 life (0 = game over)'],
+      ['Life / weapon', 'Rare gates. Shooting a weapon gate cycles the weapon inside'],
+      ['Boss', 'A big fish every 12.5%. If it reaches the bottom, you lose'],
+      ['Goal', '100% = GAME CLEAR, then ∞ MODE. You compete on meters travelled'],
+    ],
+  },
+};
+const L = () => I18N[OPT.lang] || I18N.ja;
 
 // ---------- 数の表記 ----------
 function fmt(n) {
@@ -227,7 +297,7 @@ function spawnGateRow() {
 const stepOf = o => (o.stat === 'dmg' ? o.v : Math.round(o.v));   // LINE・CREW は整数で効く
 function isGood(o) { return o.cls === 'item' || o.stat === 'weapon' || (o.type === 'add' ? stepOf(o) >= 0 : o.v >= 1); }
 function gateLabel(o) {
-  if (o.stat === 'weapon') return WP_NAME[o.v];
+  if (o.stat === 'weapon') return L().wp[o.v];
   if (o.type === 'add') { const v = stepOf(o); return (v < 0 ? '-' : '+') + (o.stat === 'dmg' ? fmt(Math.abs(v) < 10 ? Math.round(Math.abs(v) * 10) / 10 : Math.floor(Math.abs(v))) : Math.abs(v)); }
   if (o.v < 1) return '÷' + (1 / Math.max(0.05, o.v)).toFixed(1).replace(/\.0$/, '');
   return '×' + (o.v < 10 ? o.v.toFixed(1).replace(/\.0$/, '') : fmt(Math.floor(o.v)));
@@ -235,6 +305,7 @@ function gateLabel(o) {
 const STAT_NAME = { dmg: 'DMG', lines: 'LINE', crew: 'CREW', life: 'LIFE', weapon: 'WEAPON' };
 // 撃たれたとき：数値が「良い方向」に動く（マイナスも撃てばプラスに転じる）
 function growGate(o, b) {
+  if (R.tut) R.tut.grew = (R.tut.grew || 0) + 1;
   if (o.stat === 'life') { o.hit = 0.1; return; }
   if (o.stat === 'weapon') {
     o.c += b.w * 40 / (R.st.lines * R.st.crew * R.st.rate); o.hit = 0.1;
@@ -250,15 +321,16 @@ function growGate(o, b) {
   o.hit = 0.1;
 }
 function applyGate(o) {
+  if (R.tut) R.tut.applied = true;
   const st = R.st; let msg;
   if (o.stat === 'life') {
     R.hp = Math.min(HP_MAX, R.hp + 1);
-    pop(R.x, PY - 50, '+1 LIFE', true, '#ff8da1'); burst(o.x + o.w / 2, PY, 14, '#ff8da1'); sfx('gate');
+    pop(R.x, PY - 50, L().lifeUp, true, '#ff8da1'); burst(o.x + o.w / 2, PY, 14, '#ff8da1'); sfx('gate');
     return;
   }
   if (o.stat === 'weapon') {
     st.wp = o.v;
-    pop(R.x, PY - 50, WP_NAME[o.v], true, '#66e6ff'); burst(o.x + o.w / 2, PY, 14, '#66e6ff'); sfx('gate');
+    pop(R.x, PY - 50, L().wp[o.v], true, '#66e6ff'); burst(o.x + o.w / 2, PY, 14, '#66e6ff'); sfx('gate');
     return;
   }
   const before = { ...st };
@@ -266,16 +338,16 @@ function applyGate(o) {
   else if (o.stat === 'lines') st.lines = clamp(st.lines + stepOf(o), 1, linesCap());
   else st.crew = clamp(st.crew + stepOf(o), 1, CMAX);
   const good = o.stat === 'dmg' ? st.dmg >= before.dmg : st[o.stat] >= before[o.stat];
-  msg = `${STAT_NAME[o.stat]} ${gateLabel(o)}`;
+  msg = `${L().stat[o.stat]} ${gateLabel(o)}`;
   const stack = R.pops.filter(p => p.big && p.y > PY - 130).length;   // 同時に確定したら縦にずらす
   pop(R.x, PY - 50 - stack * 20, msg, true, good ? '#39ff88' : '#ff5a5a');
   burst(o.x + o.w / 2, PY, 14, good ? '#39ff88' : '#ff5a5a');
   if (!good) { R.hurt = 0.3; sfx('hurt'); } else sfx('gate');
 }
 function breakItem(o) {
-  if (o.kind === 'crew') { R.st.crew = Math.min(CMAX, R.st.crew + 1); pop(o.x + o.w / 2, o.y, '+1 CREW', true, '#66e6ff'); }
-  else if (o.kind === 'heal') { R.hp = Math.min(HP_MAX, R.hp + 1); pop(o.x + o.w / 2, o.y, '+1 HP', true, '#ff8da1'); }
-  else { R.st.dmg = Math.min(DMG_CAP, R.st.dmg * 1.5); pop(o.x + o.w / 2, o.y, 'DMG ×1.5', true, '#ffd84a'); }
+  if (o.kind === 'crew') { R.st.crew = Math.min(CMAX, R.st.crew + 1); pop(o.x + o.w / 2, o.y, L().crewUp, true, '#66e6ff'); }
+  else if (o.kind === 'heal') { R.hp = Math.min(HP_MAX, R.hp + 1); pop(o.x + o.w / 2, o.y, L().hpUp, true, '#ff8da1'); }
+  else { R.st.dmg = Math.min(DMG_CAP, R.st.dmg * 1.5); pop(o.x + o.w / 2, o.y, L().powerUp, true, '#ffd84a'); }
   burst(o.x + o.w / 2, o.y + o.h / 2, 20, '#66e6ff');
   sfx('gate');
 }
@@ -310,7 +382,7 @@ function spawnBoss() {
   const max = Math.max(50, dpsOf(R.st) * 0.6 * bossFightSec(k));
   R.boss = { k, big, hp: max, max, x: MID, y: -80, ph: Math.random() * 6, startM: R.m, hit: 0 };
   R.fightKills = 0;
-  R.banner = { text: big ? 'BIG BOSS' : 'BOSS', t: 2 };
+  R.banner = { text: big ? L().bigBoss : L().boss, t: 2 };
   sfx('boss');
 }
 function killBoss() {
@@ -321,7 +393,7 @@ function killBoss() {
   R.boss = null;
   sfx('boss');
   if (b.k === SEGS && !R.cleared) { R.cleared = true; R.banner = { text: 'GAME CLEAR!', t: 4, sub: '∞ MODE' }; }
-  else R.banner = { text: 'BOSS DOWN', t: 1.8 };
+  else R.banner = { text: L().bossDown, t: 1.8 };
 }
 function burst(x, y, n, col) {
   if (OPT.light) return;
@@ -381,6 +453,7 @@ function step(dt) {
     if (R.m >= R.nextBoss * SEG - FIGHT_LEN) spawnBoss();
   }
   if (BOT) botControl();
+  tutTick(dt);
   R.tx = clamp(R.tx, 14, W - 14);
   R.x += (R.tx - R.x) * Math.min(1, dt * 18);
 
@@ -451,7 +524,7 @@ function step(dt) {
   for (const mo of R.mobs) {
     if (mo.d) { any = true; continue; }
     mo.y += MOB_VY * s * dt;
-    if (mo.y > PY + 4) { mo.d = 1; any = true; R.food -= 1; R.hungry = 0.4; burst(mo.x, PY, 6, '#e0664a'); }
+    if (mo.y > PY + 4) { mo.d = 1; any = true; if (!R.tut) R.food -= 1; R.hungry = 0.4; burst(mo.x, PY, 6, '#e0664a'); }
   }
   if (any) R.mobs = R.mobs.filter(mo => !mo.d);
 
@@ -461,11 +534,11 @@ function step(dt) {
   for (const o of R.objs) {
     o.hit = Math.max(0, o.hit - dt);
     if (o.dead) continue;
-    o.y += GATE_VY * s * dt;
+    o.y += GATE_VY * s * dt * (R.tut ? 2.5 : 1);   // チュートリアル中は早めに届く
     if (o.y + o.h >= PY - 6) {
       o.dead = true;
       if (o.cls === 'gate') applyGate(o);
-      else { damage(); pop(o.x + o.w / 2, PY - 30, 'MISSED', true, '#ff5a5a'); }
+      else { damage(); pop(o.x + o.w / 2, PY - 30, L().hit, true, '#ff5a5a'); }
     }
   }
   if (R.objs.some(o => o.dead)) R.objs = R.objs.filter(o => !o.dead);
@@ -482,7 +555,7 @@ function step(dt) {
 
 // 当たった：ハートが1つ減る（0で負け）。直後は少し無敵
 function damage() {
-  if (R.inv > 0) return;
+  if (R.inv > 0 || R.tut) return;
   R.hp--; R.inv = 1.5; R.hurt = 0.6;
   sfx('hurt');
 }
@@ -502,26 +575,78 @@ function botControl() {
   else R.tx = MID / 2 + Math.sin(R.t * 3) * 60;
 }
 
+// ---------- チュートリアル ----------
+// 初めてのスタート時だけ。1つずつ実際にやってもらって進む。途中は飢えず、当たっても減らない
+function tutStart() { R.tut = { i: 0, t: 0, x0: R.x, k0: R.kills }; tutShow(); }
+function tutShow() {
+  const T = R.tut;
+  $('tutText').textContent = L().tut[T.i];
+  $('tutStep').textContent = `${T.i + 1} / ${L().tut.length}`;
+  $('tut').hidden = false;
+}
+function tutHide() { $('tut').hidden = true; }
+function tutNext() {
+  const T = R.tut;
+  T.i++; T.t = 0; T.k0 = R.kills; T.grew = 0; T.applied = false;
+  if (T.i >= L().tut.length) { tutEnd(); return; }
+  if (T.i === 2 && !R.objs.some(o => o.cls === 'gate' && o.y > 40)) {   // すぐ撃てるように、近くにゲートを出す
+    const a = makeGate(0, true), b = makeGate(1, true); a.y = b.y = 120; R.objs.push(a, b);
+  }
+  if (T.i === 4) { const it = makeItem(Math.random() < 0.5 ? 0 : 1, 'crew'); it.y = 110; R.objs.push(it); T.item = it.id; }
+  sfx('go');
+  tutShow();
+}
+function tutEnd() { R.tut = null; OPT.tutDone = true; saveOpt(); tutHide(); }
+function tutTick(dt) {
+  const T = R.tut; if (!T) return;
+  T.t += dt;
+  if (T.i === 0 && Math.abs(R.x - T.x0) > 60 && T.t > 1.2) tutNext();
+  else if (T.i === 1 && R.kills - T.k0 >= 12) tutNext();
+  else if (T.i === 2 && T.grew > 25) tutNext();
+  else if (T.i === 3 && T.applied) tutNext();
+  else if (T.i === 4 && !R.objs.some(o => o.id === T.item) && T.t > 1) tutNext();
+  else if (T.i === 5 && T.t > 5) tutNext();
+}
+
 // ---------- 画面の流れ ----------
 function show(id, on) { $(id).hidden = !on; }
 function toast(msg, ms = 2200) {
   const t = $('toast'); t.textContent = msg; t.classList.add('on');
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), ms);
 }
+// 動かない文言（一時停止・結果・チュートリアル）
+function applyStatic() {
+  const l = L();
+  document.documentElement.lang = OPT.lang;
+  $('pauseTitle').textContent = l.pause;
+  $('btnResume').textContent = l.resume;
+  $('btnQuit').textContent = l.quit;
+  $('btnRetry').textContent = l.retry;
+  $('btnHome').textContent = l.title;
+  $('tutSkip').textContent = l.skip;
+  $('helpTitle').textContent = l.how;
+  $('btnHelpClose').textContent = l.close;
+  $('helpBody').innerHTML = l.help.map(([h, d]) => `<div class="help-row"><b>${h}</b><span>${d}</span></div>`).join('');
+}
 function showMenu() {
   state = 'menu';
   show('result', false); show('pause', false);
-  $('menuSub').textContent = `BEST ${fmt(Math.floor(SLOT.best))} m  ·  ${SLOT.runs} RUNS  ·  SLOT ${OPT.slot + 1}`;
+  const l = L();
+  $('menuSub').textContent = l.menuSub(fmt(Math.floor(SLOT.best)), SLOT.runs, OPT.slot + 1);
   show('btnContinue', !!SLOT.run);
-  $('btnContinue').textContent = SLOT.run ? `CONTINUE  ${fmt(Math.floor(SLOT.run.m))} m` : 'CONTINUE';
-  $('btnStart').textContent = SLOT.run ? 'NEW RUN' : 'START';
-  $('btnLight').textContent = 'LIGHT: ' + (OPT.light ? 'ON' : 'OFF');
-  $('btnSound').textContent = 'SOUND: ' + (OPT.sound ? 'ON' : 'OFF');
+  $('btnContinue').textContent = SLOT.run ? `${l.cont}  ${fmt(Math.floor(SLOT.run.m))} m` : l.cont;
+  $('btnStart').textContent = SLOT.run ? l.newRun : l.start;
+  $('btnLight').textContent = `${l.light}: ${OPT.light ? l.on : l.off}`;
+  $('btnSound').textContent = `${l.sound}: ${OPT.sound ? l.on : l.off}`;
+  $('btnSlot').textContent = l.slot;
+  $('btnHow').textContent = l.how;
+  $('btnLang').textContent = l.lang;
+  applyStatic();
   show('menu', true);
 }
 function startRun(resume) {
   show('menu', false); show('result', false); show('pause', false);
-  if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; }
+  if (resume && SLOT.run) loadRun(SLOT.run); else { newRun(); SLOT.run = null; if (!OPT.tutDone) tutStart(); }
   lightSamples = 0; lightSum = 0;
   countdown(() => { state = 'play'; });
 }
@@ -544,11 +669,13 @@ function pauseGame(auto) {
   state = 'pause'; autoResume = !!auto;
   $('count').hidden = true;
   persist();
+  tutHide();
   if (!auto) show('pause', true);
   if (wasCount) return;
 }
 function resumeGame() {
   show('pause', false);
+  if (R && R.tut) tutShow();
   countdown(() => { state = 'play'; });
 }
 function gameOver() {
@@ -559,9 +686,11 @@ function gameOver() {
   if (R.newBest) SLOT.best = m;
   SLOT.run = null; writeSlot();
   sfx('hurt');
-  $('resTitle').textContent = R.starved ? 'STARVED' : 'GAME OVER';
+  const l = L();
+  tutHide();
+  $('resTitle').textContent = R.starved ? l.starved : l.over;
   $('resM').textContent = fmt(Math.floor(m)) + ' m';
-  $('resSub').textContent = (R.newBest ? 'NEW BEST!  ' : `BEST ${fmt(Math.floor(SLOT.best))} m  ·  `) + `${R.cleared ? '∞ MODE  ·  ' : ''}${R.kills} KILLS`;
+  $('resSub').textContent = (R.newBest ? l.newBest + '  ' : `${l.best} ${fmt(Math.floor(SLOT.best))} m  ·  `) + `${R.cleared ? '∞ MODE  ·  ' : ''}${l.eaten(R.kills)}`;
   setTimeout(() => { if (state === 'result') show('result', true); }, 700);
 }
 
@@ -605,11 +734,15 @@ addEventListener('pagehide', () => { if (state === 'play' || state === 'pause') 
 $('btnStart').onclick = () => startRun(false);
 $('btnContinue').onclick = () => startRun(true);
 $('btnResume').onclick = resumeGame;
-$('btnQuit').onclick = () => { persist(); showMenu(); };
+$('btnQuit').onclick = () => { persist(); tutHide(); showMenu(); };
 $('btnRetry').onclick = () => startRun(false);
 $('btnHome').onclick = showMenu;
 $('btnSlot').onclick = () => { show('menu', false); $('boot').hidden = false; Boot.start(true); };
 $('btnLight').onclick = () => { OPT.light = !OPT.light; OPT.lightAsked = true; saveOpt(); resize(); showMenu(); };
+$('btnHow').onclick = () => { applyStatic(); show('help', true); };
+$('btnHelpClose').onclick = () => show('help', false);
+$('btnLang').onclick = () => { OPT.lang = OPT.lang === 'ja' ? 'en' : 'ja'; saveOpt(); showMenu(); };
+$('tutSkip').onclick = e => { e.stopPropagation(); if (R && R.tut) tutEnd(); };
 $('btnSound').onclick = () => { OPT.sound = !OPT.sound; saveOpt(); showMenu(); };
 
 // ---------- 描画 ----------
@@ -626,7 +759,7 @@ addEventListener('resize', resize);
 const stars = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: Math.random() }));
 let starY = 0;
 const FONT = '"DotGothic16", "IBM Plex Mono", monospace';
-const ITEM = { crew: ['CREW', '#66e6ff'], heal: ['HEAL', '#ff8da1'], power: ['POWER', '#ffd84a'] };
+const ITEM_COL = { crew: '#66e6ff', heal: '#ff8da1', power: '#ffd84a' };
 
 function bulletColor(d) {
   const e = Math.log10(Math.max(1, d));
@@ -675,10 +808,10 @@ function render(now) {
       if (glow) { ctx.shadowColor = col; ctx.shadowBlur = 6 + o.hit * 40; }
       ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2);
       ctx.shadowBlur = 0;
-      text(STAT_NAME[o.stat], o.x + o.w / 2, o.y + 14, 11, col, 'center');
-      text(gateLabel(o), o.x + o.w / 2, o.y + 38, o.stat === 'weapon' ? 17 : 22, '#fff', 'center');
+      text(L().stat[o.stat], o.x + o.w / 2, o.y + 14, 11, col, 'center');
+      text(gateLabel(o), o.x + o.w / 2, o.y + 38, o.stat === 'weapon' ? 16 : 22, '#fff', 'center');
     } else {
-      const [name, col] = ITEM[o.kind];
+      const name = L().item[o.kind], col = ITEM_COL[o.kind];
       ctx.fillStyle = col; ctx.globalAlpha = 0.08 + o.hit * 2; ctx.fillRect(o.x, o.y, o.w, o.h);
       ctx.globalAlpha = 1;
       ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(o.x + 1, o.y + 1, o.w - 2, o.h - 2); ctx.setLineDash([]);
@@ -750,7 +883,7 @@ function drawHUD() {
   ctx.fillStyle = '#000';
   for (let i = 1; i < SEGS; i++) ctx.fillRect(bx + bw * i / SEGS - 0.5, by, 1, bh);
   text(R.cleared ? '∞' : Math.min(100, Math.floor(p * 100)) + '%', bx + bw + 8, by + 10, 12, '#fff');
-  text('BEST ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
+  text(L().best + ' ' + fmt(Math.floor(Math.max(SLOT.best, m))) + 'm', W - 10, 50, 11, '#9aa89f', 'right');
   // 飢餓ゲージ（🍖）
   ctx.drawImage(MEAT, 9, 26);
   const low = R.food <= 3;
@@ -761,15 +894,15 @@ function drawHUD() {
   }
   if (R.hungry > 0) { ctx.strokeStyle = '#ff4d4d'; ctx.strokeRect(26.5, 27.5, FOOD_MAX * 15, 11); }
   text(fmt(Math.floor(m)) + ' m', 10, 62, 18, '#fff');
-  text('SPEED ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 77, 11, '#6b7a70');
-  text('FOOD', MID / 2, 96, 10, 'rgba(255,120,120,.6)', 'center');
-  text('GATE', MID + MID / 2, 96, 10, 'rgba(120,255,170,.6)', 'center');
+  text(L().speed + ' ×' + speed(R.boss ? R.boss.startM : R.m).toFixed(2), 10, 77, 11, '#6b7a70');
+  text(L().food, MID / 2, 96, 11, 'rgba(255,120,120,.6)', 'center');
+  text(L().gate, MID + MID / 2, 96, 11, 'rgba(120,255,170,.6)', 'center');
   // 下段：ハートと今の強さ
   for (let i = 0; i < HP_MAX; i++) if (i < R.hp) ctx.drawImage(HEART, 10 + i * 18, H - 28);
-  text('DMG ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
-  text(`LINE ${R.st.lines}  CREW ${R.st.crew}  ${WP_NAME[R.st.wp] || 'NORMAL'}`, W / 2, H - 6, 11, '#9aa89f', 'center');
+  text(L().stat.dmg + ' ' + fmt(Math.floor(R.st.dmg)), W / 2, H - 22, 16, '#39ff88', 'center');
+  text(`${L().stat.lines} ${R.st.lines}  ${L().stat.crew} ${R.st.crew}  ${L().wp[R.st.wp] || L().wp.normal}`, W / 2, H - 6, 11, '#9aa89f', 'center');
   ctx.strokeStyle = '#9aa89f'; ctx.lineWidth = 1; ctx.strokeRect(MENU_RECT.x + 0.5, MENU_RECT.y + 0.5, MENU_RECT.w, MENU_RECT.h);
-  text('MENU', MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 19, 13, '#cfd8d2', 'center');
+  text(L().menu, MENU_RECT.x + MENU_RECT.w / 2, MENU_RECT.y + 19, 13, '#cfd8d2', 'center');
 }
 
 // ---------- メインループ ----------
@@ -790,7 +923,7 @@ function frame(now) {
       lightSamples++; lightSum += raw;
       if (lightSamples === 240 && lightSum / 240 > 0.027) {
         OPT.light = true; OPT.lightAsked = true; saveOpt(); resize();
-        toast('LIGHT MODE ON — you can change it on the title screen', 3500);
+        toast(L().lightToast, 3500);
       } else if (lightSamples === 240) { OPT.lightAsked = true; saveOpt(); }
     }
     if (R.t - (R._saved || 0) > 2) { R._saved = R.t; persist(); }
