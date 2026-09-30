@@ -21,7 +21,7 @@ const Online = (() => {
   const FB_VER = '10.12.2';
   const AUTH_FLAG = 'infinity-auth';
   const NAME_RE = /^[A-Za-z0-9_぀-ヿ㐀-鿿ｦ-ﾟ]{2,12}$/;
-  const BATTLE_SEC = 45, BATTLE_SPEED = 3;
+  const BATTLE_SEC = 60, BATTLE_SPEED = 3;
 
   const T = {
     ja: {
@@ -29,6 +29,7 @@ const Online = (() => {
       login: 'Google でログイン', logout: 'ログアウト', syncNow: '今すぐ同期', changeName: '名前を変更',
       synced: t => `クラウドに保存済み ${t}`, syncing: '同期中…', syncErr: '同期できなかった。通信を確認してください',
       permErr: 'クラウドの準備中（データベースのルール設定が必要）', noName: '名前が未設定',
+      permToast: 'サーバーの設定がまだ終わっていない（管理者の作業待ち）。ゲームはこのまま遊べる',
       nameTitle: 'ユーザー名を決める', nameText: 'ランキングとバトルで表示される名前。2〜12文字（英数字・かな・漢字・_）。',
       nameBad: '使えない名前', nameTaken: 'その名前はもう使われている', nameOk: n => `「${n}」で登録した`, ok: 'OK',
       loggedIn: 'ログインした', loggedOut: 'ログアウトした', cloudLoaded: 'クラウドのデータを読み込んだ',
@@ -39,12 +40,14 @@ const Online = (() => {
       needLogin: 'ログインすると、世界中のプレイヤーの分身と戦える。いまは自分の「影」と戦える。',
       searching: '相手を探している…', notFound: 'そのユーザーは見つからない（まだバトルに参加していないかも）',
       noOpp: '相手が見つからないので、影と戦う', needName: '先にユーザー名を決めよう', self: '自分とは戦えない',
-      rule: '45秒間、お互いのセーブデータの強化で全自動の合成を行う。生み出した価値の合計が大きい方の勝ち。次元の倍率は関係なく、強化の組み方で決まる。',
+      rule: 'タイムアタック。お互いのセーブデータの強化で全自動の合成を行い、先に目標のランク（GOAL）のオブジェクトを作った方の勝ち。生成の速さと合成の速さの両方が効く。60秒で決着しなければ、生み出した価値が多い方の勝ち。次元の倍率は関係なく、強化の組み方で決まる。',
+      finish: s => `FINISH ${s}s`, timeUp: 'TIME UP', goal: g => `GOAL ${g}`,
+      resTime: (a, b) => `あなた ${a} ／ 相手 ${b}`,
       win: 'WIN', lose: 'LOSE', draw: 'DRAW',
       resWin: (bp, s) => `BP +${bp}${s ? ` ／ 魂 +${s}` : ''}`, resLose: (bp, s) => `BP +${bp}${s ? ` ／ 魂 −${s}` : ''}`, resDraw: '引き分け。賭けた魂は戻った',
       defense: (n, bp) => `留守の間に、分身が ${n} 回防衛した。BP +${bp}`,
       history: 'HISTORY', noHistory: 'まだ戦っていない', close: 'CLOSE',
-      cats: { score: 'DIMENSION', clear: 'Ω TIME', wins: 'WINS' },
+      cats: { reach: 'REACH', bp: 'BP', clear: 'Ω TIME' }, catHelp: { reach: '到達した一番大きな数（次元をまたいだ指数）', bp: 'バトルで稼いだ BP の合計', clear: 'Ω に到達するまでのプレイ時間' },
       loading: '読み込み中…', empty: 'まだ誰もいない', rankErr: 'ランキングを読み込めない（通信か設定を確認）', you: 'YOU',
       notRanked: 'ログインして名前を決めると、ランキングに載る', refresh: 'REFRESH', dimLabel: d => `次元 ${d}`,
     },
@@ -53,6 +56,7 @@ const Online = (() => {
       login: 'Log in with Google', logout: 'Log out', syncNow: 'Sync now', changeName: 'Change name',
       synced: t => `Saved to cloud ${t}`, syncing: 'Syncing…', syncErr: 'Could not sync. Check your connection',
       permErr: 'Cloud not ready yet (database rules need to be set)', noName: 'No name yet',
+      permToast: 'The server isn\u2019t set up yet (waiting on the admin). You can keep playing',
       nameTitle: 'Choose a username', nameText: 'Shown in rankings and battles. 2–12 characters (letters, digits, kana, kanji, _).',
       nameBad: 'That name can’t be used', nameTaken: 'That name is taken', nameOk: n => `Registered as “${n}”`, ok: 'OK',
       loggedIn: 'Logged in', loggedOut: 'Logged out', cloudLoaded: 'Loaded your cloud data',
@@ -63,12 +67,14 @@ const Online = (() => {
       needLogin: 'Log in to battle copies of players around the world. For now you can fight your own Shadow.',
       searching: 'Looking for an opponent…', notFound: 'User not found (they may not have battled yet)',
       noOpp: 'No opponent found, so you face your Shadow', needName: 'Choose a username first', self: 'You can’t fight yourself',
-      rule: 'For 45 seconds both saves spawn and merge automatically using their upgrades. Higher total value wins. Dimension multipliers don’t count — only how you built.',
+      rule: 'Time attack. Both saves spawn and merge automatically using their upgrades; the first to create an object of the GOAL rank wins, so both spawn speed and merge speed matter. If nobody finishes in 60 seconds, the higher total value wins. Dimension multipliers don’t count — only how you built.',
+      finish: s => `FINISH ${s}s`, timeUp: 'TIME UP', goal: g => `GOAL ${g}`,
+      resTime: (a, b) => `You ${a} / Them ${b}`,
       win: 'WIN', lose: 'LOSE', draw: 'DRAW',
       resWin: (bp, s) => `BP +${bp}${s ? ` / Souls +${s}` : ''}`, resLose: (bp, s) => `BP +${bp}${s ? ` / Souls −${s}` : ''}`, resDraw: 'Draw. Your bet was returned',
       defense: (n, bp) => `Your copy defended ${n} time${n > 1 ? 's' : ''} while you were away. BP +${bp}`,
       history: 'HISTORY', noHistory: 'No battles yet', close: 'CLOSE',
-      cats: { score: 'DIMENSION', clear: 'Ω TIME', wins: 'WINS' },
+      cats: { reach: 'REACH', bp: 'BP', clear: 'Ω TIME' }, catHelp: { reach: 'The largest number ever reached (exponent across dimensions)', bp: 'Total BP earned in battles', clear: 'Play time until reaching Ω' },
       loading: 'Loading…', empty: 'Nobody here yet', rankErr: 'Couldn’t load the ranking (check connection or setup)', you: 'YOU',
       notRanked: 'Log in and choose a name to appear here', refresh: 'REFRESH', dimLabel: d => `Dim ${d}`,
     },
@@ -77,7 +83,7 @@ const Online = (() => {
 
   let fb = null, fbLoading = null, user = null;
   let status = 'guest', statusAt = 0, dirtyCloud = false, pushTimer = null, syncing = false;
-  let rankCat = 'score', rankData = {}, rankState = {};
+  let rankCat = 'reach', rankData = {}, rankState = {};
   let betValue = 0;
 
   // ---------- Firebase ----------
@@ -150,6 +156,7 @@ const Online = (() => {
       if (!PROFILE.name) askName();
     } catch (e) {
       setError(e);
+      toast(status === 'perm' ? t().permToast : t().syncErr);
     }
     renderAll();
   }
@@ -194,15 +201,16 @@ const Online = (() => {
   function slotData(i) { return i === OPT.slot ? S : readSlot(i); }
 
   function rankingEntry() {
-    let score = 0, dim = 1, maxTier = 0, clearTime = 0;
+    let score = 0, dim = 1, maxTier = 0, clearTime = 0, reach = 0;
     for (let i = 0; i < SLOT_KEYS.length; i++) {
       const s = slotData(i);
       if (!s) continue;
+      reach = Math.max(reach, s.shards * MAX_TIER + s.stats.maxTier);
       const sc = (s.shards + 1) * 100 + s.stats.maxTier;
       if (sc > score) { score = sc; dim = s.shards + 1; maxTier = s.stats.maxTier; }
       if (s.clearTime && (!clearTime || s.clearTime < clearTime)) clearTime = Math.floor(s.clearTime);
     }
-    return { name: PROFILE.name, skin: PROFILE.skin, score, dim, maxTier, clearTime, wins: PROFILE.wins, updated: Date.now() };
+    return { name: PROFILE.name, skin: PROFILE.skin, score, dim, maxTier, clearTime, reach, bp: Math.floor(PROFILE.bpTotal), wins: PROFILE.wins, updated: Date.now() };
   }
 
   function snapshot(s = S) {
@@ -263,7 +271,7 @@ const Online = (() => {
               renderAll();
             } catch (e) {
               if (e && e.message === 'taken') toast(l.nameTaken);
-              else { setError(e); toast(l.syncErr); }
+              else { setError(e); toast(status === 'perm' ? l.permToast : l.syncErr); }
             }
           },
         },
@@ -302,7 +310,7 @@ const Online = (() => {
       await f.F.deleteDoc(d.ref).catch(() => {});
     }
     if (n) {
-      PROFILE.bp += bp;
+      addBP(bp);
       saveProfile();
       setTimeout(() => toast(t().defense(n, bp)), 1200);
     }
@@ -359,15 +367,15 @@ const Online = (() => {
     const f = await loadFb();
     const col = f.F.collection(f.db, 'bi_ranking');
     const q = cat === 'clear' ? f.F.query(col, f.F.where('clearTime', '>', 0), f.F.orderBy('clearTime', 'asc'), f.F.limit(50))
-      : f.F.query(col, f.F.orderBy(cat === 'wins' ? 'wins' : 'score', 'desc'), f.F.limit(50));
+      : f.F.query(col, f.F.orderBy(cat === 'bp' ? 'bp' : 'reach', 'desc'), f.F.limit(50));
     const snaps = await f.F.getDocs(q);
     return snaps.docs.map(d => ({ uid: d.id, ...d.data() }));
   }
 
   function rankValue(cat, r) {
     if (cat === 'clear') return fmtTime(r.clearTime);
-    if (cat === 'wins') return `${fmt(r.wins || 0)}`;
-    return `${t().dimLabel(String(r.dim || 1).padStart(2, '0'))} · ${rankName(r.maxTier || 0)}`;
+    if (cat === 'bp') return `BP ${fmt(r.bp || 0)}`;
+    return `2<sup>${Math.floor(Number.isFinite(r.reach) ? r.reach : ((r.dim || 1) - 1) * MAX_TIER + (r.maxTier || 0))}</sup>`;
   }
 
   function renderRank() {
@@ -379,15 +387,19 @@ const Online = (() => {
     else if (st === 'error') list = `<p class="dim-text">${l.rankErr}</p>`;
     else {
       const rows = rankData[rankCat] || [];
-      list = rows.length ? rows.map((r, i) => `<div class="rk ${user && r.uid === user.uid ? 'me' : ''}">
+      list = rows.length ? rows.map((r, i) => `<div class="rk ${i < 3 ? 'top top' + (i + 1) : ''} ${user && r.uid === user.uid ? 'me' : ''}">
           <span class="rk-no">${i + 1}</span>
-          <span class="rk-skin">${skinSVG(SKIN_LIST.some(s => s.id === r.skin) ? r.skin : 'CIRCLE', 6, 22)}</span>
+          <span class="rk-skin">${skinSVG(SKIN_LIST.some(s => s.id === r.skin) ? r.skin : 'CIRCLE', 6, i < 3 ? 30 : 22)}</span>
           <span class="rk-name">${esc(r.name || '???')}</span>
           <span class="rk-val">${rankValue(rankCat, r)}</span>
         </div>`).join('') : `<p class="dim-text">${l.empty}</p>`;
     }
     const mine = !user || !PROFILE.name ? `<p class="dim-text small">${l.notRanked}</p>` : '';
-    box.innerHTML = `<div class="seg wide no-swipe" id="rankCats">${cats}</div>${mine}<div class="rk-list">${list}</div>
+    const me = rankingEntry();
+    const inList = user && (rankData[rankCat] || []).some(r => r.uid === user.uid);
+    const myRow = user && PROFILE.name && st === 'ok' && !inList && (rankCat !== 'clear' || me.clearTime)
+      ? `<div class="rk me pinned"><span class="rk-no">—</span><span class="rk-skin">${skinSVG(PROFILE.skin, 6, 22)}</span><span class="rk-name">${esc(PROFILE.name)}</span><span class="rk-val">${rankValue(rankCat, me)}</span></div>` : '';
+    box.innerHTML = `<div class="seg wide no-swipe" id="rankCats">${cats}</div><p class="sec-sub rk-help">${l.catHelp[rankCat]}</p>${mine}<div class="rk-list">${list}${myRow}</div>
       <button class="opt-btn wide" data-rank="refresh">${l.refresh}</button>`;
     if (st === undefined) loadRank(rankCat);
   }
@@ -419,7 +431,7 @@ const Online = (() => {
     const mb = maxBet();
     betValue = Math.min(betValue, mb);
     const hist = PROFILE.history.slice(0, 6).map(h => `<div class="hist ${h.r}">
-        <span>${h.r === 'win' ? 'W' : h.r === 'lose' ? 'L' : 'D'}</span><span class="rk-name">${esc(h.name)}</span><span>${h.bet ? `◇ ${fmt(h.bet)}` : ''}</span>
+        <span>${h.r === 'win' ? 'W' : h.r === 'lose' ? 'L' : 'D'}</span><span class="rk-name">${esc(h.name)}</span><span>${h.time ? `${h.time.toFixed(2)}s ` : ''}${h.bet ? `◇ ${fmt(h.bet)}` : ''}</span>
       </div>`).join('') || `<p class="dim-text">${l.noHistory}</p>`;
     box.innerHTML = `
       <div class="vs-stats">
@@ -521,8 +533,9 @@ const Online = (() => {
     const up = p.up || {};
     return {
       p, up, rand: rng(seed), objs: [], sold: 0, g: 0, m: 0,
-      genIv: up.autoGen ? genInterval(up.autoGen) : 1.4,
-      mergeIv: up.autoMerge ? mergeInterval(up.autoMerge) : 1.2,
+      // 強化なしでも手で遊ぶくらいの速さ（1.4秒・1.2秒）は保証。強化するとそれより速くなる
+      genIv: Math.min(1.4, up.autoGen ? genInterval(up.autoGen) : 1.4),
+      mergeIv: Math.min(1.2, up.autoMerge ? mergeInterval(up.autoMerge) : 1.2),
       cap: SPACE_CAPS[Math.min(up.space || 0, SPACE_CAPS.length - 1)],
     };
   }
@@ -583,7 +596,12 @@ const Online = (() => {
     const bet = Math.min(betValue, maxBet());
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
     const oppSkin = SKIN_LIST.some(s => s.id === opp.skin) ? opp.skin : 'CIRCLE';
-    battle = { opp, me, bet, oppSkin, a: simInit(me, seed), b: simInit(opp, seed ^ 0x9e3779b9), time: 0, last: performance.now(), done: false };
+    const goalExp = Math.min(MAX_TIER - 1, Math.max((me.up && me.up.baseTier) || 0, (opp.up && opp.up.baseTier) || 0) + 5);
+    battle = { opp, me, bet, oppSkin, a: simInit(me, seed), b: simInit(opp, seed ^ 0x9e3779b9), time: 0, last: performance.now(), done: false,
+      goalExp, goal: Math.pow(2, goalExp), ta: 0, tb: 0 };
+    $('arGoal').textContent = t().goal(pow2(goalExp));
+    $('arMeScore').classList.remove('done');
+    $('arOppScore').classList.remove('done');
     $('arOppName').textContent = opp.name || '???';
     $('arOppInfo').textContent = `DIM ${String(opp.dim || 1).padStart(2, '0')}`;
     $('arMeName').textContent = me.name;
@@ -600,22 +618,29 @@ const Online = (() => {
     let dt = Math.min(0.2, (now - battle.last) / 1000) * BATTLE_SPEED;
     battle.last = now;
     if (skipAll === true) dt = BATTLE_SEC - battle.time;
-    const step = 0.05;
-    for (let x = 0; x < dt && battle.time < BATTLE_SEC; x += step) {
-      simStep(battle.a, step);
-      simStep(battle.b, step);
-      battle.time += step;
+    const step = 0.05, bt = battle;
+    // どちらかが目標に届いたら、その瞬間に決着（タイムアタック）
+    for (let x = 0; x < dt && bt.time < BATTLE_SEC && !bt.ta && !bt.tb; x += step) {
+      simStep(bt.a, step);
+      simStep(bt.b, step);
+      bt.time += step;
+      if (bt.a.objs.some(o => o.t >= bt.goalExp)) bt.ta = bt.time;
+      if (bt.b.objs.some(o => o.t >= bt.goalExp)) bt.tb = bt.time;
     }
-    const sa = simScore(battle.a), sb = simScore(battle.b);
-    $('arMeScore').textContent = fmt(sa);
-    $('arOppScore').textContent = fmt(sb);
-    const total = sa + sb || 1;
-    $('arBarMe').style.width = (sa / total * 100) + '%';
-    $('arBarOpp').style.width = (sb / total * 100) + '%';
-    $('arTime').textContent = Math.max(0, BATTLE_SEC - battle.time).toFixed(1);
-    drawSide($('arMeField'), battle.a, battle.me.skin);
-    drawSide($('arOppField'), battle.b, battle.oppSkin);
-    if (battle.time >= BATTLE_SEC - 1e-6) finishBattle(sa, sb);
+    const sa = simScore(bt.a), sb = simScore(bt.b);
+    const tf = v => v.toFixed(2);
+    $('arMeScore').textContent = bt.ta ? t().finish(tf(bt.ta)) : fmt(sa);
+    $('arOppScore').textContent = bt.tb ? t().finish(tf(bt.tb)) : fmt(sb);
+    $('arMeScore').classList.toggle('done', !!bt.ta);
+    $('arOppScore').classList.toggle('done', !!bt.tb);
+    // 進み具合：一番大きいオブジェクトのランクが GOAL にどれだけ近いか
+    const prog = s => { const top = s.objs.reduce((m, o) => Math.max(m, o.t), -1); const base = (s.up.baseTier || 0); return top < base ? 0 : Math.min(100, (top - base + 1) / (bt.goalExp - base + 1) * 100); };
+    $('arBarMe').style.width = (bt.ta ? 100 : prog(bt.a)) + '%';
+    $('arBarOpp').style.width = (bt.tb ? 100 : prog(bt.b)) + '%';
+    $('arTime').textContent = tf(Math.min(bt.time, BATTLE_SEC));
+    drawSide($('arMeField'), bt.a, bt.me.skin);
+    drawSide($('arOppField'), bt.b, bt.oppSkin);
+    if (bt.ta || bt.tb || bt.time >= BATTLE_SEC - 1e-6) finishBattle(sa, sb);
   }
 
   $('arSkip').addEventListener('click', () => battleTick(true));
@@ -625,13 +650,19 @@ const Online = (() => {
     bt.done = true;
     clearInterval(bt.timer);
     const l = t();
-    const r = sa > sb ? 'win' : sa < sb ? 'lose' : 'draw';
+    let r;
+    if (bt.ta || bt.tb) {
+      const A = bt.ta || Infinity, B = bt.tb || Infinity;
+      r = A < B ? 'win' : A > B ? 'lose' : sa > sb ? 'win' : sa < sb ? 'lose' : 'draw';
+    } else {
+      r = sa > sb ? 'win' : sa < sb ? 'lose' : 'draw';
+    }
     let bp = 0, soulDelta = 0;
     if (r === 'win') { bp = 10 + Math.min(20, Math.floor(bt.bet / 5)); soulDelta = Math.floor(bt.bet * 0.9); PROFILE.wins++; sfx.win(); vibe([20, 30, 60]); }
     if (r === 'lose') { bp = 3; soulDelta = -bt.bet; PROFILE.losses++; sfx.lose(); vibe(40); }
     S.soul = Math.max(0, S.soul + soulDelta);
-    PROFILE.bp += bp;
-    PROFILE.history.unshift({ name: bt.opp.name || '???', r, bet: bt.bet, at: Date.now() });
+    addBP(bp);
+    PROFILE.history.unshift({ name: bt.opp.name || '???', r, bet: bt.bet, time: bt.ta || 0, at: Date.now() });
     PROFILE.history = PROFILE.history.slice(0, 20);
     save();
     saveProfile();
@@ -643,7 +674,9 @@ const Online = (() => {
     setTimeout(() => {
       els.arena.hidden = true;
       battle = null;
-      const text = r === 'draw' ? l.resDraw : `${fmt(sa)} — ${fmt(sb)}<br>${r === 'win' ? l.resWin(bp, fmt(soulDelta)) : l.resLose(bp, bt.bet ? fmt(bt.bet) : 0)}`;
+      const tt = v => (v ? v.toFixed(2) + 's' : (bt.ta || bt.tb ? '—' : l.timeUp));
+      const head = bt.ta || bt.tb ? l.resTime(tt(bt.ta), tt(bt.tb)) : `${fmt(sa)} — ${fmt(sb)}`;
+      const text = r === 'draw' ? `${head}<br>${l.resDraw}` : `${head}<br>${r === 'win' ? l.resWin(bp, fmt(soulDelta)) : l.resLose(bp, bt.bet ? fmt(bt.bet) : 0)}`;
       showModal({
         rings: r === 'win' ? 'WIN' : r === 'lose' ? 'LOSE' : 'DRAW',
         title: `VS ${esc(bt.opp.name || '???')}`,

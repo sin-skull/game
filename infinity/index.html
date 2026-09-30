@@ -88,8 +88,8 @@
         <button data-sub="battle" class="on">BATTLE</button>
         <button data-sub="rank">RANKING</button>
       </div>
-      <div class="sub on" id="sub-battle"></div>
-      <div class="sub" id="sub-rank"></div>
+      <div class="subpanel on" id="sub-battle"></div>
+      <div class="subpanel" id="sub-rank"></div>
     </section>
 
     <!-- MENU -->
@@ -102,14 +102,14 @@
         <button data-sub="log">LOG</button>
         <button data-sub="opt">OPTION</button>
       </div>
-      <div class="sub on" id="sub-account"></div>
-      <div class="sub" id="sub-skin"></div>
-      <div class="sub" id="sub-log">
+      <div class="subpanel on" id="sub-account"></div>
+      <div class="subpanel" id="sub-skin"></div>
+      <div class="subpanel" id="sub-log">
         <dl class="stats" id="stats"></dl>
         <h3>OBJECTS</h3>
         <div class="dex" id="dex"></div>
       </div>
-      <div class="sub" id="sub-opt"><div id="options"></div></div>
+      <div class="subpanel" id="sub-opt"><div id="options"></div></div>
     </section>
   </main>
 
@@ -137,9 +137,13 @@
       <div class="arena-score"><span id="arOppScore">0</span></div>
     </div>
     <div class="arena-mid">
-      <div class="arena-bar"><i id="arBarOpp"></i><i id="arBarMe"></i></div>
-      <div class="arena-time" id="arTime">45.0</div>
-      <button class="arena-skip" id="arSkip">SKIP ≫</button>
+      <div class="arena-track"><i id="arBarOpp"></i></div>
+      <div class="arena-goal">
+        <span id="arGoal">GOAL</span>
+        <span class="arena-time" id="arTime">0.00</span>
+        <button class="arena-skip" id="arSkip">SKIP ≫</button>
+      </div>
+      <div class="arena-track"><i id="arBarMe"></i></div>
     </div>
     <div class="arena-side">
       <div class="arena-score"><span id="arMeScore">0</span></div>
