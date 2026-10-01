@@ -10,7 +10,6 @@
 const Gacha = (() => {
   const COST1 = 100, COST10 = 900, PITY = 30, DAILY_SP = 10, PAGE = 60, LOG_MAX = 50;
   const RATE_L = 0.03, RATE_R = 0.15, BG_SHARE = 0.15, PICK_RATE = 0.5;
-  const MAX_BOOST = 3;   // 1周に使える券の数（以前のダブりでもらった券）
   const DUP_SOUL = { C: 2, R: 5, L: 15, S: 15 };   // ダブりは魂に（永遠強化に使える）
   const TICKETS = ['x2', 'rank', 'jump'];
   const RANKS_PREVIEW = [1, 5, 10, 15, 99];   // 99 = ∞
@@ -31,9 +30,6 @@ const Gacha = (() => {
       missing: '未所持', ownedNow: '所持', special: 'Ω クリアでもらえる',
       comp: (a, b) => `${a} / ${b}`,
       isNew: 'NEW', dup: n => `ダブり → 魂 +${n}`, inWeekly: '週間チャレンジ中はガチャを引けない', spDim: (a, b) => `この次元のプレイ SP ${a} / ${b}`,
-      ticket: { x2: '2倍速券', rank: 'ランク券', jump: '跳躍券' },
-      ticketDesc: { x2: '10分間、ゲームが2倍速', rank: 'この周回だけ生成ランク +1', jump: '次の5回の合成が2段階アップ' },
-      ticketsNote: '券は UPGRADE → ∞ ETERNAL で使う',
       rateHead: ['レア度', '確率', '種類', '1種あたり'],
       rateNotes: [
         `スキンと背景の割合は 85% : 15%。`,
@@ -45,9 +41,7 @@ const Gacha = (() => {
         `SP は COIN では買えず、課金もない。`,
       ],
       logEmpty: 'まだ引いていない', logStats: (n, l) => `合計 ${n} 回 ・ LEGEND ${l} 回`,
-      boost: 'BOOST', boostSub: `ガチャのダブりでもらえる券。1周に${MAX_BOOST}枚まで。週間チャレンジでは使えない。使って得した時間は、公平のため Ω タイムに足される。`,
-      used: (u, x) => `この周回 ${u} / ${MAX_BOOST} 枚${x}`, x2Left: x => ` ・ 2倍速 残り ${x}`, jumpLeft: n => ` ・ 跳躍 残り ${n} 回`,
-      boostFull: `この周回はもう ${MAX_BOOST} 枚使いました`, boostUsed: k => `${k} を使った`,
+      converted: (n, v) => `以前のブースト券 ${n} 枚を、魂 +${v} に換えた`,
       tap: 'TAP', tapClose: 'TAP で閉じる', days: (d, h) => (d ? `${d}日 ${h}時間` : `${h}時間`),
     },
     en: {
@@ -66,9 +60,6 @@ const Gacha = (() => {
       missing: 'Not owned', ownedNow: 'Owned', special: 'Reward for clearing Ω',
       comp: (a, b) => `${a} / ${b}`,
       isNew: 'NEW', dup: n => `Duplicate → Souls +${n}`, inWeekly: 'No gacha during the Weekly Challenge', spDim: (a, b) => `SP from play this dimension ${a} / ${b}`,
-      ticket: { x2: 'Speed ×2', rank: 'Rank +1', jump: 'Leap' },
-      ticketDesc: { x2: 'The game runs ×2 for 10 min', rank: 'Base Rank +1 for this run', jump: 'Next 5 merges climb two ranks' },
-      ticketsNote: 'Use tickets in UPGRADE → ∞ ETERNAL',
       rateHead: ['Rarity', 'Chance', 'Items', 'Each'],
       rateNotes: [
         'Skins and backgrounds split 85% : 15%.',
@@ -80,9 +71,7 @@ const Gacha = (() => {
         'SP can’t be bought with coins, and there is no paid currency.',
       ],
       logEmpty: 'No pulls yet', logStats: (n, l) => `${n} pulls · ${l} LEGEND`,
-      boost: 'BOOST', boostSub: `Tickets from gacha duplicates. Up to ${MAX_BOOST} per run. Not usable in the Weekly Challenge. Time they save is added to your Ω time to keep rankings fair.`,
-      used: (u, x) => `This run ${u} / ${MAX_BOOST}${x}`, x2Left: x => ` · ×2 left ${x}`, jumpLeft: n => ` · ${n} leaps left`,
-      boostFull: `You’ve used ${MAX_BOOST} tickets this run`, boostUsed: k => `Used ${k}`,
+      converted: (n, v) => `Converted ${n} old Boost ticket(s) into Souls +${v}`,
       tap: 'TAP', tapClose: 'TAP to close', days: (d, h) => (d ? `${d}d ${h}h` : `${h}h`),
     },
   };
@@ -322,11 +311,10 @@ const Gacha = (() => {
     const head = `<h2>GACHA</h2><p class="h-sub">${l.sub}</p>`;
     if (!unlocked()) { el.innerHTML = head + lockedHTML(); return; }
     const room = typeof spRoom === 'function' ? spRoom() : 0;
-    const tix = `<span>${l.spDim(fmt(SP_DIM_CAP - room), fmt(SP_DIM_CAP))}</span>` +
-      (TICKETS.some(k => PROFILE.tickets[k] > 0) ? TICKETS.map(k => `<span>${l.ticket[k]} <b>${PROFILE.tickets[k] || 0}</b></span>`).join('') : '');
+    const tix = `<span>${l.spDim(`<b>${fmt(SP_DIM_CAP - room)}</b>`, fmt(SP_DIM_CAP))}</span>`;
     const left = PITY - PROFILE.pity;
     el.innerHTML = `${head}
-      <div class="g-top"><div class="sp-now">${l.sp} <b>${fmt(PROFILE.bp)}</b></div><div class="g-tix" title="${l.ticketsNote}">${tix}</div></div>
+      <div class="g-top"><div class="sp-now">${l.sp} <b>${fmt(PROFILE.bp)}</b></div><div class="g-tix">${tix}</div></div>
       ${bannerHTML()}
       <div class="g-pity"><i><b style="width:${(PROFILE.pity / PITY * 100).toFixed(1)}%"></b></i><span>${l.pity(left)}</span></div>
       <button class="gacha-free" data-g="0" ${freeReady() ? '' : 'disabled'}>${freeReady() ? l.free : l.freeNext(untilTomorrow())}</button>
@@ -398,46 +386,25 @@ const Gacha = (() => {
     if (e.target.matches('#gachaRoot [data-missing]')) { showMissing = e.target.checked; shown = PAGE; render(); }
   });
 
-  // ---------- ブースト券（UPGRADE → ∞ ETERNAL） ----------
-  function renderBoost() {
-    const el = document.getElementById('boostWrap');
-    if (!el) return;
-    const has = TICKETS.some(k => PROFILE.tickets[k] > 0) || S.boost.used > 0;
-    if (!has || MODE) { el.innerHTML = ''; return; }
-    const l = t();
-    const full = S.boost.used >= MAX_BOOST;
-    const extra = (S.boost.x2 > 0 ? l.x2Left(fmtTime(Math.ceil(S.boost.x2))) : '') + (S.boost.jump > 0 ? l.jumpLeft(S.boost.jump) : '');
-    el.innerHTML = `<h3>${l.boost}</h3><p class="sec-sub">${l.boostSub}</p>
-      <div class="boost-row">${TICKETS.map(k => `<button class="boost" data-boost="${k}" ${full || !PROFILE.tickets[k] ? 'disabled' : ''}>
-        <b>${l.ticket[k]}</b><small>${l.ticketDesc[k]}</small><span>× ${PROFILE.tickets[k] || 0}</span></button>`).join('')}</div>
-      <p class="boost-note">${l.used(S.boost.used, extra)}</p>`;
-  }
-  function useBoost(k) {
-    const l = t();
-    if (MODE || !TICKETS.includes(k) || !(PROFILE.tickets[k] > 0)) { sfx.deny(); return; }
-    if (S.boost.used >= MAX_BOOST) { sfx.deny(); toast(l.boostFull); return; }
-    PROFILE.tickets[k]--;
-    S.boost.used++;
-    if (k === 'x2') S.boost.x2 += 600;
-    if (k === 'rank') S.boost.rank++;
-    if (k === 'jump') S.boost.jump += 5;
+  // 以前のブースト券は、1枚 10 の魂に換える
+  const TICKET_SOUL = 10;
+  function convertTickets() {
+    const n = TICKETS.reduce((a, k) => a + (PROFILE.tickets[k] || 0), 0);
+    if (!n) return;
+    TICKETS.forEach(k => { PROFILE.tickets[k] = 0; });
+    S.soul += n * TICKET_SOUL;
     saveProfile();
     save();
-    sfx.buy();
-    toast(l.boostUsed(l.ticket[k]));
-    renderInf();
+    toast(t().converted(n, n * TICKET_SOUL));
   }
-  document.addEventListener('click', e => {
-    const b = e.target.closest('#boostWrap [data-boost]');
-    if (b) useBoost(b.dataset.boost);
-  });
 
   function onStart() {
     applyBg();
+    convertTickets();
     if (unlocked()) showTip('gacha');
   }
 
-  return { render, badge, onStart, renderBoost, dailyLogin, freeReady, applyBg, unlocked, pickup, _roll: rollOne, _pull: pull, COST1, COST10, PITY };
+  return { render, badge, onStart, dailyLogin, freeReady, applyBg, unlocked, pickup, _roll: rollOne, _pull: pull, COST1, COST10, PITY };
 })();
 
 window.Gacha = Gacha;

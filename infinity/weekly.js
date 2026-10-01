@@ -13,7 +13,7 @@ const Weekly = (() => {
   const T = {
     ja: {
       goal: g => `GOAL ${g}`, left: (d, h) => `残り ${d}日 ${h}時間`,
-      start: '開始時の強化', noEternal: '永遠強化・ブースト券・次元の倍率なし。乱数も全員同じ。',
+      start: '開始時の強化', noEternal: '永遠強化・次元の倍率なし。乱数も全員同じ。',
       best: x => `自己ベスト ${x}`, noBest: 'まだ記録なし', go: 'CHALLENGE', again: 'RETRY',
       rewards: '報酬（翌週ログイン時）：1位 500 SP ／ 2〜3位 300 ／ 4〜10位 150 ／ 11〜50位 60 ／ 参加 20',
       locked: '次元 2 に進むと、週間チャレンジが解放されます。',
@@ -26,7 +26,7 @@ const Weekly = (() => {
     },
     en: {
       goal: g => `GOAL ${g}`, left: (d, h) => `${d}d ${h}h left`,
-      start: 'Starting upgrades', noEternal: 'No Eternal upgrades, Boost tickets or dimension multipliers. Same random numbers for everyone.',
+      start: 'Starting upgrades', noEternal: 'No Eternal upgrades or dimension multipliers. Same random numbers for everyone.',
       best: x => `Best ${x}`, noBest: 'No record yet', go: 'CHALLENGE', again: 'RETRY',
       rewards: 'Rewards (next week, on login): 1st 500 SP / 2–3 300 / 4–10 150 / 11–50 60 / joined 20',
       locked: 'Reach dimension 2 to open the Weekly Challenge.',

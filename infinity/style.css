@@ -987,3 +987,4 @@ body.calm .gfx-orb { display: none; }
 .modal .g-detail .g-rar { color: var(--dim); }
 .modal .g-detail { background: #000; color: #fff; padding: 16px 12px 14px; margin-top: 4px; }
 .modal .g-detail .g-detail-own, .modal .g-detail .g-detail-ranks small { color: rgba(255, 255, 255, 0.6); }
+.boot-cont { font-family: var(--jp); font-size: 10px; color: var(--faint); text-align: center; margin: 16px 0 0; }

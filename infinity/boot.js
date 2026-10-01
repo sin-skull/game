@@ -22,7 +22,7 @@ const Boot = (() => {
         '予告なく内容を変更・終了することがあります。',
       ],
       agree: 'OK',
-      slotTitle: 'SELECT SLOT', empty: 'NEW GAME',
+      slotTitle: 'SELECT SLOT', empty: 'NEW GAME', cont: n => `このままスロット ${n} から始まる（変えるときはタップ）`,
       slotInfo: (d, r, t) => `次元 ${d} ・ ${r} ・ ${t}`,
       lastPlayed: x => `最終プレイ ${x}`,
       awayTitle: 'WHILE YOU WERE AWAY', bonusTitle: 'LOGIN BONUS',
@@ -44,7 +44,7 @@ const Boot = (() => {
         'The game may change or end without notice.',
       ],
       agree: 'OK',
-      slotTitle: 'SELECT SLOT', empty: 'NEW GAME',
+      slotTitle: 'SELECT SLOT', empty: 'NEW GAME', cont: n => `Starting slot ${n} (tap a slot to change)`,
       slotInfo: (d, r, t) => `Dim ${d} · ${r} · ${t}`,
       lastPlayed: x => `Last played ${x}`,
       awayTitle: 'WHILE YOU WERE AWAY', bonusTitle: 'LOGIN BONUS',
@@ -104,30 +104,35 @@ const Boot = (() => {
     return `<div class="boot-title">${l.slotTitle}</div><div class="boot-slots">${cards}</div>`;
   }
 
+  // 前回のスロットで自動的に始める。変えたいときだけカードをタップ
   function pickSlot() {
     return new Promise(resolve => {
+      const l = t();
       stage.className = 'boot-stage slots';
-      stage.innerHTML = slotHTML();
+      stage.innerHTML = slotHTML() + `<p class="boot-cont">${l.cont(String(OPT.slot + 1).padStart(2, '0'))}</p>`;
       void stage.offsetWidth;
       stage.classList.add('in');
-      skipHint.hidden = true;
-      needOk = true;
-      advance = null;
+      skipHint.hidden = false;
+      needOk = false;
+      let timer = null;
+      const go = i => {
+        if (timer) clearTimeout(timer);
+        advance = null;
+        if (i !== OPT.slot) {
+          OPT.slot = i;
+          saveSettings();
+          S = readSlot(i) || freshState();
+          clearField();
+        }
+        tone(660, 0.08, 0.04);
+        stage.classList.remove('in');
+        stage.classList.add('out');
+        setTimeout(resolve, 260);
+      };
+      advance = () => go(OPT.slot);
+      timer = setTimeout(() => go(OPT.slot), 2600);
       stage.querySelectorAll('[data-slot]').forEach(b => {
-        b.onclick = e => {
-          e.stopPropagation();
-          const i = Number(b.dataset.slot);
-          if (i !== OPT.slot) {
-            OPT.slot = i;
-            saveSettings();
-            S = readSlot(i) || freshState();
-            clearField();
-          }
-          tone(660, 0.08, 0.04);
-          stage.classList.remove('in');
-          stage.classList.add('out');
-          setTimeout(resolve, 260);
-        };
+        b.onclick = e => { e.stopPropagation(); go(Number(b.dataset.slot)); };
       });
     });
   }

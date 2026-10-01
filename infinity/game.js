@@ -4,7 +4,7 @@
 //  無限の次へ / Beyond ∞ — モノクロ合成インクリメンタル
 // =====================================================
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 const SLOT_KEYS = ['infinity-merge-v2', 'infinity-merge-v2-s1', 'infinity-merge-v2-s2'];
 const OLD_SAVE_KEY = 'infinity-merge-v1';
 const BACKUP_KEY = 'infinity-merge-backup';
@@ -90,8 +90,11 @@ const I18N = {
       weekly: '週間チャレンジが解放された。<br>VERSUS → RANKING で、全員同じ条件のタイムアタックに挑戦できる。',
     },
     spCapped: 'この次元でプレイから得られる SP は上限（900）に達した。次の次元でまた貯まる',
-    whatsNewTitle: 'アップデート v2.1',
+    whatsNewTitle: 'アップデート v2.2',
     whatsNew: [
+      '永遠強化に「スタート自動化」「永遠の放置」を追加',
+      'ブースト券を廃止（持っていた券は1枚につき魂10に）',
+      '起動時は前回のスロットで自動的に始まる',
       'プレイで得る SP は1次元あたり900（10連分）まで',
       'ガチャのダブりは魂になる（永遠強化に使える）',
       'UPGRADE タブを「NORMAL / ∞ ETERNAL」に。転生と永遠強化はここへ',
@@ -199,8 +202,11 @@ const I18N = {
       weekly: 'The Weekly Challenge is open.<br>In VERSUS → RANKING, race everyone under the same rules.',
     },
     spCapped: 'You’ve hit this dimension’s SP cap from play (900). It refills in the next dimension',
-    whatsNewTitle: 'Update v2.1',
+    whatsNewTitle: 'Update v2.2',
     whatsNew: [
+      'New Eternal upgrades: Head Start and Eternal Idle',
+      'Boost tickets removed (each one you had became 10 Souls)',
+      'The game now opens your last slot automatically',
       'SP from play is capped at 900 (one ×10) per dimension',
       'Gacha duplicates now give Souls for Eternal upgrades',
       'UPGRADE now has NORMAL / ∞ ETERNAL. Rebirth and Eternal upgrades live there',
@@ -331,6 +337,10 @@ const HELP = {
     'All coin income +50% per level. Survives rebirth. No cap.'],
   eLuck: ['幸運に上乗せして、ひとつ上のランクで生まれる確率が1レベルごとに +3%。転生しても消えない。上限なし（確率は最大95%）。',
     'Adds +3% per level to the chance of being born one rank higher. Survives rebirth. No cap (the chance tops out at 95%).'],
+  eStart: ['転生したあと、自動生成と自動合成を1レベルごとに Lv3 ずつ持った状態で始まる。リセット直後の手作業が減る。上限なし（その次元の上限まで）。',
+    'After each rebirth you start with Auto Spawn and Auto Merge at Lv3 per level, so the manual start is shorter. No cap (up to the dimension\'s limit).'],
+  eIdle: ['アプリを閉じている間の稼ぎが増える。1レベルごとに、たまる時間 +2時間・効率 +5%（基本は12時間・60%、効率は最大100%）。',
+    'Boosts earnings while the app is closed: +2 hours of storage and +5% efficiency per level (base 12 h at 60%, efficiency up to 100%).'],
   eSoul: ['転生で得られる魂が1レベルごとに +25%。転生しても消えない。上限なし。',
     'Souls from rebirth +25% per level. Survives rebirth. No cap.'],
 };
@@ -424,6 +434,10 @@ const ETERNAL = [
     desc: lv => ({ ja: `コイン ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}`, en: `Coins ×${(1 + 0.5 * lv).toFixed(1)} → ×${(1 + 0.5 * (lv + 1)).toFixed(1)}` }) },
   { id: 'eLuck', jp: '永遠の幸運', en: 'Eternal Luck', cost: lv => eCost(100, lv),
     desc: lv => ({ ja: `+${lv * 3}% → +${(lv + 1) * 3}%`, en: `+${lv * 3}% → +${(lv + 1) * 3}%` }) },
+  { id: 'eStart', jp: 'スタート自動化', en: 'Head Start', cost: lv => eCost(60, lv),
+    desc: lv => ({ ja: `開始時 自動生成・自動合成 Lv${3 * lv} → Lv${3 * (lv + 1)}`, en: `Start with Auto Spawn/Merge Lv${3 * lv} → Lv${3 * (lv + 1)}` }) },
+  { id: 'eIdle', jp: '永遠の放置', en: 'Eternal Idle', cost: lv => eCost(70, lv),
+    desc: lv => ({ ja: `放置 ${offlineHours(lv)}時間・${offlinePct(lv)}% → ${offlineHours(lv + 1)}時間・${offlinePct(lv + 1)}%`, en: `Idle ${offlineHours(lv)}h at ${offlinePct(lv)}% → ${offlineHours(lv + 1)}h at ${offlinePct(lv + 1)}%` }) },
   { id: 'eSoul', jp: '魂の共鳴', en: 'Soul Resonance', cost: lv => eCost(120, lv),
     desc: lv => ({ ja: `魂 +${lv * 25}% → +${(lv + 1) * 25}%`, en: `Souls +${lv * 25}% → +${(lv + 1) * 25}%` }) },
 ];
@@ -452,7 +466,7 @@ function freshState(keep) {
     stats: {
       spawned: 0, merged: 0, sold: 0, earned: 0, maxTier: 0,
       infinities: 0, playTime: 0, taps: 0, bought: 0, rebirths: 0,
-      boostPen: 0,   // ブースト券で得した時間（Ω タイムに足してランキングを公平に）
+      boostPen: 0,   // 以前のブースト券で得した時間（Ω タイムに足してある）
     },
     seenInf: false,
     created: Date.now(),
@@ -465,6 +479,9 @@ function freshState(keep) {
     });
   }
   if (dimOf(s) >= 2) s.up.autoSell = 1;   // 次元2からは最初から付いている
+  // スタート自動化：自動生成・自動合成を 3Lv ずつ持って始める
+  const head = 3 * (s.eternal.eStart || 0);
+  if (head) ['autoGen', 'autoMerge'].forEach(id => { const u = UPGRADES.find(x => x.id === id); s.up[id] = Math.min(u.max(dimOf(s)), head); });
   return s;
 }
 
@@ -562,13 +579,16 @@ function upCostAt(u, lv, d) {
 const upCost = u => (MODE ? Math.ceil(u.cost(S.up[u.id])) : upCostAt(u, S.up[u.id], dimOf()));
 const eternalCost = k => k.cost(S.eternal[k.id]);
 // ゲームの進む速さ（倍速モード × 2倍速券）
-const gameSpeed = () => speedMultOf(S.up.speed || 0) * (S.boost.x2 > 0 ? 2 : 1);
+const gameSpeed = () => speedMultOf(S.up.speed || 0);
 const autoRate = () => Math.pow(1.1, E('eSpeed'));
 function pow2(t) { return '2' + String(t).split('').map(c => SUP[c]).join(''); }
 const rankName = t => (t >= INF() ? '∞' : pow2(t));
 const dimStr = (s = S) => String(s.shards + 1).padStart(2, '0');
-const offlineCapSec = () => 12 * 3600;
-const offlineRate = () => 0.6;
+// 放置：基本 12時間・60%。永遠の放置 1Lv ごとに +2時間・+5%（効率は最大100%）
+const offlineHours = lv => 12 + 2 * lv;
+const offlinePct = lv => Math.min(100, 60 + 5 * lv);
+const offlineCapSec = () => offlineHours(E('eIdle')) * 3600;
+const offlineRate = () => offlinePct(E('eIdle')) / 100;
 
 // 転生で得られる魂（数値はバランス表から）
 //   ∞ を作って転生：(40 + 10×(次元-1)) × ∞の数ボーナス × 共鳴
@@ -725,7 +745,7 @@ let selected = null;
 let RNG = Math.random;   // 週間チャレンジ中は全員同じ乱数に差し替える
 
 function rollTier() {
-  let t = S.up.baseTier + E('eRank') + (MODE ? 0 : S.boost.rank);
+  let t = S.up.baseTier + E('eRank');
   if (RNG() < Math.min(0.95, S.up.luck * 0.05 + E('eLuck') * 0.03)) t++;
   return Math.min(t, INF() - 1);
 }
@@ -793,7 +813,6 @@ function merge(a, b) {
   S.objs = S.objs.filter(o => o !== a);
   const from = b.t;
   b.t++;
-  if (b.t < INF() && S.boost.jump > 0 && !MODE) { b.t++; S.boost.jump--; S.stats.boostPen = (S.stats.boostPen || 0) + 30; }   // 跳躍券（1回 +30秒の補正）
   Object.assign(b, clampPos(b.t, b.x, b.y));
   S.stats.merged++;
   fx.pop.add(b.id);
@@ -1184,7 +1203,6 @@ function renderInf() {
     <div class="omega-steps">${Array.from({ length: OMEGA_DIM }, (_, i) => `<i class="${i < dimNow ? 'on' : ''}"></i>`).join('')}<b class="${S.clearTime ? 'on' : ''}">Ω</b></div>`;
 
   // ブースト券
-  if (window.Gacha) Gacha.renderBoost();
 
   // 永遠強化（上限なし）
   const ja = OPT.lang === 'ja';
@@ -1972,12 +1990,6 @@ function tick() {
 
   // ゲームの速さ（倍速モード・2倍速券）と永遠の速さ
   const gdt = dt * gameSpeed();
-  // ブースト補正：速さが m 倍のあいだは、1秒ごとに (1 - 1/m) 秒得している
-  if (!MODE && (S.boost.x2 > 0 || S.boost.rank > 0)) {
-    const m = (S.boost.x2 > 0 ? 2 : 1) * Math.pow(2, S.boost.rank);
-    S.stats.boostPen = (S.stats.boostPen || 0) + dt * (1 - 1 / m);
-  }
-  if (S.boost.x2 > 0) S.boost.x2 = Math.max(0, S.boost.x2 - dt);
   const rate = autoRate();
   if (S.up.autoGen) {
     genAcc += gdt * rate;
