@@ -1,4 +1,4 @@
-import {firebaseConfig,accountLifecycleEnabled} from './runtime-config.mjs';
+import {firebaseConfig,accountLifecycleEnabled,accountDeletionEnabled} from './runtime-config.mjs';
 import {createDeletionController} from './controller.mjs';
 const el=id=>document.getElementById(id);
 const login=el('login'),logout=el('logout'),remove=el('delete'),confirm=el('confirm'),result=el('result');
@@ -7,7 +7,7 @@ let controller;
 function render(state){
   el('identity').textContent=state.uid?'ログイン済み：'+(state.name||'Googleアカウント'):'未ログイン';
   login.hidden=!!state.uid;logout.hidden=!state.uid;
-  login.disabled=logout.disabled=state.busy||!state.enabled;
+  login.disabled=logout.disabled=state.busy||!state.loginEnabled;
   confirm.disabled=state.busy||!state.uid||!state.enabled;
   remove.disabled=state.busy||!state.uid||!state.enabled||!confirm.checked;
   if(state.notice)result.textContent=state.notice;
@@ -22,8 +22,8 @@ if(!accountLifecycleEnabled){
     const [App,Auth,F]=await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js'].map(name=>import(base+name)));
     const app=App.initializeApp(firebaseConfig,'game-account-deletion-web');
     const auth=Auth.initializeAuth(app,{persistence:Auth.inMemoryPersistence,popupRedirectResolver:Auth.browserPopupRedirectResolver});
-    controller=createDeletionController({auth,db:F.getFirestore(app),sdk:{...F,...Auth},enabled:true,onChange:render});
-    el('availability').textContent='ゲームで使ったGoogleアカウントで本人確認をして、削除できます。';render(controller.state());
+    controller=createDeletionController({auth,db:F.getFirestore(app),sdk:{...F,...Auth},enabled:accountDeletionEnabled===true,loginEnabled:true,onChange:render});
+    el('availability').textContent=accountDeletionEnabled?'ゲームで使ったGoogleアカウントで本人確認をして、削除できます。':'Googleによる本人確認を接続しました。削除の実行は、動作確認が終わるまで準備中です。';render(controller.state());
     login.onclick=()=>run(()=>controller.login());
     logout.onclick=()=>run(()=>controller.logout());
     remove.onclick=()=>run(()=>controller.remove({confirmed:confirm.checked}));

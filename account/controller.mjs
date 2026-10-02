@@ -2,10 +2,10 @@ import {deleteGameAccount} from '../android/app/src/main/assets/account-delete-c
 
 // This page's memory-only Auth is independent from every game session.
 // Signing in here never registers or reactivates a game lifecycle record.
-export function createDeletionController({auth,db,sdk,enabled,core=deleteGameAccount,onChange=()=>{}}) {
+export function createDeletionController({auth,db,sdk,enabled,loginEnabled=enabled,core=deleteGameAccount,onChange=()=>{}}) {
   let generation=0,busy=false,identity=null,notice='',terminalSignOut=false;
   const session=()=>({uid:identity?.uid||'',generation});
-  const state=()=>({uid:identity?.uid||'',name:identity?.displayName||'',busy,notice,enabled});
+  const state=()=>({uid:identity?.uid||'',name:identity?.displayName||'',busy,notice,enabled,loginEnabled});
   const publish=()=>onChange(state());
   const provider=()=>{const p=new sdk.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});return p;};
   function changed(user){
@@ -17,7 +17,7 @@ export function createDeletionController({auth,db,sdk,enabled,core=deleteGameAcc
   function guard(user,expected){if(identity!==user||auth.currentUser!==user||generation!==expected)throw Error('account-changed');}
   async function login(){
     if(busy)throw Error('operation-in-progress');
-    if(!enabled)throw Error('account-deletion-setup-pending');
+    if(!loginEnabled)throw Error('account-deletion-setup-pending');
     busy=true;notice='Googleでログインしてください。';publish();
     try{
       const result=await sdk.signInWithPopup(auth,provider());
