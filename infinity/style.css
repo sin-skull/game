@@ -1,3 +1,4 @@
+/* Keep physical offsets for Android WebViews that do not support inset. */
 :root {
   --bg: #000;
   --fg: #fff;
@@ -36,7 +37,7 @@ body {
   max-width: 520px;
   margin: 0 auto;
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0; inset: 0;
 }
 img, a { -webkit-user-drag: none; }
 textarea { user-select: text; -webkit-user-select: text; }
@@ -74,7 +75,7 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 main { flex: 1; position: relative; min-height: 0; }
 
-.panel { display: none; position: absolute; inset: 0; }
+.panel { display: none; position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; }
 .panel.active { display: block; }
 .panel.from-right { animation: from-right 0.22s ease-out; }
 .panel.from-left { animation: from-left 0.22s ease-out; }
@@ -90,10 +91,10 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 /* ---------- フィールド（枠なし） ---------- */
 .field {
   position: absolute;
-  inset: 50px 0 56px 0;
+  top: 50px; right: 0; bottom: 56px; left: 0; inset: 50px 0 56px 0;
   touch-action: none;
 }
-.next-goal { position:absolute; inset:0 12px auto; height:46px; text-align:left; font-family:var(--jp); font-size:12px; line-height:1.6; color:var(--fg); background:transparent; border:0; border-bottom:1px solid var(--line); cursor:pointer; }
+.next-goal { position:absolute; top: 0; right: 12px; bottom: auto; left: 12px; inset:0 12px auto; height:46px; text-align:left; font-family:var(--jp); font-size:12px; line-height:1.6; color:var(--fg); background:transparent; border:0; border-bottom:1px solid var(--line); cursor:pointer; }
 .next-goal[hidden] { display:none; }
 .field-hint {
   position: absolute;
@@ -114,7 +115,7 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
   transition: left 0.26s cubic-bezier(.5, 0, .3, 1), top 0.26s cubic-bezier(.5, 0, .3, 1);
   touch-action: none;
 }
-.obj::before { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
+.obj::before { content: ""; position: absolute; top: -10px; right: -10px; bottom: -10px; left: -10px; inset: -10px; border-radius: 50%; }
 .obj.dragging { transition: none; z-index: 20; }
 .obj.target .body { outline: 1px dashed var(--fg); outline-offset: 8px; animation: pulse 0.6s ease-in-out infinite alternate; }
 @keyframes pulse { to { transform: scale(1.08); } }
@@ -143,7 +144,7 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .body .v { font-weight: 500; letter-spacing: -0.02em; pointer-events: none; }
 .orbit {
   position: absolute;
-  inset: -10px;
+  top: -10px; right: -10px; bottom: -10px; left: -10px; inset: -10px;
   border-radius: 50%;
   border: 1px dashed rgba(255, 255, 255, 0.35);
   animation: spin 24s linear infinite;
@@ -157,9 +158,9 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
   position: absolute;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.6);
-  inset: 8px;
+  top: 8px; right: 8px; bottom: 8px; left: 8px; inset: 8px;
 }
-.body.inf::after { inset: 16px; border-color: rgba(255, 255, 255, 0.3); }
+.body.inf::after { top: 16px; right: 16px; bottom: 16px; left: 16px; inset: 16px; border-color: rgba(255, 255, 255, 0.3); }
 .body.inf .v { font-weight: 100; font-size: 34px; }
 
 .obj.pop .body { animation: pop 0.34s cubic-bezier(.3, 1.6, .5, 1); }
@@ -321,7 +322,7 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 /* ---------- モーダル（白反転） ---------- */
 .modal {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0; inset: 0;
   background: var(--fg);
   color: var(--bg);
   z-index: 100;
@@ -591,7 +592,7 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 /* アリーナ */
 .arena {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0; inset: 0;
   z-index: 95;
   background: var(--bg);
   display: flex;
@@ -735,7 +736,7 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 
 /* ---------- 起動画面 ---------- */
 .boot {
-  position: fixed; inset: 0; z-index: 60; background: var(--bg);
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 60; background: var(--bg);
   display: flex; align-items: center; justify-content: center; transition: opacity 0.4s;
   padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
 }
@@ -770,7 +771,7 @@ h3 { font-weight: 400; font-size: 10px; letter-spacing: 0.3em; color: var(--dim)
 .boot-away .dim { font-size: 11px; color: var(--dim); }
 
 /* ---------- 省エネ（画面オフ） ---------- */
-.sleep { position: fixed; inset: 0; z-index: 55; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+.sleep { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 55; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
 .sleep[hidden] { display: none; }
 .sleep-info { display: flex; flex-direction: column; align-items: center; gap: 6px; color: rgba(255, 255, 255, 0.28); animation: sleep-drift 120s linear infinite; }
 .sleep-info span { font-weight: 100; font-size: 30px; font-variant-numeric: tabular-nums; }
@@ -788,12 +789,12 @@ body.sleeping main, body.sleeping .top, body.sleeping .tabs { visibility: hidden
 .lg-NOVA { --lg1: #b388ff; --lg2: #ff6ad5; }
 .legend { position: relative; isolation: isolate; }
 .legend::before {
-  content: ''; position: absolute; inset: -22%; border-radius: 50%; z-index: -1; pointer-events: none;
+  content: ''; position: absolute; top: -22%; right: -22%; bottom: -22%; left: -22%; inset: -22%; border-radius: 50%; z-index: -1; pointer-events: none;
   background: conic-gradient(from 0deg, var(--lg1), transparent 30%, var(--lg2), transparent 70%, var(--lg1));
   filter: blur(8px); opacity: 0.55; animation: aura 6s linear infinite;
 }
 .legend::after {
-  content: ''; position: absolute; inset: -10%; pointer-events: none;
+  content: ''; position: absolute; top: -10%; right: -10%; bottom: -10%; left: -10%; inset: -10%; pointer-events: none;
   background:
     radial-gradient(circle, #fff 0 1px, transparent 1.6px) 12% 20% / 100% 100% no-repeat,
     radial-gradient(circle, #fff 0 1px, transparent 1.6px) 86% 30% / 100% 100% no-repeat,
@@ -854,7 +855,7 @@ body.sleeping main, body.sleeping .top, body.sleeping .tabs { visibility: hidden
 .bg-chip { width: 44px; height: 40px; border: 1px solid var(--line); background-color: #000; }
 
 /* ガチャ演出 */
-.gfx { position: fixed; inset: 0; z-index: 58; background: rgba(0, 0, 0, 0.97); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.gfx { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 58; background: rgba(0, 0, 0, 0.97); display: flex; align-items: center; justify-content: center; padding: 24px; }
 .gfx[hidden] { display: none; }
 .gfx-hint { position: absolute; bottom: calc(24px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; font-size: 9px; letter-spacing: 0.4em; color: var(--faint); }
 .gfx-orb { position: relative; width: 180px; height: 180px; }
@@ -889,7 +890,7 @@ body.sleeping main, body.sleeping .top, body.sleeping .tabs { visibility: hidden
 .g-dup { color: var(--dim); }
 .gcard .bg-chip { width: 64px; height: 48px; }
 .gfx-one .bg-chip { width: 140px; height: 100px; }
-.g-sparks { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.g-sparks { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; overflow: visible; }
 .spark { position: absolute; left: 50%; top: 40%; width: 5px; height: 5px; margin: -2.5px; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: 0; animation: spark 1.6s calc(var(--i) * 0.09s + var(--d)) ease-out infinite; }
 .lg-card .spark { background: var(--lg2, #fff); }
 .lg-card .spark:nth-child(odd) { background: var(--lg1, #ffd76a); }

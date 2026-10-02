@@ -1,10 +1,11 @@
+/* Keep physical offsets for Android WebViews that do not support inset. */
 /* 墨絵・和紙の見た目。色は 墨・うす墨・朱（ハンコ）・藍 だけ */
 :root { --sumi: #1a1714; --usu: #5a534b; --shu: #c8321e; --ai: #1f3a5a; --paper: #efe7d4; --paper2: #f6efdf; --washi: none; }
 .res-growth { font-family:'Yuji Syuku','Noto Serif JP',serif; text-align:left; line-height:1.65; font-size:15px; color:var(--usu); border-top:1px solid var(--usu); padding-top:12px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: #2b2621; color: var(--sumi); overflow: hidden; overscroll-behavior: none;
   font-family: 'Yuji Syuku', 'Noto Serif JP', serif; user-select: none; -webkit-user-select: none; touch-action: none; }
-#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #2b2621; }
+#stage { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex; align-items: center; justify-content: center; background: #2b2621; }
 #cv { display: block; background: var(--paper); box-shadow: 0 0 24px rgba(0, 0, 0, .45); }
 
 /* 共通 */
@@ -19,7 +20,7 @@ button:disabled { cursor: default; }
   background: radial-gradient(circle at 34% 30%, #fff 0 18%, #efe9e0 40%, #c9c0b3 100%); box-shadow: 0 0 0 .08em var(--sumi); }
 
 /* ===== ホーム：上に通貨の帯、下にタブ ===== */
-.home { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; background: var(--washi) center / cover, var(--paper); }
+.home { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 5; display: flex; flex-direction: column; background: var(--washi) center / cover, var(--paper); }
 .home[hidden] { display: none; }
 .home > * { width: 100%; max-width: 480px; margin: 0 auto; }
 .h-bar { flex: none; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; height: calc(56px + env(safe-area-inset-top));
@@ -39,7 +40,7 @@ button:disabled { cursor: default; }
 .h-cur b { flex: 1; font-weight: 400; font-family: 'Noto Serif JP', serif; font-size: 13px; text-align: right; padding-right: 6px; }
 .h-cur .plus { width: 22px; height: 22px; margin: -1px -1px -1px 0; border-radius: 50%; background: var(--sumi); color: var(--paper2); font-size: 12px; line-height: 22px; }
 .h-panels { flex: 1; position: relative; overflow: hidden; }
-.h-panel { position: absolute; inset: 0; overflow-y: auto; touch-action: pan-y; padding: 18px 16px 52px; display: none; -webkit-overflow-scrolling: touch; }
+.h-panel { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; overflow-y: auto; touch-action: pan-y; padding: 18px 16px 52px; display: none; -webkit-overflow-scrolling: touch; }
 .h-panel.on { display: block; }
 .h-panel.from-r { animation: fromR .22s ease-out; }
 .h-panel.from-l { animation: fromL .22s ease-out; }
@@ -66,7 +67,7 @@ button:disabled { cursor: default; }
 /* ホーム画面：まん中にワニ、左右にアイコン、下の角に大きな丸ボタン、間にバナー */
 #p-home { padding: 0; overflow: hidden; touch-action: none; }
 #p-home.on { display: block; }
-.hm-scene, .ts-scene { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hm-scene, .ts-scene { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; pointer-events: none; overflow: hidden; }
 .sc-yokai { position: absolute; left: 50%; top: 3%; width: 78%; max-width: 360px; transform: translateX(-50%); opacity: .11; filter: blur(.6px); }
 .sc-wave { position: absolute; left: 0; width: 100%; }
 .sc-wave.a { top: 30%; height: 70px; }
@@ -75,7 +76,7 @@ button:disabled { cursor: default; }
 @keyframes swim { 50% { transform: translate(6px, 14px); } }
 .sc-tag { position: absolute; width: 50px; height: 64px; transform: rotate(var(--r)); animation: drift 6s ease-in-out infinite; }
 .sc-tag img { width: 100%; height: 100%; }
-.sc-tag b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 400; font-family: 'Yuji Syuku', serif; font-size: 20px; }
+.sc-tag b { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 400; font-family: 'Yuji Syuku', serif; font-size: 20px; }
 @keyframes drift { 50% { transform: rotate(var(--r)) translateY(8px); } }
 .hm-road { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 3px; padding: 4px 8px;
   background: rgba(246, 239, 223, .85); border: 1px solid rgba(26, 23, 20, .35); white-space: nowrap; }
@@ -130,7 +131,7 @@ button:disabled { cursor: default; }
 .bn-dots i.on { background: var(--shu); }
 
 /* タイトル画面 */
-.title-screen { position: absolute; inset: 0; z-index: 9; background: var(--washi) center / cover, var(--paper); overflow: hidden; cursor: pointer; }
+.title-screen { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 9; background: var(--washi) center / cover, var(--paper); overflow: hidden; cursor: pointer; }
 .title-screen[hidden] { display: none; }
 .title-screen .sc-yokai { top: 18%; width: 96%; opacity: .15; }
 .title-screen .sc-wave.a { top: 44%; } .title-screen .sc-wave.b { top: 70%; }
@@ -300,7 +301,7 @@ button:disabled { cursor: default; }
 .opt-foot { margin-top: 28px; text-align: center; font-size: 11px; color: var(--usu); line-height: 1.9; letter-spacing: .08em; }
 
 /* 一時停止・結果・遊び方：掛軸のカード */
-.sheet { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(26, 23, 20, .45); }
+.sheet { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(26, 23, 20, .45); }
 .sheet[hidden] { display: none; }
 .card { width: min(320px, 100%); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 30px 22px 22px; position: relative;
   background: var(--washi) center / cover, var(--paper); border: 1.5px solid var(--sumi); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
@@ -318,7 +319,7 @@ button:disabled { cursor: default; }
 .help-row { display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.6; }
 .help-row b { color: var(--shu); font-weight: 400; letter-spacing: .05em; }
 
-#count { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; pointer-events: none;
+#count { position: absolute; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; pointer-events: none;
   font-family: 'Yuji Boku', serif; font-size: 120px; color: var(--sumi); }
 #count b { animation: pop .9s ease-out forwards; font-weight: 400; }
 @keyframes pop { 0% { transform: scale(1.7); opacity: 0; } 25% { opacity: 1; } 100% { transform: scale(.8); opacity: 0; } }
@@ -328,7 +329,7 @@ button:disabled { cursor: default; }
 #toast.on { opacity: 1; }
 
 /* 起動画面 */
-.boot { position: fixed; inset: 0; z-index: 20; background: var(--washi) center / cover, var(--paper); display: flex; align-items: center; justify-content: center; transition: opacity .4s; }
+.boot { position: fixed; top: 0; right: 0; bottom: 0; left: 0; inset: 0; z-index: 20; background: var(--washi) center / cover, var(--paper); display: flex; align-items: center; justify-content: center; transition: opacity .4s; }
 .boot.gone { opacity: 0; pointer-events: none; }
 .boot-stage { width: 100%; max-width: 420px; padding: 24px; text-align: center; opacity: 0; transition: opacity .26s; }
 .boot-stage.in { opacity: 1; }
@@ -370,7 +371,7 @@ html[lang=en] .ts-tap { font-size: 18px; letter-spacing: .25em; }
 .stamp:last-child { grid-column: span 2; border-color: var(--shu); }
 .stamp small { font-size: 10px; color: var(--usu); }
 .stamp span { display: flex; align-items: center; }
-.stamp b { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%) rotate(-12deg); width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid var(--shu);
+.stamp b { position: absolute; top: 50%; right: auto; bottom: auto; left: 50%; inset: 50% auto auto 50%; transform: translate(-50%, -50%) rotate(-12deg); width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid var(--shu);
   color: var(--shu); font-weight: 400; font-family: 'Yuji Boku', serif; font-size: 20px; line-height: 35px; text-align: center; background: rgba(246, 239, 223, .5); }
 .stamp.now { box-shadow: 0 0 0 2px var(--shu); }
 .stamp.now b { animation: stampIn .5s ease-out both .3s; }
