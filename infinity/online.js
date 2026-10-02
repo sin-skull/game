@@ -27,7 +27,8 @@ const Online = (() => {
     ja: {
       guestTitle: 'ゲスト', guestText: 'この端末だけに保存中。ログインするとクラウドに保存され、ランキングとバトルに参加できる。',
       login: 'Google でログイン', logout: 'ログアウト', syncNow: '今すぐ同期', changeName: '名前を変更',
-      synced: t => `クラウドに保存済み ${t}`, syncing: '同期中…', syncErr: '同期できなかった。通信を確認してください',
+      verifyAgain: 'Googleでログインし直す', registrationErr: 'オンライン登録を完了できませんでした。Googleでログインし直してください。',
+      synced: t => `クラウドに保存済み ${t}`, syncing: '同期中…', queued: '変更は端末に保存済み。クラウド同期待ち', syncErr: '同期できなかった。通信を確認してください',
       permErr: 'クラウドの準備中（データベースのルール設定が必要）', noName: '名前が未設定',
       permToast: 'サーバーの設定がまだ終わっていない（管理者の作業待ち）。ゲームはこのまま遊べる',
       nameTitle: 'ユーザー名を決める', nameText: 'ランキングとバトルで表示される名前。2〜12文字（英数字・かな・漢字・_）。',
@@ -59,7 +60,8 @@ const Online = (() => {
     en: {
       guestTitle: 'Guest', guestText: 'Saved on this device only. Log in to save to the cloud and join rankings and battles.',
       login: 'Log in with Google', logout: 'Log out', syncNow: 'Sync now', changeName: 'Change name',
-      synced: t => `Saved to cloud ${t}`, syncing: 'Syncing…', syncErr: 'Could not sync. Check your connection',
+      verifyAgain: 'Sign in with Google again', registrationErr: 'Online registration could not finish. Sign in with Google again.',
+      synced: t => `Saved to cloud ${t}`, syncing: 'Syncing…', queued: 'Changes saved on this device. Cloud sync queued', syncErr: 'Could not sync. Check your connection',
       permErr: 'Cloud not ready yet (database rules need to be set)', noName: 'No name yet',
       permToast: 'The server isn\u2019t set up yet (waiting on the admin). You can keep playing',
       nameTitle: 'Choose a username', nameText: 'Shown in rankings and battles. 2–12 characters (letters, digits, kana, kanji, _).',
@@ -92,8 +94,15 @@ const Online = (() => {
   const t = () => T[OPT.lang] || T.ja;
 
   let fb = null, fbLoading = null, user = null;
-  let status = 'guest', statusAt = 0, dirtyCloud = false, pushTimer = null, syncing = false;
+  let status = 'guest', statusAt = 0, dirtyCloud = false, pushTimer = null, activePush = null, authEpoch = 0;
+  let dirtyRevision = 0, lastCloudPush = 0, retryAfter = 0, failures = 0;
+  let cloudReadyEpoch = -1, restoring = null;
+  let deletionPaused = false;
+  let explicitLoginPending = false, registrationBlocked = false, webStartup = Promise.resolve();
+  let savedUser = '', lastRankSignature = '', lastGhostSignature = '';
+  const CLOUD_INTERVAL = 5 * 60 * 1000;
   let rankCat = 'weekly', rankData = {}, rankState = {};
+  const rankFetchedAt = {}, rankAttemptAt = {};
   const SIM_CAP = 60;   // バトルの計算で使う上限（次元の上限とは別）
   const vsOpen = () => !!(PROFILE.everInf || PROFILE.maxDim > 1 || S.shards > 0);
   const onlineOpen = () => PROFILE.maxDim > 1 || S.shards > 0;
@@ -103,21 +112,62 @@ const Online = (() => {
     if (fb) return Promise.resolve(fb);
     if (fbLoading) return fbLoading;
     const base = `https://www.gstatic.com/firebasejs/${FB_VER}/`;
-    fbLoading = Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')])
-      .then(([app, auth, fs]) => {
+    const webModules=window.NativeGame?Promise.resolve([null,null]):Promise.all([import('../account/runtime-config.mjs'),import('../account/lifecycle.mjs')]);
+    fbLoading = Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js'),webModules])
+      .then(([app, auth, fs, [config, lifecycle]]) => {
         const a = app.initializeApp(FB_CONFIG, 'beyond-infinity');
-        fb = { auth: auth.getAuth(a), db: fs.getFirestore(a), A: auth, F: fs };
-        fb.A.getRedirectResult(fb.auth).catch(e => toast(loginErr(e)));
-        fb.A.onAuthStateChanged(fb.auth, u => {
-          const was = user && user.uid;
-          user = u;
-          if (u && u.uid !== was) afterLogin(u);
-          if (!u) { status = 'guest'; renderAccountOnly(); }
-        });
+        fb = { auth: auth.getAuth(a), db: fs.getFirestore(a), A: auth, F: fs,
+          webLifecycleEnabled:config?.accountLifecycleEnabled===true,registerLifecycle:lifecycle?.registerFreshGameAccount };
+        webStartup=window.NativeGame?Promise.resolve():fb.A.getRedirectResult(fb.auth).then(result=>result?.user?acceptExplicitWebUser(result.user):null);
+        webStartup.then(u=>{if(u&&fb.auth.currentUser===u&&!explicitLoginPending)afterLogin(u);}).catch(e=>{setError(e);toast(loginErr(e));});
+        fb.A.onAuthStateChanged(fb.auth, handleAuthState);
         return fb;
       })
       .catch(e => { fbLoading = null; throw e; });
     return fbLoading;
+  }
+
+  function handleAuthState(u){
+    const was=user&&user.uid;
+    if((u&&u.uid)!==was)resetSyncSession();
+    user=u;
+    if(u&&u.uid!==was&&!explicitLoginPending)afterLogin(u);
+    if(!u){registrationBlocked=false;status='guest';renderAccountOnly();}
+  }
+  async function registerWebLifecycle(u){
+    const f=await loadFb(),epoch=authEpoch;
+    if(f.auth.currentUser!==u||user?.uid!==u.uid)throw Error('account-changed');
+    await f.registerLifecycle({sdk:f.F,db:f.db,user:u,expectedGeneration:epoch,
+      session:()=>({uid:f.auth.currentUser===u&&user===u?u.uid:'',generation:authEpoch})});
+  }
+  async function acceptExplicitWebUser(resultUser){
+    const f=await loadFb(),canonical=f.auth.currentUser;
+    if(!canonical||canonical.uid!==resultUser.uid)throw Error('account-changed');
+    user=canonical;resetSyncSession();
+    if(f.webLifecycleEnabled){registrationBlocked=true;await registerWebLifecycle(canonical);registrationBlocked=false;}
+    deletionPaused=false;return canonical;
+  }
+  async function performWebLogin(f){
+    if(explicitLoginPending)throw Error('login-in-progress');
+    explicitLoginPending=true;registrationBlocked=false;resetSyncSession();
+    const prov=new f.A.GoogleAuthProvider();prov.setCustomParameters({prompt:'select_account'});
+    try{
+      const result=await f.A.signInWithPopup(f.auth,prov);
+      const accepted=await acceptExplicitWebUser(result.user);
+      explicitLoginPending=false;webStartup=Promise.resolve();
+      await afterLogin(accepted);
+    }catch(error){
+      const c=error?.code||'';
+      if(c.includes('popup-blocked')||c.includes('operation-not-supported'))await f.A.signInWithRedirect(f.auth,prov);
+      else throw error;
+    }finally{explicitLoginPending=false;}
+  }
+  function resetSyncSession() {
+    authEpoch++;
+    cloudReadyEpoch = -1;
+    clearTimeout(pushTimer); pushTimer = null;
+    savedUser = ''; lastCloudPush = 0; retryAfter = 0; failures = 0;
+    lastRankSignature = ''; lastGhostSignature = ''; statusAt = 0;
   }
 
   function loginErr(e) {
@@ -130,46 +180,66 @@ const Online = (() => {
   }
 
   async function login() {
+    if (window.NativeGame) {
+      try { const data = await NativeGame.login(); await nativeLogin(data.googleIdToken); }
+      catch (e) { toast(loginErr(e)); }
+      return;
+    }
     let f;
     try { f = await loadFb(); } catch (e) { toast(t().errNetwork); return; }
-    const prov = new f.A.GoogleAuthProvider();
-    prov.setCustomParameters({ prompt: 'select_account' });
-    try {
-      await f.A.signInWithPopup(f.auth, prov);
-    } catch (e) {
-      const c = (e && e.code) || '';
-      // ホーム画面アプリなどでポップアップが使えないときはページ移動で
-      if (c.includes('popup-blocked') || c.includes('operation-not-supported')) {
-        try { await f.A.signInWithRedirect(f.auth, prov); return; } catch (e2) { toast(loginErr(e2)); return; }
-      }
-      toast(loginErr(e));
-    }
+    try {await performWebLogin(f);}catch(e){setError(e);toast(loginErr(e));}
   }
 
-  async function logout() {
-    await pushAll().catch(() => {});
+  async function nativeLogin(token) {
+    if (!token) throw new Error('invalid-credential');
+    const f = await loadFb();
+    await f.A.signInWithCredential(f.auth, f.A.GoogleAuthProvider.credential(token));
+  }
+
+  async function logout(nativeSignout = true, flush = true) {
+    if(flush&&!deletionPaused)await pushAll(true).catch(() => {});
     try { localStorage.removeItem(AUTH_FLAG); } catch (e) { /* 保存不可 */ }
     if (fb) await fb.A.signOut(fb.auth);
+    if (nativeSignout && window.NativeGame) await NativeGame.logout();
     user = null;
+    deletionPaused = false;
     status = 'guest';
     toast(t().loggedOut);
     renderAll();
   }
 
   async function afterLogin(u) {
+    if(deletionPaused||explicitLoginPending||registrationBlocked)return;
+    if (restoring && restoring.epoch === authEpoch) return;
+    const epoch = authEpoch;
+    const current = () => !deletionPaused && user && user.uid === u.uid && authEpoch === epoch;
+    const restoreOperation = { epoch }; restoring = restoreOperation;
     try { localStorage.setItem(AUTH_FLAG, '1'); } catch (e) { /* 保存不可 */ }
     status = 'syncing';
     renderAccountOnly();
     try {
-      const loaded = await pullAndMerge(u);
+      await webStartup;
+      if(!current())return;
+      const loaded = await pullAndMerge(u, epoch);
+      if (!current()) return;
+      cloudReadyEpoch = epoch;
       await claimInbox();
+      if (!current()) return;
+      markDirty();
       await pushAll();
+      if (!current()) return;
       if (window.Weekly) Weekly.claimLast();
       toast(loaded ? t().cloudLoaded : t().loggedIn);
       if (!PROFILE.name) askName();
     } catch (e) {
+      if (!current()) return;
+      if (cloudReadyEpoch !== epoch) {
+        markDirty(); retryAfter = Date.now() + CLOUD_INTERVAL; syncSoon();
+      }
       setError(e);
       toast(status === 'perm' ? t().permToast : t().syncErr);
+    } finally {
+      if (restoring === restoreOperation) restoring = null;
     }
     renderAll();
   }
@@ -184,9 +254,10 @@ const Online = (() => {
   const progress = s => (s ? (s.stats.playTime || 0) + (s.shards || 0) * 1e6 : -1);
   const isEmpty = s => !s || (!s.stats.spawned && !s.shards);
 
-  async function pullAndMerge(u) {
+  async function pullAndMerge(u, epoch = authEpoch) {
     const f = await loadFb();
     const snap = await f.F.getDoc(f.F.doc(f.db, 'bi_users', u.uid));
+    if (!user || user.uid !== u.uid || authEpoch !== epoch) return false;
     if (!snap.exists()) return false;
     const cloud = snap.data();
     let loadedCurrent = false;
@@ -247,37 +318,77 @@ const Online = (() => {
     };
   }
 
-  async function pushAll() {
-    if (!user || syncing) return;
-    syncing = true;
+  async function pushAll(force = false) {
+    if (deletionPaused || explicitLoginPending || registrationBlocked || !user || !dirtyCloud) return;
+    // Do not overwrite an unread cloud save after a failed initial restore.
+    if (cloudReadyEpoch !== authEpoch) {
+      if (Date.now() >= retryAfter) await afterLogin(user);
+      else syncSoon();
+      return;
+    }
+    if (activePush && activePush.epoch === authEpoch) { syncSoon(); return; }
+    const now = Date.now(), uid = user.uid, epoch = authEpoch;
+    const current = () => user && user.uid === uid && authEpoch === epoch;
+    const sameUser = savedUser === uid;
+    const minimum = force ? 20 * 1000 : CLOUD_INTERVAL;
+    if (now < retryAfter || (sameUser && now - lastCloudPush < minimum)) {
+      if (status !== 'error' && status !== 'perm') status = 'queued';
+      syncSoon(); renderAccountOnly(); return;
+    }
+    const operation = { epoch }; activePush = operation;
+    status = 'syncing'; renderAccountOnly();
     try {
       const f = await loadFb();
+      if (!current()) return;
+      const revision = dirtyRevision;
       const slots = {};
       for (let i = 0; i < SLOT_KEYS.length; i++) {
         const s = slotData(i);
         if (s && !isEmpty(s)) slots['s' + i] = JSON.stringify(s);
       }
       const { history, ...prof } = PROFILE;
-      await f.F.setDoc(f.F.doc(f.db, 'bi_users', user.uid), { profile: { ...prof, history: history.slice(0, 10) }, slots, updated: Date.now(), v: VERSION });
-      if (PROFILE.name) {
-        await f.F.setDoc(f.F.doc(f.db, 'bi_ranking', user.uid), rankingEntry());
-        await f.F.setDoc(f.F.doc(f.db, 'bi_ghosts', user.uid), { ...snapshot(), wins: PROFILE.wins, updated: Date.now() });
+      const rank = rankingEntry(), ghost = { ...snapshot(), wins: PROFILE.wins };
+      const { updated, ...rankContent } = rank;
+      const rankSignature = JSON.stringify(rankContent), ghostSignature = JSON.stringify(ghost);
+      await f.F.setDoc(f.F.doc(f.db, 'bi_users', uid), { profile: { ...prof, history: history.slice(0, 10) }, slots, updated: Date.now(), v: VERSION });
+      if (!current()) return;
+      if (prof.name) {
+        if (!sameUser || rankSignature !== lastRankSignature) {
+          await f.F.setDoc(f.F.doc(f.db, 'bi_ranking', uid), rank);
+          if (!current()) return;
+          lastRankSignature = rankSignature;
+        }
+        if (!sameUser || ghostSignature !== lastGhostSignature) {
+          await f.F.setDoc(f.F.doc(f.db, 'bi_ghosts', uid), { ...ghost, updated: Date.now() });
+          if (!current()) return;
+          lastGhostSignature = ghostSignature;
+        }
       }
-      dirtyCloud = false;
-      status = 'ok';
+      savedUser = uid; lastCloudPush = Date.now(); retryAfter = 0; failures = 0;
+      dirtyCloud = dirtyRevision !== revision;
+      status = dirtyCloud ? 'queued' : 'ok';
       statusAt = Date.now();
     } catch (e) {
+      if (!current()) return;
+      failures++;
+      retryAfter = Date.now() + Math.min(30 * 60 * 1000, CLOUD_INTERVAL * 2 ** Math.min(failures - 1, 3));
       setError(e);
     } finally {
-      syncing = false;
+      if (activePush === operation) activePush = null;
+      if (current() && dirtyCloud) syncSoon();
     }
     renderAccountOnly();
   }
 
-  function markDirty() { dirtyCloud = true; }
-  function syncSoon() { clearTimeout(pushTimer); pushTimer = setTimeout(() => pushAll(), 1500); }
+  function markDirty() { dirtyCloud = true; dirtyRevision++; }
+  function syncSoon() {
+    clearTimeout(pushTimer);
+    if (deletionPaused || explicitLoginPending || registrationBlocked || !user || !dirtyCloud) return;
+    const wait = Math.max(1500, retryAfter - Date.now(), savedUser === user.uid ? lastCloudPush + CLOUD_INTERVAL - Date.now() : 0);
+    pushTimer = setTimeout(() => pushAll(), wait);
+  }
   function syncNow() { if (user && dirtyCloud) pushAll(); }
-  setInterval(() => { if (user && dirtyCloud) pushAll(); }, 90 * 1000);
+  setInterval(() => { if (user && dirtyCloud) pushAll(); }, CLOUD_INTERVAL);
 
   // ---------- ユーザー名 ----------
   function askName() {
@@ -308,16 +419,22 @@ const Online = (() => {
   }
 
   async function claimName(name) {
+    if (!user) throw new Error('google-login-required');
+    const uid = user.uid, epoch = authEpoch;
+    const current = () => user && user.uid === uid && authEpoch === epoch;
     const f = await loadFb();
+    if (!current()) throw new Error('account-changed');
     const key = name.toLowerCase();
     const old = PROFILE.name ? PROFILE.name.toLowerCase() : '';
     await f.F.runTransaction(f.db, async tx => {
       const ref = f.F.doc(f.db, 'bi_names', key);
       const snap = await tx.get(ref);
-      if (snap.exists() && snap.data().uid !== user.uid) throw new Error('taken');
-      tx.set(ref, { uid: user.uid, name });
+      if (!current()) throw new Error('account-changed');
+      if (snap.exists() && snap.data().uid !== uid) throw new Error('taken');
+      tx.set(ref, { uid, name });
       if (old && old !== key) tx.delete(f.F.doc(f.db, 'bi_names', old));
     });
+    if (!current()) throw new Error('account-changed');
     PROFILE.name = name;
     saveProfile();
     await pushAll();
@@ -326,14 +443,20 @@ const Online = (() => {
   // ---------- 防衛報酬 ----------
   async function claimInbox() {
     if (!user) return;
+    const uid = user.uid, epoch = authEpoch;
+    const current = () => user && user.uid === uid && authEpoch === epoch;
     const f = await loadFb();
-    const q = f.F.query(f.F.collection(f.db, 'bi_inbox'), f.F.where('to', '==', user.uid), f.F.limit(50));
+    if (!current()) return;
+    const q = f.F.query(f.F.collection(f.db, 'bi_inbox'), f.F.where('to', '==', uid), f.F.limit(50));
     const snaps = await f.F.getDocs(q);
+    if (!current()) return;
     let n = 0, bp = 0;
     for (const d of snaps.docs) {
-      bp += Math.min(10, Number(d.data().bp) || 0);
+      if (!current()) return;
+      try { await f.F.deleteDoc(d.ref); } catch (_) { continue; }
+      if (!current()) return;
+      bp += Math.max(0, Math.min(10, Number(d.data().bp) || 0));
       n++;
-      await f.F.deleteDoc(d.ref).catch(() => {});
     }
     if (n) {
       bp = gainSP(bp);   // 1次元あたりの上限あり
@@ -344,7 +467,9 @@ const Online = (() => {
   // ---------- アカウント表示（MENU → ACCOUNT） ----------
   function statusText() {
     const l = t();
+    if(registrationBlocked)return l.registrationErr;
     if (status === 'syncing') return l.syncing;
+    if (status === 'queued') return l.queued;
     if (status === 'perm') return l.permErr;
     if (status === 'error') return l.syncErr;
     if (status === 'ok') return l.synced(new Date(statusAt).toLocaleTimeString(OPT.lang === 'ja' ? 'ja-JP' : 'en-US', { hour: '2-digit', minute: '2-digit' }));
@@ -365,8 +490,9 @@ const Online = (() => {
       <div class="acct-mail">${esc(user.email || '')}</div>
       <div class="acct-status ${status === 'perm' || status === 'error' ? 'err' : ''}">${statusText()}</div>
       <div class="acct-btns">
-        <button class="opt-btn" data-online="name">${l.changeName}</button>
-        <button class="opt-btn" data-online="sync">${l.syncNow}</button>
+        ${registrationBlocked?`<button class="opt-btn" data-online="login">${l.verifyAgain}</button>`:''}
+        <button class="opt-btn" data-online="name" ${registrationBlocked?'disabled':''}>${l.changeName}</button>
+        <button class="opt-btn" data-online="sync" ${registrationBlocked?'disabled':''}>${l.syncNow}</button>
         <button class="opt-btn danger" data-online="logout">${l.logout}</button>
       </div>
     </div>`;
@@ -384,7 +510,7 @@ const Online = (() => {
     if (a === 'login') login();
     if (a === 'logout') logout();
     if (a === 'name') askName();
-    if (a === 'sync') { status = 'syncing'; renderAccountOnly(); pushAll(); }
+    if (a === 'sync') { markDirty(); pushAll(true); }
   });
 
   // ---------- ランキング ----------
@@ -435,10 +561,16 @@ const Online = (() => {
   }
 
   async function loadRank(cat) {
+    const now = Date.now();
+    if (rankState[cat] === 'loading') return;
+    if (rankFetchedAt[cat] && now-rankFetchedAt[cat] < CLOUD_INTERVAL) { rankState[cat] = 'ok'; return; }
+    if (rankAttemptAt[cat] && now-rankAttemptAt[cat] < 60*1000) { if (!rankState[cat]) rankState[cat] = 'error'; return; }
+    rankAttemptAt[cat] = now;
     rankState[cat] = 'loading';
     try {
       if (user && dirtyCloud) await pushAll();
       rankData[cat] = await fetchRank(cat);
+      rankFetchedAt[cat] = Date.now();
       rankState[cat] = 'ok';
     } catch (e) {
       console.warn('rank', e);
@@ -816,9 +948,18 @@ const Online = (() => {
     const snaps = await f.F.getDocs(f.F.query(f.F.collection(f.db, 'bi_ranking'), f.F.orderBy('w' + k, 'asc'), f.F.limit(50)));
     return snaps.docs.map(d => ({ uid: d.id, ...d.data() }));
   }
-  function reloadRank() { rankState = {}; if (currentPanel === 'vs') render(); }
+  function reloadRank() {
+    const now = Date.now();
+    for (const cat of Object.keys(rankState)) {
+      if (rankState[cat] !== 'loading' && !(rankFetchedAt[cat] && now-rankFetchedAt[cat] < CLOUD_INTERVAL)
+          && !(rankAttemptAt[cat] && now-rankAttemptAt[cat] < 60*1000)) delete rankState[cat];
+    }
+    if (currentPanel === 'vs') render();
+  }
 
-  return { markDirty, syncSoon, syncNow, render, accountHTML, fetchWeek, reloadRank, isLoggedIn: () => !!user, uid: () => user && user.uid, _sim: { simInit, simStep, simScore } };
+  function pauseForDeletion(){deletionPaused=true;resetSyncSession();}
+  function resumeAfterDeletionCancelled(){deletionPaused=false;if(user)afterLogin(user);}
+  return { markDirty, syncSoon, syncNow, render, accountHTML, fetchWeek, reloadRank, nativeLogin, nativeLogout: () => logout(false), completeAccountDeletion:()=>logout(false,false), pauseForDeletion, resumeAfterDeletionCancelled, isLoggedIn: () => !!user, uid: () => user && user.uid, _sim: { simInit, simStep, simScore } };
 })();
 
 window.Online = Online;

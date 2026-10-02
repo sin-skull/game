@@ -245,13 +245,14 @@ function loadSettings() {
   const def = {
     lang: /^ja/i.test(navigator.language || '') ? 'ja' : 'en',
     sound: true, vibe: true, size: 'M', confirmSell: true, tutorialDone: false,
-    slot: 0, tips: {}, seenVersion: '',
+    slot: 0, tips: {}, seenVersion: '', buyBatch: 1,
     calm: !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches), autoSleep: 0,
   };
   try {
     const o = { ...def, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') };
     if (!(o.slot >= 0 && o.slot < SLOT_KEYS.length)) o.slot = 0;
     if (!o.tips || typeof o.tips !== 'object') o.tips = {};
+    if (![1, 10, 'max'].includes(o.buyBatch)) o.buyBatch = 1;
     return o;
   } catch (e) { return def; }
 }
@@ -551,9 +552,10 @@ const sellMult = () => (1 + 0.25 * S.up.sellMult) * incomeMult();
 const sellPrice = t => Math.pow(2, t) * sellMult();
 const spawnCoin = () => 0.1 * S.up.spawnCoin * incomeMult();
 const cap = () => SPACE_CAPS[S.up.space];
-// 通常強化の値段：次元ごとに ×2（収入 ×2 を打ち消す。毎回ランク1からやり直すので、序盤は次元1と同じ手ごたえ）。
+// 通常強化は次元ごとに ×1.8、収入は ×2。次元突破のたびに
+// 相対価格が10%下がり、同じ作業を繰り返すだけにならないようにする。
 // 前の次元の上限までは今まで通りの伸び、それより上の新しいレベルは1段ごとにさらに ×1.5
-const DIM_COST = 2, NEW_LV_COST = 1.5;
+const DIM_COST = 1.8, NEW_LV_COST = 1.5;
 function upCostAt(u, lv, d) {
   if (u.id === 'autoSell') return u.cost(lv);
   const prev = d - 1 >= u.unlock ? u.max(d - 1) : Infinity;
@@ -923,12 +925,38 @@ function noteTier(t) {
   }
 }
 
+function purchaseQuote(u) {
+  const lv = S.up[u.id], available = Math.max(0, umax(u) - lv);
+  const requested = MODE ? 1 : OPT.buyBatch === 'max' ? available : Math.min(available, OPT.buyBatch);
+  let count = 0, total = 0;
+  for (let step = 0; step < requested; step++) {
+    const cost = MODE ? Math.ceil(u.cost(lv + step)) : upCostAt(u, lv + step, dimOf());
+    if (!Number.isFinite(cost) || !Number.isFinite(total + cost) || total + cost > S.coins) break;
+    total += cost; count++;
+  }
+  return { count, total, displayCost: count ? total : upCost(u) };
+}
+
+function purchaseEffect(u, from, to) {
+  if (to <= from) return u.desc(from);
+  if (u.id === 'autoGen') return `${from ? genInterval(from).toFixed(2)+'s' : 'OFF'} → ${genInterval(to).toFixed(2)}s`;
+  if (u.id === 'autoMerge') return `${from ? mergeInterval(from).toFixed(2)+'s' : 'OFF'} → ${mergeInterval(to).toFixed(2)}s`;
+  if (u.id === 'spawnCoin') return `+${fmt(.1*from*incomeMult())} → +${fmt(.1*to*incomeMult())}`;
+  if (u.id === 'sellMult') return `×${(1+.25*from).toFixed(2)} → ×${(1+.25*to).toFixed(2)}`;
+  if (u.id === 'tapPower') return `${from+1} → ${to+1}`;
+  if (u.id === 'luck') return `${from*5}% → ${to*5}%`;
+  if (u.id === 'space') return `${SPACE_CAPS[from]} → ${SPACE_CAPS[to]} objects`;
+  if (u.id === 'baseTier') return `${pow2(from)} → ${pow2(to)}`;
+  return u.desc(from);
+}
+
 function buy(u) {
-  const cost = upCost(u);
-  if (!uUnlocked(u) || S.up[u.id] >= umax(u) || S.coins < cost) { sfx.deny(); return; }
-  S.coins -= cost;
-  S.up[u.id]++;
-  S.stats.bought++;
+  if (!u || window.NativeGame?.suspended) return;
+  const quote = purchaseQuote(u);
+  if (!uUnlocked(u) || !quote.count) { sfx.deny(); return; }
+  S.coins -= quote.total;
+  S.up[u.id] += quote.count;
+  S.stats.bought += quote.count;
   sfx.buy();
   vibe(6);
   dirty = true;
@@ -967,7 +995,8 @@ function keepFrom(s, extra = {}) {
 }
 
 // 転生（ボタンは1つ）：∞ を作っていれば次の次元へ。魂は ∞ の数と到達具合で決まる
-function rebirth() {
+async function rebirth() {
+  if (window.NativeGame?.suspended) return;
   const p = soulParts();
   if (p.total < 1 && p.n === 0) return;
   const next = p.n > 0;
@@ -981,6 +1010,7 @@ function rebirth() {
   renderAll();
   switchPanel('play');
   sfx.inf();
+  if (window.NativeGame) await NativeGame.roundEnd();
   const l = L();
   if (next) {
     const fresh = UPGRADES.filter(u => u.unlock === dimOf()).map(u => (OPT.lang === 'ja' ? u.jp : u.en));
@@ -1075,6 +1105,23 @@ function renderHeader() {
     els.dim.textContent = `DIM ${dimStr()}${S.clearTime ? ' · Ω' : ''}`;
   }
   els.count.textContent = `${S.objs.length} / ${cap()}`;
+  const goal = $('nextGoal');
+  goal.hidden = !!MODE;
+  els.field.style.top = MODE ? '0px' : '50px';
+  if (!MODE) {
+    const ja = OPT.lang === 'ja';
+    if (infCount() > 0) {
+      goal.dataset.target = 'rebirth';
+      goal.textContent = ja ? `∞ を突破した！ 次元${dimOf()+1}へ → 転生で魂${soulBase()}獲得` : `Infinity reached! → Dimension ${dimOf()+1}, +${soulBase()} Souls`;
+    } else {
+      const available = UPGRADES.filter(u=>uUnlocked(u) && S.up[u.id] < umax(u));
+      const priority = !S.up.autoGen ? 'autoGen' : !S.up.autoMerge ? 'autoMerge' : S.up.baseTier < Math.min(umax(UPGRADES.find(u=>u.id==='baseTier')),S.shards+1) ? 'baseTier' : S.up.space===0 ? 'space' : 'autoGen';
+      const u = available.find(x=>x.id===priority) || available.reduce((best,x)=>!best || upCost(x)<upCost(best) ? x : best,null);
+      goal.dataset.target = u ? u.id : 'merge';
+      const remaining = u ? Math.max(0,upCost(u)-S.coins) : 0;
+      goal.textContent = u ? (ja ? `次の目標：${u.jp}　${remaining>0?'あと '+fmtCoins(remaining)+' COIN':'強化できる'} →` : `Next: ${u.en} · ${remaining>0?fmtCoins(remaining)+' COIN to go':'Ready to upgrade'} →`) : (ja ? '強化は完了！ 数を合成して ∞ を目指そう' : 'Upgrades complete! Merge toward Infinity');
+    }
+  }
   const affordable = UPGRADES.some(u => uUnlocked(u) && S.up[u.id] < umax(u) && S.coins >= upCost(u));
   const eAffordable = !MODE && ETERNAL_OPEN(S) && ETERNAL.some(k => S.soul >= eternalCost(k));
   const eHot = !MODE && (infCount() > 0 || eAffordable);
@@ -1127,10 +1174,11 @@ function renderShop() {
   const list = UPGRADES.filter(u => uUnlocked(u) && !(u.id === 'autoSell' && dimOf() >= 2));
   const locked = UPGRADES.filter(u => !uUnlocked(u) && !MODE);
   els.upgrades.innerHTML = `<div class="coin-use"><div class="coin-use-t">${cTitle}</div><ol>${cLines.map(x => `<li>${x}</li>`).join('')}</ol></div>` +
+    (!MODE ? `<div class="buy-batch no-swipe" role="group" aria-label="${ja?'購入数':'Purchase quantity'}">${[1,10,'max'].map(n=>`<button type="button" data-batch="${n}" aria-pressed="${OPT.buyBatch===n}">${n==='max'?'MAX':'×'+n}</button>`).join('')}</div>` : '') +
     list.map((u, i) => {
-      const lv = S.up[u.id], cost = upCost(u), mx = umax(u);
-      return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv} / ${mx}`, u.desc(lv),
-        lv, mx, fmt(cost), S.coins >= cost, lv >= mx, `data-id="${u.id}"`, u.id, etaText(cost));
+      const lv = S.up[u.id], quote = purchaseQuote(u), cost = quote.displayCost, mx = umax(u);
+      return upgradeRow(i, ja ? u.jp : u.en, `${ja ? u.en.toUpperCase() + ' · ' : ''}LV ${lv} / ${mx}`, purchaseEffect(u, lv, lv + Math.max(1, quote.count)),
+        lv, mx, fmt(cost)+(quote.count>1?' ×'+quote.count:''), quote.count>0, lv >= mx, `data-id="${u.id}"`, u.id, etaText(cost));
     }).join('') +
     (locked.length ? `<div class="up-locked">${locked.map(u => `<div><span>${ja ? u.jp : u.en}</span><em>${L().unlockAt(u.unlock)}</em></div>`).join('')}</div>` : '');
 }
@@ -1139,9 +1187,12 @@ function refreshShop() {
   els.upgrades.querySelectorAll('.pill[data-id]').forEach(b => {
     const u = UPGRADES.find(x => x.id === b.dataset.id);
     const maxed = S.up[u.id] >= umax(u);
-    const cost = upCost(u);
-    const can = !maxed && S.coins >= cost;
+    const quote = purchaseQuote(u), cost = quote.displayCost;
+    const can = !maxed && quote.count > 0;
     b.disabled = !can;
+    if (!maxed) b.textContent = fmt(cost)+(quote.count>1?' ×'+quote.count:'');
+    const effect = b.closest('.up').querySelector('.up-desc > span');
+    if (effect && !maxed) effect.textContent = purchaseEffect(u, S.up[u.id], S.up[u.id]+Math.max(1,quote.count));
     b.closest('.up').classList.toggle('locked', !maxed && !can);
     const eta = b.closest('.up').querySelector('.up-eta');
     if (eta) eta.textContent = maxed ? '' : etaText(cost);
@@ -1263,6 +1314,7 @@ function renderOptions() {
   const install = isStandalone() ? '' : row([o.install[0], installPrompt ? o.install[1] : o.installIos], installPrompt ? btn('install', 'INSTALL') : '');
   els.options.innerHTML = `
     <div class="opt-group">${o.general}</div>
+    ${window.NativeGame ? row([OPT.lang === 'ja' ? 'アカウントとテスター' : 'Account and testers', ''], btn('native-account', 'OPEN')) : ''}
     ${row(o.lang, segHTML('lang', [['ja', '日本語'], ['en', 'English']]))}
     ${row(o.sound, segHTML('sound', onoff))}
     ${row(o.vibe, segHTML('vibe', onoff))}
@@ -1510,7 +1562,7 @@ function markTarget(t) {
 }
 
 els.field.addEventListener('pointerdown', e => {
-  if (paused || drag) return;   // 2本目の指は無視
+  if (paused || drag || window.NativeGame?.suspended) return;   // 2本目の指は無視
   if (e.button > 0) return;
   fieldBox = null;
   const objEl = e.target.closest('.obj');
@@ -1642,10 +1694,21 @@ els.rail.addEventListener('click', () => {
 })();
 
 els.upgrades.addEventListener('click', e => {
+  const quantity = e.target.closest('[data-batch]');
+  if (quantity) { OPT.buyBatch = quantity.dataset.batch === 'max' ? 'max' : Number(quantity.dataset.batch); saveSettings(); renderShop(); return; }
   if (toggleHelp(e)) return;
   const b = e.target.closest('.pill');
   if (b) buy(UPGRADES.find(u => u.id === b.dataset.id));
 });
+
+$('nextGoal').onclick = () => {
+  if (window.NativeGame?.suspended) return;
+  const target = $('nextGoal').dataset.target;
+  if (target === 'merge') return;
+  switchPanel('shop');
+  setShopView(target === 'rebirth' ? 'eternal' : 'normal');
+  if (target !== 'rebirth') { helpOpen.add(target); renderShop(); }
+};
 
 els.skills.addEventListener('click', e => {
   if (toggleHelp(e)) return;
@@ -1717,6 +1780,7 @@ function replaceState(next) {
 
 function optionAction(action) {
   const l = L(), o = l.opt;
+  if (action === 'native-account' && window.NativeGame) NativeGame.openMenu();
   if (action === 'tutorial') { switchPanel('play'); tutStart(); }
   if (action === 'sleep' && window.Boot) Boot.sleep(true);
   if (action === 'install' && installPrompt) {
@@ -1914,6 +1978,7 @@ window.addEventListener('resize', () => {
 });
 
 document.addEventListener('keydown', e => {
+  if (window.NativeGame?.suspended) return;
   if (inEditable(e)) return;
   if (!els.modal.hidden || !els.arena.hidden) return;
   if ((e.code === 'Space' || e.code === 'Enter') && currentPanel === 'play') {
@@ -1966,7 +2031,7 @@ function tick() {
   const now = performance.now();
   const dt = Math.min(1, (now - lastTick) / 1000);
   lastTick = now;
-  if (paused || booting) return;
+  if (paused || booting || window.NativeGame?.suspended) return;
   S.stats.playTime += dt;
   if (MODE === 'weekly' && window.Weekly) Weekly.tick(dt);
 
@@ -2064,7 +2129,7 @@ window.addEventListener('pagehide', save);
 window.addEventListener('beforeunload', save);
 
 // ホーム画面アプリ（オフラインでも起動できるように）
-if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+if (!window.NativeGame && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
@@ -2083,5 +2148,16 @@ function startGame() {
   OPT.seenVersion = VERSION;
   saveSettings();
   if (window.Gacha) Gacha.onStart();
+  if (window.NativeGame) NativeGame.beginRound();
 }
+window.GameLifecycle = {
+  clearLocalProgressForDeletion(){
+    MODE=null;clearField();S=freshState();PROFILE=normalizeProfile({});
+    for(const key of [...SLOT_KEYS,OLD_SAVE_KEY,BACKUP_KEY,PROFILE_KEY])localStorage.removeItem(key);
+    rateEarned0=0;lastTick=performance.now();renderAll();
+  },
+  back() { if (!els.modal.hidden) closeModal(); else if (currentPanel !== 'menu') switchPanel('menu'); else window.NativeGame?.openMenu(); },
+};
+window.addEventListener('game-native-suspend', () => { endDrag(null, true); save(); });
+window.addEventListener('game-native-resume', () => { lastTick = performance.now(); fieldBox = null; });
 document.addEventListener('DOMContentLoaded', () => (window.Boot ? Boot.start() : startGame()));

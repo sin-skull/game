@@ -1,5 +1,6 @@
 /* 墨絵・和紙の見た目。色は 墨・うす墨・朱（ハンコ）・藍 だけ */
 :root { --sumi: #1a1714; --usu: #5a534b; --shu: #c8321e; --ai: #1f3a5a; --paper: #efe7d4; --paper2: #f6efdf; --washi: none; }
+.res-growth { font-family:'Yuji Syuku','Noto Serif JP',serif; text-align:left; line-height:1.65; font-size:15px; color:var(--usu); border-top:1px solid var(--usu); padding-top:12px; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: #2b2621; color: var(--sumi); overflow: hidden; overscroll-behavior: none;
   font-family: 'Yuji Syuku', 'Noto Serif JP', serif; user-select: none; -webkit-user-select: none; touch-action: none; }

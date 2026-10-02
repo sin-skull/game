@@ -170,7 +170,10 @@ const weaponOf = id => WEAPON_DEF.find(w => w.id === id) || WEAPON_DEF[0];
 const skinOf = id => SKIN_DEF.find(k => k.id === id) || SKIN_DEF[0];
 const coinsFor = (m, bosses) => Math.floor((Math.floor(m * METER / 10) + bosses * 25) * (1 + skinBonus('coin')));   // 10m で1コイン、ボス1体で25（スキンで増える）
 let SLOT = readSlot(OPT.slot) || freshSlot();
-function writeSlot() { try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(SLOT)); } catch (e) { /* 保存不可 */ } }
+function writeSlot() {
+  try { localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(SLOT)); } catch (e) { /* 保存不可 */ }
+  window.GameCloud?.markDirty();
+}
 function selectSlot(i) { OPT.slot = i; saveOpt(); SLOT = readSlot(i) || freshSlot(); }
 
 // ---------- 文言（タイトルの GATE VADER 以外は 日本語 / English で切り替え） ----------
@@ -1289,13 +1292,15 @@ function renderOpt() {
     <div class="opt-row"><span>${l.opt.lang}</span>${seg('optLang', '日本語', 'English', OPT.lang === 'ja')}</div>
     <div class="opt-row"><span>${l.opt.sound}</span>${seg('optSound', 'ON', 'OFF', OPT.sound)}</div>
     <div class="opt-row"><span>${l.opt.light}</span>${seg('optLight', 'ON', 'OFF', OPT.light)}</div>
-    <button class="opt-row link" id="optHow"><span>${l.opt.how}</span><em>${l.opt.open} ›</em></button>`;
+    <button class="opt-row link" id="optHow"><span>${l.opt.how}</span><em>${l.opt.open} ›</em></button>
+    ${window.NativeGame ? `<button class="opt-row link" id="optAccount"><span>${OPT.lang==='ja'?'アカウントとテスター':'Account and testers'}</span><em>${l.opt.open} ›</em></button>` : ''}`;
   $('optFoot').innerHTML = `GATE VADER　${l.version(VERSION)}<br>A GAME BY MASU01`;
   const bind = (id, fn) => $(id).querySelectorAll('button').forEach((b, i) => { b.onclick = () => { fn(i === 0); saveOpt(); sfx('gate'); showHome('opt'); }; });
   bind('optLang', v => { OPT.lang = v ? 'ja' : 'en'; });
   bind('optSound', v => { OPT.sound = v; });
   bind('optLight', v => { OPT.light = v; OPT.lightAsked = true; resize(); });
   $('optHow').onclick = () => { applyStatic(); show('help', true); };
+  if (window.NativeGame) $('optAccount').onclick = () => NativeGame.openMenu();
 }
 
 // ---------- ガチャ（武器 / 墨の色） ----------
@@ -1435,6 +1440,8 @@ function preloadArt() {
   washiImg(); fudaImg(true); fudaImg(false);
 }
 function startRun(resume) {
+  if (window.NativeGame?.suspended) return;
+  if (window.NativeGame) NativeGame.beginRound();
   preloadArt();
   dailyCheck();
   clearInterval(heroTimer); clearInterval(tsTimer); show('title', false); show('info', false); show('home', false); show('result', false); show('pause', false); show('help', false);
@@ -1489,7 +1496,18 @@ function gameOver() {
   $('resM').innerHTML = `${fmt(Math.floor(m * METER))}<small>${l.meter}</small>`;
   $('resSub').textContent = (R.newBest ? l.newBest + '　' : `${l.best} ${fmt(Math.floor(SLOT.best * METER))}${l.meter}　·　`) + `${R.cleared ? l.gameClear + '　·　' : ''}${l.eaten(R.kills)}`;
   $('resCoins').innerHTML = `<span><i class="ic-zeni"></i>+${fmt(gain)}</span>` + (R.pearls ? `<span><i class="ic-pearl"></i>+${fmt(R.pearls)}</span>` : '');
-  setTimeout(() => { if (state === 'result') show('result', true); }, 700);
+  const w = weaponOf(SLOT.weapon), lv = SLOT.weapons[w.id];
+  const growth = [];
+  if (lv < WLV_MAX) {
+    const cost = wUpCost(w, lv), remaining = Math.max(0, cost - SLOT.coins);
+    const before = fmt(Math.round(wDmg(w,lv)*100)/100), after = fmt(Math.round(wDmg(w,lv+1)*100)/100);
+    growth.push(OPT.lang==='ja' ? `${l.wname[w.id]} Lv${lv} → ${lv+1}：威力 ${before} → ${after}。${remaining ? 'あと'+fmt(remaining)+'銭で強化' : fmt(cost)+'銭で今すぐ強化できる'}` : `${l.wname[w.id]} Lv${lv} → ${lv+1}: damage ${before} → ${after}. ${remaining ? fmt(remaining)+' more coins needed' : 'Upgrade now for '+fmt(cost)+' coins'}`);
+  }
+  if (cleared() < STAGES) growth.push(OPT.lang==='ja' ? `次の初突破：第${kan(cleared()+1)}段で真珠${nextReward()}個。` : `Next first clear: stage ${cleared()+1}, +${nextReward()} pearls.`);
+  else growth.push(OPT.lang==='ja' ? '十段突破後はコインラッシュ。道のりを伸ばして強化用の銭を集めよう。' : 'After stage 10, extend your coin-rush distance to earn upgrade coins.');
+  $('resGrowth').textContent = growth.join(' ');
+  $('btnResultGear').textContent = OPT.lang==='ja' ? '装備と強化を選ぶ' : 'Choose gear and upgrades';
+  setTimeout(async () => { if (state !== 'result') return; show('result', true); if (window.NativeGame) await NativeGame.roundEnd(); }, 700);
 }
 
 // ---------- 入力 ----------
@@ -1525,7 +1543,7 @@ addEventListener('keyup', e => { keys[e.key] = false; });
 // 画面を離れたら止めて保存。戻ったらカウントダウンから再開する
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { if (state === 'play' || state === 'count') pauseGame(true); }
-  else if (state === 'pause' && autoResume) { autoResume = false; resumeGame(); }
+  else if (state === 'pause' && autoResume && !window.NativeGame?.suspended) { autoResume = false; resumeGame(); }
 });
 addEventListener('pagehide', () => { if (state === 'play' || state === 'pause') persist(); });
 
@@ -1542,6 +1560,7 @@ $('btnResume').onclick = resumeGame;
 $('btnQuit').onclick = () => { persist(); tutHide(); showHome('home'); };
 $('btnRetry').onclick = () => startRun(false);
 $('btnHome').onclick = () => showHome('home');
+$('btnResultGear').onclick = () => { gearTab='weapon'; showHome('gear'); };
 $('btnHelpClose').onclick = () => show('help', false);
 $('tutSkip').onclick = e => { e.stopPropagation(); if (R && R.tut) tutEnd(); };
 $('hNav').querySelectorAll('button').forEach(b => { b.onclick = () => { if (b.dataset.tab !== tab) { sfx('gate'); setTab(b.dataset.tab); } }; });
@@ -1838,4 +1857,37 @@ if (document.fonts && document.fonts.load) { document.fonts.load('20px "Yuji Syu
 resize();
 requestAnimationFrame(frame);
 Boot.start(false);
-if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { /* 登録できなくても動く */ });
+if (!window.NativeGame && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { /* 登録できなくても動く */ });
+
+let nativePausedRun = false;
+window.GateSave = {
+  version: VERSION,
+  japanese: () => OPT.lang === 'ja',
+  normalize(data) { return GateProgress.normalize(data, WEAPON_DEF.map(w=>w.id), SKIN_DEF.map(k=>k.id)); },
+  export() { return JSON.stringify(this.normalize(SLOT)); },
+  canRestore() { return state === 'menu' || state === 'result'; },
+  summary(data) { const d=this.normalize(data); return OPT.lang==='ja' ? `最高 ${Math.floor(d.best*METER)}米・第${d.maxStage}段・出陣${d.runs}回・銭${fmt(d.coins)}・真珠${d.pearls}` : `Best ${Math.floor(d.best*METER)}m · stage ${d.maxStage} · ${d.runs} runs · ${fmt(d.coins)} coins · ${d.pearls} pearls`; },
+  restore(payload) {
+    if (!this.canRestore()) throw Error('finish-run-first');
+    const next = this.normalize(JSON.parse(payload));
+    // Preserve the full local run before replacing progress; storage failure prevents restore.
+    localStorage.setItem('gate-before-cloud-restore', JSON.stringify(SLOT));
+    localStorage.setItem(SLOT_KEYS[OPT.slot], JSON.stringify(next));
+    SLOT=next; R=null; nativePausedRun=false; autoResume=false;
+    window.GameCloud?.markDirty(); showHome('home');
+  },
+};
+window.GameLifecycle = {
+  clearLocalProgressForDeletion(){
+    SLOT=freshSlot();R=null;nativePausedRun=false;autoResume=false;
+    for(const key of [...SLOT_KEYS,'gate-before-cloud-restore'])localStorage.removeItem(key);
+    showHome('home');
+  },
+  back() { if (state === 'play' || state === 'count') pauseGame(false); else if (state === 'pause') resumeGame(); else window.NativeGame?.openMenu(); }
+};
+window.addEventListener('game-native-suspend', () => {
+  if (state === 'play' || state === 'count') { nativePausedRun = true; pauseGame(true); }
+});
+window.addEventListener('game-native-resume', () => {
+  if ((nativePausedRun || autoResume) && state === 'pause' && !document.hidden && !window.NativeGame?.suspended) { nativePausedRun = false; autoResume = false; resumeGame(); }
+});

@@ -1,9 +1,10 @@
 // オフラインでも起動できるように、ゲーム本体をキャッシュする。
 // 更新がすぐ届くよう「まずネット、だめならキャッシュ」で返す。
-const CACHE = 'beyond-infinity-v2.1.0';
+const CACHE = 'beyond-infinity-v2.1.0-account-v1';
 const SHELL = [
   './', 'index.html', 'style.css', 'skins.js', 'boot.js', 'game.js', 'gacha.js', 'online.js', 'weekly.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
+  '../account/runtime-config.mjs', '../account/lifecycle.mjs',
 ];
 
 self.addEventListener('install', e => {
