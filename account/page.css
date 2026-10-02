@@ -1,0 +1,22 @@
+:root{color-scheme:light;--paper:#f2eadb;--ink:#252019;--edge:#76614c;--accent:#983e32;--indigo:#314859}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'Yu Mincho','Hiragino Mincho ProN','Noto Serif JP',serif;line-height:1.85}
+main{max-width:760px;margin:0 auto;padding:32px 24px 56px}
+header{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:28px}
+.brand{font-size:14px;letter-spacing:.08em;color:var(--indigo);margin:0 0 12px}
+h1{font-size:clamp(25px,5vw,36px);line-height:1.45;margin:0 0 14px;overflow-wrap:anywhere}
+h2{font-size:22px;line-height:1.5;margin:30px 0 12px}
+h3{font-size:18px;margin:22px 0 8px}
+p{margin:12px 0}a{color:var(--indigo);text-underline-offset:3px}li{margin:8px 0}
+.notice{padding:16px 18px;border-left:4px solid var(--accent);background:#fff9ee}
+.panel{border:1px solid var(--edge);padding:20px;margin:24px 0;background:#f8f1e6}
+button{display:block;width:100%;min-height:48px;padding:10px 14px;margin:14px 0;border:1px solid var(--edge);background:transparent;color:var(--ink);font:inherit;line-height:1.6;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.danger{border-color:var(--accent);color:#7d3027}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--indigo);outline-offset:3px}
+label{display:flex;align-items:flex-start;gap:12px;margin:22px 0;font-size:15px}
+input[type=checkbox]{flex:0 0 22px;width:22px;height:22px;margin:4px 0 0;accent-color:var(--accent)}
+[hidden]{display:none!important}[role=status]{min-height:1.8em;overflow-wrap:anywhere}
+nav{display:flex;flex-wrap:wrap;gap:12px 24px;margin:18px 0}
+.small{font-size:14px}footer{border-top:1px solid var(--edge);margin-top:36px;padding-top:20px;font-size:14px}
+@media(max-width:420px){main{padding:24px 18px 40px}.panel{padding:16px}h2{font-size:20px}}
