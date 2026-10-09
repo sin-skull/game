@@ -16,6 +16,7 @@
   --bg:#2a2019;--bg2:#372b20;--paper:#e8dcc0;--paper2:#d6c7a3;--ink:#241a12;
   --acc:#a8512c;--hi:#e0b84d;--fg:#eadfc8;--mut:#a89a80;--good:#6f9a58;--bad:#c4473d;
   --strip:repeating-conic-gradient(#0008 0 25%,#0000 0 50%) 0 0/16px 16px;
+  --w:640px;
   --head:'Kaisei Decol','Hiragino Mincho ProN','Yu Mincho',serif;
   --body:'Yomogi','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif;
 }
@@ -32,12 +33,12 @@ body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.7 var(--body);min
   transition:background-color .8s}
 h1,h2,h3{font-family:var(--head);margin:0;font-weight:700;text-wrap:balance}
 button{font:inherit}
-.wrap{max-width:640px;margin:0 auto;padding:0 16px 48px}
+.wrap{max-width:var(--w);margin:0 auto;padding:0 16px 48px}
 small,.mut{color:var(--mut)}
 /* 財布 */
 .hdr{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg2);padding:8px 16px 14px;box-shadow:0 4px 0 #0005}
 .hdr::after{content:"";position:absolute;left:0;right:0;bottom:0;height:8px;background:var(--strip)}
-.hdr-in{max-width:640px;margin:0 auto}
+.hdr-in{max-width:var(--w);margin:0 auto}
 .hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .ttl{font-family:var(--head);font-size:15px;letter-spacing:.12em;color:var(--hi)}
 .tot{font-family:var(--head);font-size:20px;font-variant-numeric:tabular-nums;text-align:right;min-width:0;overflow-wrap:anywhere}
@@ -45,12 +46,9 @@ small,.mut{color:var(--mut)}
 @keyframes glow{0%{text-shadow:0 0 0 #0000}20%{text-shadow:0 0 10px var(--hi),0 0 22px var(--hi);color:#fff6d0}100%{text-shadow:0 0 0 #0000}}
 .coins{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:6px 0}
 .cn{display:flex;align-items:center;gap:6px;min-width:0}
-.tok{flex:none;width:28px;height:28px;border:2px solid #1a120b;display:grid;place-items:center;font-family:var(--head);font-size:12px;color:#1a120b;
-  border-radius:48% 52% 45% 55%/55% 45% 52% 48%;transform:rotate(var(--r,0deg))}
-.cn:nth-child(1) .tok{background:#e8e0f0;--r:-6deg;border-radius:55% 45% 50% 50%/48% 56% 44% 52%}
-.cn:nth-child(2) .tok{background:#e2b93a;--r:5deg}
-.cn:nth-child(3) .tok{background:#c9cdc9;--r:-3deg;border-radius:50% 50% 42% 58%/58% 44% 56% 42%}
-.cn:nth-child(4) .tok{background:#b5703a;--r:7deg}
+.tok{flex:none;width:30px;height:30px;display:block;transform:rotate(var(--r,0deg))}
+.tok img{width:100%;height:100%;object-fit:contain;display:block}
+.cn:nth-child(1) .tok{--r:-6deg}.cn:nth-child(2) .tok{--r:5deg}.cn:nth-child(3) .tok{--r:-3deg}.cn:nth-child(4) .tok{--r:7deg}
 .cn b{font-family:var(--head);font-variant-numeric:tabular-nums;font-size:15px;overflow:hidden;text-overflow:ellipsis}
 .kb{position:relative;height:10px;background:#0006;border-radius:6px 4px 7px 3px/4px 7px 3px 6px;overflow:hidden;margin-top:4px}
 .kb i{position:absolute;left:0;top:0;bottom:0;background:var(--hi);width:0;transition:width .6s}
@@ -97,7 +95,8 @@ h1.big{font-size:30px;line-height:1.3;margin:6px 0}
 .pc{width:86px;padding:6px 6px 8px;color:var(--ink);text-align:center;transform:rotate(var(--rot,0deg));--br:18px 6px 14px 8px/8px 16px 6px 14px}
 .pc:nth-child(2n){--br:8px 16px 6px 18px/16px 6px 14px 8px}
 .pc.back::before{background:var(--paper2);border-style:dashed}
-.pc .g{font-size:34px;line-height:1;font-family:'Noto Sans Symbols 2','Segoe UI Symbol','Apple Symbols',serif}
+.pc .g{height:56px;display:flex;align-items:flex-end;justify-content:center;font-size:34px;line-height:1}
+.pc .g img{max-height:56px;max-width:100%;object-fit:contain;filter:drop-shadow(1px 2px 0 #0004)}
 .pc .sq{font-size:13px}
 .pc .v{font-family:var(--head);font-size:22px;line-height:1}
 .pc .hint{font-size:10px;line-height:1.3;margin-top:4px;color:#4b3d2e;word-break:keep-all}
@@ -109,15 +108,14 @@ h1.big{font-size:30px;line-height:1.3;margin:6px 0}
 .bet input[type=range]{width:100%;accent-color:var(--acc);min-height:32px}
 .mm{display:flex;gap:10px}
 /* 銀貨: カップ・落下・色 */
-.cups{position:relative;height:150px;margin:14px 0}
-.cw{position:absolute;bottom:0;width:30%;height:130px;transition:left .3s;cursor:pointer;background:none;border:0;padding:0}
-.cw .cup{position:absolute;left:8%;right:8%;bottom:0;top:6px;background:linear-gradient(#b5413b,#8d2f2a);border:2px solid #1b1010;
-  border-radius:20% 20% 8% 8%/30% 30% 8% 8%;clip-path:polygon(18% 0,82% 0,100% 100%,0 100%);transition:transform .45s;filter:url(#rough)}
-.cw .ball{position:absolute;left:50%;bottom:6px;width:34px;height:34px;margin-left:-17px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff8,#e8c43a 40%,#c2862a);border:2px solid #1b1010}
-.cw.up .cup{transform:translateY(-70px) rotate(-6deg)}
-.cw.pk .cup{outline:3px solid var(--hi)}
+.cups{position:relative;height:130px;margin:96px 0 18px}
+.cw{position:absolute;bottom:0;width:30%;height:120px;transition:left .3s;cursor:pointer;background:none;border:0;padding:0}
+.cw .cup{position:absolute;left:50%;bottom:0;height:100%;width:auto;max-width:80%;object-fit:contain;transform:translateX(-50%);transition:transform .45s}
+.cw .ball{position:absolute;left:50%;bottom:4px;width:36px;height:36px;margin-left:-18px;object-fit:contain}
+.cw.up .cup{transform:translate(-50%,-70px) rotate(-6deg)}
+.cw.pk .cup{filter:drop-shadow(0 0 6px var(--hi)) drop-shadow(0 0 2px var(--hi))}
 .arena{position:relative;height:210px;margin:14px 0;border-bottom:2px solid var(--fg)}
-.arena .bl{position:absolute;top:8px;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff8,#d9594e 45%,#8d2f2a);border:2px solid #1b1010}
+.arena .bl{position:absolute;top:8px;width:36px;height:36px;margin-left:-18px;object-fit:contain}
 .slots{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .slot{min-height:46px}
 .slot.sel::before{background:var(--hi)}
@@ -164,6 +162,35 @@ h1.big{font-size:30px;line-height:1.3;margin:6px 0}
 .over .btn.pri::before{background:var(--hi)}
 .over .btn{color:#241a12}
 .keyend{font-family:var(--head);font-size:26px;line-height:1.6}
+
+.ttlrow{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.deco{display:flex;gap:6px;align-items:flex-end;margin-left:auto}
+.deco img{height:72px;width:auto;max-width:110px;object-fit:contain;transform:rotate(var(--r,0deg));filter:drop-shadow(2px 3px 0 #0006)}
+.sec img{height:30px;width:auto;align-self:center;transform:rotate(-5deg)}
+.cast{display:flex;gap:12px;align-items:center;margin:10px 0}
+.cast img{height:84px;width:auto;flex:none;filter:drop-shadow(2px 3px 0 #0008)}
+.cast p{margin:0}
+.keyimg{height:46px;width:auto;display:block;margin:0 0 6px;filter:drop-shadow(2px 3px 0 #0006)}
+@media (hover:hover){.btn:hover{transform:translateY(-2px) rotate(var(--rot,0deg))}.btn:disabled:hover{transform:rotate(var(--rot,0deg))}.sw:hover{transform:scale(1.08) rotate(var(--r,0deg))}.cw:hover .cup{filter:url(#rough) brightness(1.12)}}
+@media (min-width:900px){
+  :root{--w:1000px}
+  body{font-size:18px}
+  .hdr{padding:12px 24px 18px}
+  .wrap{padding-inline:24px}
+  .ttl{font-size:18px}.tot{font-size:26px}
+  .tok{width:34px;height:34px;font-size:14px}.cn b{font-size:18px}
+  h1.big{font-size:38px}
+  .glist{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+  .deco img{height:100px;max-width:150px}.sec img{height:38px}.cast img{height:110px}.pc .g{height:76px}.pc .g img{max-height:76px}
+  .pc{width:112px}.pc .v{font-size:28px}.mb{width:60px;height:60px}.pc .hint{font-size:11px}
+  .cups{height:170px;margin-top:110px}.cw{height:160px}.cw .ball{width:44px;height:44px;margin-left:-22px}
+  .arena{height:300px}.field{height:380px}
+  .sw{width:62px;height:62px}
+  .die{width:84px;height:84px;font-size:44px}
+  .tile{min-height:64px;font-size:22px}
+  .big-tap{min-height:150px}
+  .over .in{max-width:720px}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 </style>
@@ -212,6 +239,7 @@ function h(tag,props,...kids){
   for(const c of kids.flat()){if(c==null||c===false)continue;e.append(c.nodeType?c:document.createTextNode(c));}
   return e;
 }
+const ART=n=>h('img',{src:'art/'+n+'.png',alt:'',draggable:'false'});
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -249,7 +277,7 @@ function renderWallet(){
     h('div',{class:'hrow'},h('span',{class:'ttl'},'転生ギャンブル'),h('div',{class:'tot'+(glowNow?' glow':''),id:'tot'},fmt(c))),
     h('div',{class:'coins'},
       ...[['貝',Math.floor(c/1e9)],['金',Math.floor(c/1e6)%1000],['銀',Math.floor(c/1e3)%1000],['銅',c%1000]]
-        .map(([k,v])=>h('div',{class:'cn'},h('span',{class:'tok'},k),h('b',null,v.toLocaleString())))),
+        .map(([k,v])=>h('div',{class:'cn'},h('span',{class:'tok',role:'img','aria-label':k},ART(({'貝':'shell','金':'au','銀':'ag','銅':'cu'})[k])),h('b',null,v.toLocaleString())))),
     h('div',{class:'kb'},h('i',{style:'width:'+pct+'%'})),
     h('div',{class:'kbl'},h('span',null,'脱出の鍵まで'),h('span',null,'銅貨換算 '+c.toLocaleString()+' / 10兆')));
   if(glowNow){glowNow=false;}
@@ -278,9 +306,9 @@ function go(view,arg){
   if(S.key){return}
   ({home,baito,job:()=>job(arg),c21:()=>gBJ('c21'),bj:()=>gBJ('bj'),hl:gHL,shell:gShell,fall:gFall,color:gColor,dice:gDice,roul:gRoul,psych:gPsych}[view]||home)(arg);
 }
-function frame(title,sub){
+function frame(title,sub,deco){
   const m=M();
-  m.append(h('div',{class:'back'},btn('← もどる',()=>go('home'))),h('div',{class:'eyebrow'},sub?'':''),h('h1',{class:'big'},title));
+  m.append(h('div',{class:'back'},btn('← もどる',()=>go('home'))),h('div',{class:'ttlrow'},h('h1',{class:'big'},title),deco?h('div',{class:'deco'},...deco.map(n=>{const i=ART(n);i.style.setProperty('--r',(Math.random()*8-4).toFixed(1)+'deg');return i})):''));
   if(sub)m.append(h('p',{class:'note'},sub));
   const B=h('div');m.append(B);return B;
 }
@@ -374,7 +402,7 @@ const hintText=(f,r)=>validTypes(r).map(t=>PM[t].g+val(t,f,r)).join(' ');
 function mini(f,r){return h('div',{class:'mb'},h('i',{style:`left:${f*12.5}%;bottom:${r*12.5}%`}))}
 function pcard(c,hide){
   const d=h('div',{class:'pc'+(hide?' back':''),style:`--rot:${(Math.random()*6-3).toFixed(1)}deg`});
-  d.append(h('div',{class:'g'},hide?'？':PM[c.t].g),h('div',{class:'sq'},sqName(c.f,c.r)),mini(c.f,c.r),h('div',{class:'v'},hide?'?':c.v));
+  d.append(h('div',{class:'g'},hide?'？':h('img',{src:'art/'+c.t+'.png',alt:PM[c.t].g,draggable:'false'})),h('div',{class:'sq'},sqName(c.f,c.r)),mini(c.f,c.r),h('div',{class:'v'},hide?'?':c.v));
   if(hide)d.append(h('div',{class:'hint'},hintText(c.f,c.r)));
   return d;
 }
@@ -383,7 +411,7 @@ const pv=a=>a.reduce((s,c)=>s+c.v,0);
 /* ================= 21 / ブラックジャック ================= */
 function gBJ(id){
   const t=tok,bj=id==='bj';
-  const B=frame(bj?'ブラックジャック':'21',bj?'ディーラーの一枚は伏せられている。置かれたマスから、その駒の数字を読め。':'駒は全部見える。21に近い方が勝ち。超えたらバスト。');
+  const B=frame(bj?'ブラックジャック':'21',bj?'ディーラーの一枚は伏せられている。置かれたマスから、その駒の数字を読め。':'駒は全部見える。21に近い方が勝ち。超えたらバスト。',bj?['q']:['k']);
   const rig=rigOn(),st0=stage(S.coins)===0;
   betUI(B,id,'配る',betC=>{
     B.replaceChildren();
@@ -451,7 +479,7 @@ function gBJ(id){
 /* ================= ハイ&ロー ================= */
 function gHL(){
   const t=tok;
-  const B=frame('ハイ&ロー','次の駒の数字は、今より上か、下か。同じ数字は負け。次の駒が置かれるマスは先に見える。');
+  const B=frame('ハイ&ロー','次の駒の数字は、今より上か、下か。同じ数字は負け。次の駒が置かれるマスは先に見える。',['n','b']);
   const rig=rigOn(),base=stage(S.coins)===0?CFG.hl[0]:CFG.hl[1];
   betUI(B,'hl','はじめる',betC=>{
     B.replaceChildren();
@@ -502,13 +530,13 @@ function gHL(){
 /* ================= 銀貨: シェルゲーム ================= */
 function gShell(){
   const t=tok;
-  const B=frame('シェルゲーム','ピエロがカップを入れ替える。ボールの入ったカップを目で追え。','');
+  const B=frame('シェルゲーム','ピエロがカップを入れ替える。ボールの入ったカップを目で追え。',['clown','cup']);
   betUI(B,'shell','始める',async(betC)=>{
     B.replaceChildren();
     const slotL=s=>(s*33.333+1.6)+'%';
     let ballAt=rnd(0,2);const slots=[0,1,2];
     const cups=[0,1,2].map(i=>{
-      const c=h('button',{class:'cw up',type:'button','aria-label':'カップ'+(i+1),disabled:true},h('div',{class:'ball',style:i===ballAt?'':'display:none'}),h('div',{class:'cup'}));
+      const c=h('button',{class:'cw up',type:'button','aria-label':'カップ'+(i+1),disabled:true},(()=>{const b=ART('ball');b.className='ball';if(i!==ballAt)b.style.display='none';return b})(),(()=>{const c=ART('cup');c.className='cup';return c})());
       c.style.left=slotL(i);return c});
     const stageEl=h('div',{class:'cups'},...cups);
     const msg=h('p',{class:'note'},'ボールはここだ。よく見ておけ。');
@@ -547,12 +575,12 @@ function gShell(){
 /* ================= 銀貨: 落下予想 ================= */
 function gFall(){
   const t=tok;
-  const B=frame('落下予想','カラーボールが揺れている。落ちる場所を5か所から選び、「落とす」を押す。押して1.8秒後の位置から、まっすぐ落ちる。');
+  const B=frame('落下予想','カラーボールが揺れている。落ちる場所を5か所から選び、「落とす」を押す。押して1.8秒後の位置から、まっすぐ落ちる。',['clown','marbles']);
   betUI(B,'fall','台につく',betC=>{
     B.replaceChildren();
     const A=0.35+Math.random()*0.12,om=1.6+Math.random()*1.6,ph=Math.random()*Math.PI*2;
     const xAt=ms=>0.5+A*Math.sin(om*ms/1000+ph);
-    const ball=h('div',{class:'bl'});
+    const ball=ART('ball');ball.className='bl';
     const arena=h('div',{class:'arena'},ball);
     let sel=-1,dropped=false;
     const slots=[0,1,2,3,4].map(i=>h('button',{class:'tile slot',type:'button',onclick:()=>{if(dropped)return;sel=i;slots.forEach((s,j)=>s.classList.toggle('sel',j===i));goB.disabled=false}},['左端','左','中','右','右端'][i]));
@@ -597,7 +625,7 @@ function gFall(){
 /* ================= 銀貨: 色当て ================= */
 function gColor(){
   const t=tok;
-  const B=frame('色当て','隠れた3色が一瞬だけ見える。覚えて、パレットから選び出せ。負けても掛け金は減らない。');
+  const B=frame('色当て','隠れた3色が一瞬だけ見える。覚えて、パレットから選び出せ。負けても掛け金は減らない。',['clown','marbles']);
   betUI(B,'color','挑戦する',async betC=>{
     B.replaceChildren();
     const k=Math.min(12,5+S.colorN);
@@ -633,7 +661,7 @@ function gColor(){
 /* ================= 金貨: サイコロ ================= */
 function gDice(){
   const t=tok;
-  const B=frame('ゾロ目','二つの賽を振る。ゾロ目が出れば'+CFG.DICE_MULT+'倍。出なければ掛け金は卓のものだ。');
+  const B=frame('ゾロ目','二つの賽を振る。ゾロ目が出れば'+CFG.DICE_MULT+'倍。出なければ掛け金は卓のものだ。',['die1','die2']);
   betUI(B,'dice','振る',async betC=>{
     B.replaceChildren();
     const d1=h('div',{class:'die'},'?'),d2=h('div',{class:'die'},'?');
@@ -649,7 +677,7 @@ function gDice(){
 /* ================= 金貨: ルーレット ================= */
 function gRoul(){
   const t=tok;
-  const B=frame('ルーレット','十のマスを光が回る。最大で+10倍、最低で−10倍。夢はあるが、長く遊ぶと減る。');
+  const B=frame('ルーレット','十のマスを光が回る。最大で+10倍、最低で−10倍。夢はあるが、長く遊ぶと減る。',['au']);
   betUI(B,'roul','回す',async betC=>{
     B.replaceChildren();
     const tiles=CFG.ROUL.map(v=>h('div',{class:'tile'+(v<0?' neg':'')},(v>0?'+':v<0?'−':'')+Math.abs(v)));
@@ -670,7 +698,7 @@ function gRoul(){
 /* ================= 金貨: 心理戦 ================= */
 function gPsych(){
   const t=tok;
-  const B=frame('心理戦','相手より低い段に賭けた方が勝つ。同じ段なら引き分け。勝てば自分の掛け金の9割、負ければ自分の掛け金を失う。');
+  const B=frame('心理戦','相手より低い段に賭けた方が勝つ。同じ段なら引き分け。勝てば自分の掛け金の9割、負ければ自分の掛け金を失う。',['scale']);
   const lv=psychLevels();
   if(!lv.length){B.append(h('p',{class:'note'},'賭けられる段がない。'));return}
   const OPP=[
@@ -747,8 +775,8 @@ function prison(){
     h('h2',null,'牢'),
     h('p',{class:'line'},'所持金は尽きた。看守の手が、肩にかかる。'),
     r>0?h('p',{class:'line'},'天井の同じ染みを見上げて、呟く。「また、ここだ」'):'',
-    h('p',{class:'line'},'看守 '+GUARD(r)),
-    r>=2?h('p',{class:'line oldm'},'古株の囚人が、壁際で言う。「ここに長く居る奴ほど、懐が温かい」'):'',
+    h('div',{class:'cast'},ART('guard'),h('p',null,'看守 '+GUARD(r))),
+    r>=2?h('div',{class:'cast'},ART('old'),h('p',{class:'oldm'},'古株の囚人が、壁際で言う。「ここに長く居る奴ほど、懐が温かい」')):'',
     h('div',{class:'wall',html:tallySVG(r)}),
     h('div',{class:'wheel'},...tiles),
     h('div',{class:'row c'},spinB),
@@ -788,7 +816,7 @@ const JOBS=[
 ];
 const UNIT_NAME={cu:'銅貨',ag:'銀貨',au:'金貨'};
 function baito(){
-  const B=frame('牢内のバイト','指先を動かせ。バイトは色当ての余韻を数えない。報酬は軽い。');
+  const B=frame('牢内のバイト','指先を動かせ。バイトは色当ての余韻を数えない。報酬は軽い。',['guard']);
   const need={cu:'銅貨100枚を持つ',ag:'銀貨100枚を持つ',au:'金貨100枚を持つ'};
   const list=h('div',{class:'list glist'});
   JOBS.forEach(j=>{
@@ -799,7 +827,7 @@ function baito(){
 }
 function job(id){
   const j=JOBS.find(x=>x.id===id);const t=tok;
-  const B=frame(j.name,j.desc);
+  const B=frame(j.name,j.desc,id==='brass'?['trumpet']:id==='balls'?['marbles']:id.startsWith('det_ag')?['clown']:id==='knife'?[]:id==='det_cu'||id==='det_au'?['old']:[]);
   const u=CFG.U[j.u];
   const pay=n=>{settle(n*u,false);return n+UNIT_NAME[j.u]};
   const finishBox=(msg,again)=>{B.append(h('div',{class:'res win'},msg),h('div',{class:'row'},btn('もう一度',again,'pri'),btn('バイト帳へ',()=>go('baito'))))};
@@ -922,13 +950,13 @@ function home(){
   const m=M();
   m.append(h('div',{class:'eyebrow'},['銅貨の卓 — チェスの駒','銀貨の卓 — サーカス','金貨の卓 — 金の遊び','貝殻の卓 — 金の遊び'][stage(S.coins)]));
   if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つ並んでいる。'));
-  if(S.coins>=CFG.KEY)m.append(h('div',{class:'card'},h('h2',null,'脱出の鍵'),h('p',null,'一万貝殻。ついに、手が届いた。'),btn('鍵を買う',buyKey,'pri')));
+  if(S.coins>=CFG.KEY)m.append(h('div',{class:'card'},(()=>{const k=ART('key');k.className='keyimg';return k})(),h('h2',null,'脱出の鍵'),h('p',null,'一万貝殻。ついに、手が届いた。'),btn('鍵を買う',buyKey,'pri')));
   if(S.interval<3)m.append(h('p',{class:'note'},'色当ての余韻 — あと'+(3-S.interval)+'回、掛け金は上限に固定。'));
   const tierNames=['銅貨 — チェスの駒','銀貨 — サーカス','金貨・貝殻 — 金の遊び'];
   for(let tier=0;tier<3;tier++){
     const reached=tier===0||S.maxStage>=tier;
     if(!tutDone()&&tier>0)continue;
-    m.append(h('div',{class:'sec'},tierNames[tier]));
+    m.append(h('div',{class:'sec'},ART(['cu','ag','au'][tier]),tierNames[tier]));
     const list=h('div',{class:'list glist'});
     GAMES.filter(g=>g.tier===tier).forEach(g=>{
       if(!reached){list.append(h('div',{class:'card gcard off'},h('div',null,h('h3',null,'？？？'),h('small',{class:'lock'},'まだ見えない'))));return}
@@ -953,7 +981,7 @@ function buyKey(){
   S.key=true;save();
   const ov=$('#over');ov.hidden=false;
   ov.replaceChildren(h('div',{class:'in'},h('div',{class:'stain'}),
-    h('p',{class:'keyend'},'一万貝殻を、卓に積む。'),
+    (()=>{const k=ART('key');k.className='keyimg';k.style.height='70px';return k})(),h('p',{class:'keyend'},'一万貝殻を、卓に積む。'),
     h('p',{class:'keyend'},'鍵は、思っていたより軽かった。'),
     h('p',{class:'line'},'扉が、開く。'),
     h('p',{class:'line'},'牢の傷は '+S.resets+' 本。'),
@@ -965,6 +993,7 @@ function intro(){
   const ov=$('#over');ov.hidden=false;
   ov.replaceChildren(h('div',{class:'in'},h('div',{class:'stain'}),
     h('h1',{class:'big'},'転生ギャンブル'),
+    h('div',{class:'cast'},ART('guard'),ART('clown'),ART('old')),
     h('p',{class:'line'},'目が覚めると、知らない天井だった。'),
     h('p',{class:'line'},'貝殻で動く牢獄街の一室。所持金は、銅貨が一枚だけ。'),
     h('p',{class:'line'},'一万貝殻を払えば、「脱出の鍵」が買える。'),
