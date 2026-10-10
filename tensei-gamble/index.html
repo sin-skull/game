@@ -365,6 +365,32 @@ body.intable #main{padding-bottom:8px
 .gcard h3{font-size:16px;margin:0}
 .gcard .btn{width:100%;min-height:40px}
 @media (max-height:700px){.gskin .row{margin:8px 0}.gskin .card{padding:8px}.bet{gap:4px}.cups{margin-top:84px}.gcard small{-webkit-line-clamp:1}}
+
+#main{position:relative;padding-bottom:12px!important}
+body.inworld #main{padding:0!important;overflow:hidden}
+.world{position:absolute;inset:0;overflow:hidden;touch-action:none;background:#000;cursor:ew-resize}
+.wstrip{position:absolute;left:0;top:0;bottom:0;display:flex;will-change:transform}
+.wp{flex:none;height:100%;background-size:cover;background-position:center;position:relative}
+.hot{position:absolute;left:50%;top:8%;transform:translateX(-50%);min-width:150px;padding:8px 14px;background:#120d08d9;border:3px solid #e8dcc4;color:#eadfc6;font-family:var(--head);text-align:center;cursor:pointer;border-radius:12px 5px 14px 6px/6px 14px 5px 12px;transition:transform .2s,box-shadow .2s}
+.hot b{display:block;font-size:20px}
+.hot small{display:block;font-size:12px;color:#bfb08c}
+.hot.near{border-color:#e0b84d;box-shadow:0 0 0 3px #e0b84d66,0 0 22px #e0b84daa;animation:hotp 1.4s ease-in-out infinite}
+.hot.near small{color:#e0b84d}
+.hot.lock{opacity:.6;border-style:dashed}
+@keyframes hotp{50%{transform:translateX(-50%) scale(1.05)}}
+.wmebox{position:absolute;left:0;bottom:3%;width:100%;height:58%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none}
+.wme{height:100%;width:auto;max-width:42%;object-fit:contain;object-position:50% 100%;filter:drop-shadow(3px 5px 0 #000a);transform-origin:50% 100%}
+.wmebox.walk .wme{animation:wbob .36s ease-in-out infinite}
+@keyframes wbob{50%{translate:0 -6px}}
+.wgear{position:absolute;right:10px;top:10px;width:44px;height:44px;display:grid;place-items:center;background:#120d08cc;border:2px solid #e8dcc4;border-radius:10px;color:#eadfc6;cursor:pointer;z-index:3}
+.war{position:absolute;top:50%;font-size:28px;color:#eadfc6;text-shadow:0 0 6px #000;pointer-events:none;transition:opacity .3s}
+.war.l{left:10px}.war.r{right:10px}
+.whint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);padding:6px 12px;background:#120d08cc;border-radius:999px;color:#bfb08c;font-size:12px;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+.wkey{position:absolute;left:50%;top:70px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#120d08e6;padding:8px 12px;border:2px solid #e0b84d;border-radius:10px;z-index:3}
+.wkey .keyimg{height:34px}
+.wtoast{position:fixed;left:50%;top:38%;transform:translateX(-50%);padding:10px 16px;background:#120d08ee;border:2px solid #e8dcc4;color:#eadfc6;border-radius:10px;z-index:90;transition:opacity .4s}
+.wtoast.out{opacity:0}
+.nav{display:none!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 html{-webkit-text-size-adjust:100%}
@@ -483,7 +509,7 @@ function settle(delta,count=true){
 let tok=0,cleanups=[];
 const M=()=>$('#main');
 function go(view,arg){
-  document.body.classList.remove('ingame');tok++;cleanups.splice(0).forEach(f=>{try{f()}catch(e){}});
+  document.body.classList.remove('ingame','inworld');tok++;cleanups.splice(0).forEach(f=>{try{f()}catch(e){}});
   const m=M();m.replaceChildren();window.scrollTo(0,0);
   $('#over').hidden=true;
   if(S.key){return}
@@ -893,6 +919,7 @@ const JOBS=[
 const UNIT_NAME={cu:'銅貨',ag:'銀貨',au:'金貨'};
 function baito(tier){
   const m=M();
+  m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
   const reached=S.baito.au?2:S.baito.ag?1:0;
   if(tier===undefined)tier=reached;
   m.append(tierTabs(tier,i=>{M().replaceChildren();baito(i)},2));
@@ -1024,42 +1051,102 @@ const GEAR='<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><
 const TABS=[['gacha','ガチャ','ball'],['gamble','ギャンブル','die1'],['home','ホーム','key'],['baito','仕事','cu'],['set','設定',null]];
 const tabOf=v=>({gacha:'gacha',gamble:'gamble',home:'home',baito:'baito',job:'baito',set:'set'}[v]||'gamble');
 let navEl=null,curView='home';
-function renderNav(v){
-  if(!navEl){navEl=h('nav',{id:'nav',class:'nav'});document.body.append(navEl)}
-  navEl.hidden=!S.intro||S.key;
-  const cur=tabOf(v);
-  navEl.replaceChildren(...TABS.map(([id,label,art])=>h('button',{class:'tab'+(id===cur?' on':'')+(id==='home'?' mid':''),type:'button','aria-label':label,
-    onclick:()=>{SFX.tap();go(id)}},art?ART(art):h('span',{class:'gear',html:GEAR}),h('span',{class:'tl'},label))));
-}
+function renderNav(v){if(navEl)navEl.hidden=true}
 
-/* ================= ホーム：囚人は今、どこで何をしているか ================= */
-const PLACES=[
-  {bg:'bg_ship',place:'寝床',doing:['寝床の縁に座って、天井を見ている。','丸い窓の外の、波を眺めている。','銅貨を一枚、指で転がしている。','頭の奥の、小さな違和感を確かめている。']},
-  {bg:'bg_hall',place:'賭場のはしっこ',doing:['銀貨の卓を、柱の陰から眺めている。','客の癖を、黙って数えている。','酒の匂いのする床に、腰を下ろしている。']},
-  {bg:'bg_stage',place:'舞台の見える席',doing:['金貨の卓の、手元だけを見ている。','司会の笑い声がしないか、耳を澄ませている。','指先の震えを、握りしめて隠している。']},
-  {bg:'bg_deck',place:'甲板の格子の前',doing:['格子の向こうの、水平線を見ている。','懐の中の、鍵の重さを数えている。','深く息を吸って、吐いている。']}
+/* ================= ワールド：船の中を歩く。場所の前で、タップして入る ================= */
+const WORLD=[
+  {id:'bed',name:'寝床',bg:'bg_cell',sub:'壁の傷を数える場所'},
+  {id:'work',name:'仕事場',bg:'bg_office',sub:'バイト'},
+  {id:'cu',name:'銅貨の賭場',bg:'bg_ship',sub:'船底の卓'},
+  {id:'ag',name:'銀貨の賭場',bg:'bg_hall',sub:'広間の卓',need:1},
+  {id:'au',name:'金貨の賭場',bg:'bg_stage',sub:'壇上の卓',need:2},
+  {id:'ex',name:'換金所',bg:'bg_deck',sub:'もうすぐ開く'}
 ];
+function worldOpen(p){return !p.need||(tutDone()&&S.maxStage>=p.need)}
+let worldRAF=0;
 function home(){
   const m=M();
   const st=stage(S.coins);
   if(S.intro&&st>S.storyStage&&STORY.stage[st]&&!S.key){const k=st;S.storyStage=st;save();vn(STORY.stage[k],()=>{})}
   else if(st>S.storyStage)S.storyStage=st;
-  const P=PLACES[st];
-  const faces=['fb_me_n','fb_me_s'];
-  let fi=0;
-  const me=h('img',{class:'hme',src:'art/'+faces[fi]+'.png',alt:'囚人',draggable:'false'});
-  const doing=h('div',{class:'hdo'},pick(P.doing));
-  const taps=['…なんだ。','まだ、やれる。','誰かの顔が浮かぶ。…気がする。','手の中に、コインの冷たさがある。'];
-  me.addEventListener('pointerdown',()=>{SFX.tap();fi=(fi+1)%faces.length;me.src='art/'+faces[fi]+'.png';doing.textContent=pick(taps);
-    me.animate&&me.animate([{transform:'translateY(0)'},{transform:'translateY(-10px)'},{transform:'translateY(0)'}],{duration:260})});
-  const scene=h('div',{class:'hscene'},h('img',{class:'hbg',src:'art/'+P.bg+'.png',alt:'',draggable:'false'}),me,
-    h('div',{class:'hbox'},h('span',{class:'hpl'},P.place),doing));
-  m.append(scene,h('div',{class:'hstat'},
-    h('div',null,h('small',null,'壁の傷'),h('b',null,S.resets+'本')),
-    h('div',null,h('small',null,'いまの卓'),h('b',null,['銅貨','銀貨','金貨','貝殻'][st])),
-    h('div',null,h('small',null,'鍵まで'),h('b',null,Math.max(0,Math.floor(100-Math.log10(S.coins+1)/13*100))+'%'))),
-    h('p',{class:'goal'},'目的：1万貝で、たった一つの鍵を買う。酔い國を、出る。'));
-  if(S.coins>=CFG.KEY)m.append(h('div',{class:'card'},(()=>{const k=ART('key');k.className='keyimg';return k})(),h('h2',null,'脱出の鍵'),h('p',null,'1万貝。ついに、手が届いた。'),btn('鍵を買う',buyKey,'pri')));
+  document.body.classList.add('inworld');
+  const world=h('div',{class:'world'});
+  const strip=h('div',{class:'wstrip'});
+  const N=WORLD.length;
+  const hots=WORLD.map((p,i)=>{
+    const open=worldOpen(p);
+    const hot=h('button',{class:'hot'+(open?'':' lock'),type:'button','aria-label':p.name},h('b',null,p.name),h('small',null,open?p.sub:'まだ入れない'));
+    hot.onclick=e=>{e.stopPropagation();target=i;autoGo=true};
+    strip.append(h('div',{class:'wp',style:'background-image:linear-gradient(#0000 55%,#000a),url(art/'+p.bg+'.png)'},hot));
+    return hot;
+  });
+  const me=h('img',{class:'wme',src:'art/fb_me_n.png',alt:'囚人',draggable:'false'});
+  const meBox=h('div',{class:'wmebox'},me);
+  const gear=h('button',{class:'wgear',type:'button','aria-label':'設定',html:GEAR,onclick:e=>{e.stopPropagation();SFX.tap();go('set')}});
+  const hint=h('div',{class:'whint'},'画面を長押しして歩く　／　場所をタップして入る');
+  const arL=h('div',{class:'war l'},'◀'),arR=h('div',{class:'war r'},'▶');
+  world.append(strip,meBox,gear,arL,arR);
+  if((S.walkHint||0)<6)world.append(hint);
+  if(S.coins>=CFG.KEY)world.append(h('div',{class:'wkey'},(()=>{const k=ART('key');k.className='keyimg';return k})(),btn('鍵を買う',buyKey,'pri')));
+  m.append(world);
+  let W=world.clientWidth||360,px=((S.at||0)+.5)*W,dir=0,autoGo=false,target=S.at||0,held=false,last=performance.now(),faceR=true,step=0;
+  const nearest=()=>Math.max(0,Math.min(N-1,Math.floor(px/W)));
+  const layout=()=>{
+    W=world.clientWidth||360;
+    strip.style.width=(W*N)+'px';[...strip.children].forEach(c=>c.style.width=W+'px');
+  };
+  layout();px=((S.at||0)+.5)*W;
+  const draw=()=>{
+    const cam=Math.max(0,Math.min(N*W-W,px-W/2));
+    strip.style.transform='translate3d('+(-cam)+'px,0,0)';
+    meBox.style.transform='translate3d('+(px-cam-W/2)+'px,0,0)';
+    me.style.transform='scaleX('+(faceR?1:-1)+')';
+    const ni=nearest(),near=Math.abs(px-(ni+.5)*W)<28;
+    hots.forEach((hh,i)=>hh.classList.toggle('near',near&&i===ni));
+    arL.style.opacity=px>W*.6?.8:0;arR.style.opacity=px<W*(N-.6)?.8:0;
+  };
+  const enter=i=>{
+    const p=WORLD[i];S.at=i;save();
+    if(!worldOpen(p)){SFX.lose&&SFX.lose();toast('まだ入れない。'+(p.id==='ag'?'銅貨の勝負を、もっと勝ち上がれ。':'銀貨の勝負を、もっと勝ち上がれ。'));return}
+    SFX.tap();
+    if(p.id==='bed')vn([{bg:'bg_cell',t:'壁の傷は '+S.resets+' 本。'},{t:'目的：1万貝で、たった一つの鍵を買う。'},{t:'酔い國を、出る。'}],()=>{});
+    else if(p.id==='work')go('baito');
+    else if(p.id==='ex')go('gacha');
+    else go('gamble',{cu:0,ag:1,au:2}[p.id]);
+  };
+  const tick=now=>{
+    if(!world.isConnected){cancelAnimationFrame(worldRAF);return}
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    let v=0;
+    if(held)v=dir*1;
+    else if(autoGo){
+      const tx=(target+.5)*W,d=tx-px;
+      if(Math.abs(d)<4){px=tx;autoGo=false;draw();enter(target)}
+      else v=Math.sign(d);
+    }
+    if(v){
+      const sp=Math.max(190,W*.55);px=Math.max(36,Math.min(N*W-36,px+v*sp*dt));faceR=v>0;step+=dt;
+      meBox.classList.add('walk');
+    }else meBox.classList.remove('walk');
+    draw();
+    worldRAF=requestAnimationFrame(tick);
+  };
+  const ptr=e=>{const r=world.getBoundingClientRect();dir=(e.clientX-r.left)<r.width/2?-1:1};
+  world.addEventListener('pointerdown',e=>{if(e.target.closest('.hot,.wgear,.wkey'))return;held=true;autoGo=false;ptr(e);S.walkHint=(S.walkHint||0)+1;hint.style.opacity=0});
+  world.addEventListener('pointermove',e=>{if(held)ptr(e)});
+  ['pointerup','pointercancel','pointerleave'].forEach(k=>world.addEventListener(k,()=>{
+    if(!held)return;held=false;
+    const ni=nearest();if(Math.abs(px-(ni+.5)*W)<W*.12){target=ni;autoGo=true}  // 近ければ扉の前へ吸い寄せる
+  }));
+  const kd=e=>{if(e.key==='ArrowLeft'){held=true;dir=-1;autoGo=false}else if(e.key==='ArrowRight'){held=true;dir=1;autoGo=false}else if((e.key==='Enter'||e.key===' ')&&!held){const ni=nearest();if(Math.abs(px-(ni+.5)*W)<30)enter(ni)}};
+  const ku=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){held=false;const ni=nearest();if(Math.abs(px-(ni+.5)*W)<W*.12){target=ni;autoGo=true}}};
+  addEventListener('keydown',kd);addEventListener('keyup',ku);
+  const rs=()=>{const rel=px/W;layout();px=rel*W;draw()};addEventListener('resize',rs);
+  cleanups.push(()=>{cancelAnimationFrame(worldRAF);removeEventListener('keydown',kd);removeEventListener('keyup',ku);removeEventListener('resize',rs)});
+  draw();last=performance.now();worldRAF=requestAnimationFrame(tick);
+}
+function toast(t){
+  const e=h('div',{class:'wtoast'},t);document.body.append(e);setTimeout(()=>e.classList.add('out'),1600);setTimeout(()=>e.remove(),2100);
 }
 
 /* ================= ギャンブル（卓で遊ぶ） ================= */
@@ -1070,6 +1157,7 @@ function tierTabs(cur,pick,reachedMax){
 }
 function gamble(tier){
   const m=M();
+  m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
   const reached=tutDone()?Math.max(S.maxStage>=2?2:S.maxStage,0):0;
   if(tier===undefined)tier=lastTier!==null&&lastTier<=reached?lastTier:Math.min(2,Math.min(reached,stage(S.coins)));
   m.append(tierTabs(tier,i=>{M().replaceChildren();gamble(i)},reached));
@@ -1086,12 +1174,14 @@ function gamble(tier){
 /* ================= ガチャ（あとで） ================= */
 function gacha(){
   const m=M();
-  m.append(h('div',{class:'eyebrow'},'ガチャ'),h('div',{class:'card soon'},ART('ball'),h('div',null,h('h3',null,'まだ回せない'),h('small',{class:'mut'},'ここに、何かが入る予定。'))));
+  m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
+  m.append(h('div',{class:'eyebrow'},'換金所'),h('div',{class:'card soon'},ART('ball'),h('div',null,h('h3',null,'まだ開いていない'),h('small',{class:'mut'},'ここに、何かが入る予定。'))));
 }
 
 /* ================= 設定 ================= */
 function settings(){
   const m=M();
+  m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
   m.append(h('div',{class:'eyebrow'},'設定'));
   const snd=h('button',{class:'btn pri',type:'button'},S.mute?'音を出す':'音を消す');
   snd.onclick=()=>{S.mute=!S.mute;save();snd.textContent=S.mute?'音を出す':'音を消す';if(!S.mute)SFX.coin()};
