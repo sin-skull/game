@@ -306,7 +306,7 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 @keyframes rain{to{background-position:-40px 60px}}
 .vc{position:absolute;bottom:23%;height:68dvh;width:46%;display:flex;align-items:flex-end;justify-content:center;opacity:0;transform:translateY(24px);transition:opacity .35s,transform .35s,filter .3s;pointer-events:none}
 .vc.on{opacity:1;transform:none}
-.vc img{max-width:100%;width:auto;object-fit:contain;filter:drop-shadow(3px 5px 0 #000a)}
+.vc img{max-width:100%;width:auto;object-fit:contain;object-position:50% 100%;filter:drop-shadow(3px 5px 0 #000a)}
 .vc.L{left:0}.vc.R{right:0}.vc.C{left:27%}
 .vc.bust{bottom:26%;height:46dvh}
 .vc.dim{filter:brightness(.55)}
@@ -327,7 +327,7 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .lids i:last-child{bottom:0;transform:translateY(100%);animation:lidB 1.6s ease-in forwards}
 @keyframes lidT{to{transform:translateY(0)}}@keyframes lidB{to{transform:translateY(0)}}
 .exc{position:absolute;bottom:20%;height:52dvh;display:flex;align-items:flex-end;justify-content:center;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation;animation:breathe 8s ease-in-out infinite}
-.exc img{max-width:100%;width:auto;object-fit:contain;display:block;filter:drop-shadow(3px 5px 0 #000a)}
+.exc img{max-width:100%;width:auto;object-fit:contain;object-position:50% 100%;display:block;filter:drop-shadow(3px 5px 0 #000a)}
 .exc.done img{filter:drop-shadow(3px 5px 0 #000a) brightness(.7)}
 .exc .bang{position:absolute;left:50%;top:-8px;transform:translateX(-50%);font-family:var(--head);font-size:30px;color:var(--hi);text-shadow:0 2px 0 #000;animation:bang 2s ease-in-out infinite}
 @keyframes bang{50%{transform:translateX(-50%) translateY(-5px)}}
