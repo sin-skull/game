@@ -319,6 +319,18 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .vn.flash::after{content:"";position:absolute;inset:0;background:#000;animation:fl .7s ease-out forwards;pointer-events:none}
 @keyframes fl{from{opacity:1}to{opacity:0}}
 @media (min-width:900px){.vc{height:56dvh;width:34%}.vc.L{left:14%}.vc.R{right:14%}.vc.C{left:33%}.vbox{max-width:860px;left:50%;right:auto;width:92%;transform:translateX(-50%)}.vtext{font-size:19px}}
+
+.lids{position:fixed;inset:0;z-index:95;pointer-events:none}
+.lids i{position:absolute;left:0;right:0;height:50%;background:#000;transition:transform 1.5s cubic-bezier(.4,0,.2,1)}
+.lids i:first-child{top:0;transform:translateY(-100%);animation:lidT 1.6s ease-in forwards}
+.lids i:last-child{bottom:0;transform:translateY(100%);animation:lidB 1.6s ease-in forwards}
+@keyframes lidT{to{transform:translateY(0)}}@keyframes lidB{to{transform:translateY(0)}}
+.exc{position:absolute;bottom:26%;width:28%;max-width:200px;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation;animation:breathe 3.6s ease-in-out infinite}
+.exc img{width:100%;height:auto;display:block;filter:drop-shadow(3px 5px 0 #000a)}
+.exc.done img{filter:drop-shadow(3px 5px 0 #000a) brightness(.7)}
+.exc .bang{position:absolute;left:50%;top:-34px;transform:translateX(-50%);font-family:var(--head);font-size:30px;color:var(--hi);text-shadow:0 2px 0 #000;animation:bang .8s ease-in-out infinite}
+@keyframes bang{50%{transform:translateX(-50%) translateY(-8px)}}
+.exc:hover img{filter:drop-shadow(3px 5px 0 #000a) brightness(1.15)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 html{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
@@ -448,7 +460,7 @@ function frame(title,sub,deco){
 function endBox(B,msg,cls,again){
   B.append(h('div',{class:'res '+(cls||'')},msg));
   const row=h('div',{class:'row'});
-  if(S.coins===0)row.append(btn('看守が来る…',prison,'pri'));
+  if(S.coins===0)row.append(btn('眠気が来る…',prison,'pri'));
   else{if(again&&tutDone())row.append(btn('もう一度',again,'pri'));row.append(btn('もどる',()=>go('gamble'),again&&tutDone()?'':'pri'))}
   B.append(row);
 }
@@ -745,7 +757,7 @@ function Table(B){
         setTimeout(commit,500);await sleep(1000);root.classList.remove('dim');
       }
     },
-    /* 勝負のあと: 山札をタップで次へ。所持金0なら看守が来る */
+    /* 勝負のあと: 山札をタップで次へ。所持金0なら眠気が来る */
     after(text,again){
       msg.textContent=text||'';
       T.holdOff();T.chips.replaceChildren();
@@ -755,13 +767,12 @@ function Table(B){
   };
   return T;
 }
-/* 看守が歩いてくる */
+/* まぶたが落ちる（生命停止装置） */
 async function guardArrive(){
   const t=tok;await sleep(600);if(t!==tok)return;
-  const g=ART('guard');g.className='gwalk';document.body.append(g);
-  if(g.animate)g.animate([{transform:'translateX(70vw) scale(.5)',opacity:0},{transform:'translateX(0) scale(1.5)',opacity:1}],{duration:1900,easing:'ease-out',fill:'forwards'});
-  for(let i=0;i<5;i++)setTimeout(()=>{SFX.step();shake(document.body,5,200)},250+i*380);
-  await sleep(2500);g.remove();
+  const lid=h('div',{class:'lids'},h('i'),h('i'));document.body.append(lid);
+  tone(220,1.4,{type:'sine',v:.12,to:55});
+  await sleep(2000);lid.remove();
   if(t===tok)prison();
 }
 /* 賭けの準備: コインを積み、山札で開始 */
@@ -1127,7 +1138,7 @@ function gPsych(){
           const b=btn(l.n.toLocaleString()+l.un,()=>{if(busy||S.interval<3)return;sel=i;render(res)},i===sel?'sel':'');return b}))),
       h('div',{class:'row'},(()=>{const b=btn('勝負',fight,'pri');b.disabled=busy;return b})()),
       res?h('div',{class:'card'},h('div',null,'あなた: '+res.me+' / 相手: '+res.op),h('div',{class:'res '+res.cls},res.msg)):'');
-    if(S.coins===0)area.append(h('div',{class:'row'},btn('看守が来る…',prison,'pri')));
+    if(S.coins===0)area.append(h('div',{class:'row'},btn('眠気が来る…',prison,'pri')));
   }
   function betInfoPsych(){const l=psychLevels();if(sel>=l.length)sel=l.length-1;if(S.interval<3)sel=l.length-1;return l}
   async function fight(){
@@ -1167,23 +1178,22 @@ function tallySVG(n){
   }
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="壁の傷 ${n}本"><g fill="none" stroke="#c9b894" stroke-width="3" stroke-linecap="round" opacity=".85">${p}</g></svg>`;
 }
-const GUARD=r=>r===0?'「おい、新入り。」':r<=3?'「…また来たのか。」':r<=10?'「お前、顔を覚えたぞ。」':'「おかえり。いつもの房だ。」';
+const WAKEU=r=>r===0?'「おっ！ 新入りが寝たぞ！！」':r<=3?'「おー！！ また寝てたな！！」':r<=10?'「お前、寝る顔まで覚えたぜ！！」':'「おかえり！！ いつもの寝床だ！！」';
 function prison(){
   tok++;cleanups.splice(0).forEach(f=>{try{f()}catch(e){}});
   const ov=$('#over');ov.hidden=false;ov.scrollTop=0;
   const r=S.resets;
   if(r>0&&S.fragSeen!==r){S.fragSeen=r;save();vn(STORY.frag[Math.min(r,STORY.frag.length)-1],()=>prison());return}
-  const tiles=[0,1,2,3,4].map(i=>h('div',{class:'wt'+(i===2?'':' rd')},i===2?'出':'牢'));
+  const tiles=[0,1,2,3,4].map(i=>h('div',{class:'wt'+(i===2?'':' rd')},i===2?'起':'眠'));
   const resultBox=h('div');
-  const spinB=btn('復帰ルーレットを回す',spin,'pri');
+  const spinB=btn('目を覚ませるか、回す',spin,'pri');
   const content=h('div',{class:'in'},
     h('div',{class:'stain'}),
-    h('h2',null,'牢'),
-    h('p',{class:'line'},'所持金は尽きた。看守の手が、肩にかかる。'),
-    r>0?h('p',{class:'line'},'天井の同じ染みを見上げて、呟く。「また、ここだ」'):'',
-
-    h('div',{class:'cast'},ART('guard'),h('p',null,'看守 '+GUARD(r))),
-    r>=2?h('div',{class:'cast'},ART('old'),h('p',{class:'oldm'},'古株の囚人が、壁際で言う。「ここに長く居る奴ほど、懐が温かい」')):'',
+    h('h2',null,'眠り'),
+    h('p',{class:'line'},'所持金は尽きた。頭の奥で、小さな音がして——視界が、落ちる。'),
+    r>0?h('p',{class:'line'},'寝床の天井。また、ここだ。'):'',
+    h('div',{class:'cast'},ART('hy_m'),h('p',null,'眠らない男 '+WAKEU(r))),
+    r>=2?h('div',{class:'cast'},ART('old'),h('p',{class:'oldm'},'古株が、壁際で言う。「ここに長く居る奴ほど、懐が温かい」')):'',
     h('div',{class:'wall',html:tallySVG(r)}),
     h('div',{class:'wheel'},...tiles),
     h('div',{class:'row c'},spinB),
@@ -1199,11 +1209,11 @@ function prison(){
       await sleep(70+Math.pow(i/steps,3)*380);
     }
     let msg;
-    if(win){S.coins=1;msg='お情けの一枚が、手のひらに落ちる。進行はそのままだ。'}
+    if(win){S.coins=1;msg='目が覚めると、掌に一枚だけ残っていた。進行はそのままだ。'}
     else{
       const prev=startAmt(S.resets);S.resets++;const ns=startAmt(S.resets);
       S.coins=Math.round(ns);glowNow=ns>prev;
-      msg='外れ。目が覚めると、最初の房の天井だった。壁の傷が、また一本増えている。';
+      msg='外れ。目が覚めると、最初の寝床の天井だった。壁の傷が、また一本増えている。';
     }
     save();
     resultBox.replaceChildren(h('p',{class:'line'},msg),h('div',{class:'row c'},btn('房を出る',()=>{ov.hidden=true;progress();go('home')},'pri')));
@@ -1368,10 +1378,10 @@ function renderNav(v){
 
 /* ================= ホーム：囚人は今、どこで何をしているか ================= */
 const PLACES=[
-  {bg:'bg_cell',place:'独房',doing:['天井の染みを数えている。','壁の傷を、指でなぞっている。','銅貨を一枚、指で転がしている。','格子窓から、雨の音を聞いている。']},
+  {bg:'bg_ship',place:'寝床',doing:['寝床の縁に座って、天井を見ている。','丸い窓の外の、波を眺めている。','銅貨を一枚、指で転がしている。','頭の奥の、小さな違和感を確かめている。']},
   {bg:'bg_hall',place:'賭場のはしっこ',doing:['銀貨の卓を、柱の陰から眺めている。','客の癖を、黙って数えている。','酒の匂いのする床に、腰を下ろしている。']},
-  {bg:'bg_hall',place:'賭場の奥',doing:['金貨の卓の、手元だけを見ている。','道化の笑い声がしないか、耳を澄ませている。','指先の震えを、握りしめて隠している。']},
-  {bg:'bg_office',place:'事務所の前',doing:['閉じた扉の向こうを、じっと見ている。','懐の中の、鍵の重さを数えている。','深く息を吸って、吐いている。']}
+  {bg:'bg_stage',place:'舞台の見える席',doing:['金貨の卓の、手元だけを見ている。','司会の笑い声がしないか、耳を澄ませている。','指先の震えを、握りしめて隠している。']},
+  {bg:'bg_deck',place:'甲板の格子の前',doing:['格子の向こうの、水平線を見ている。','懐の中の、鍵の重さを数えている。','深く息を吸って、吐いている。']}
 ];
 function home(){
   const m=M();
@@ -1383,7 +1393,7 @@ function home(){
   let fi=S.coins<=1?2:0;
   const me=h('img',{class:'hme',src:'art/'+faces[fi]+'.png',alt:'囚人',draggable:'false'});
   const doing=h('div',{class:'hdo'},pick(P.doing));
-  const taps=['…なんだ。','まだ、やれる。','妹の顔が浮かぶ。','手の中に、コインの冷たさがある。'];
+  const taps=['…なんだ。','まだ、やれる。','誰かの顔が浮かぶ。…気がする。','手の中に、コインの冷たさがある。'];
   me.addEventListener('pointerdown',()=>{SFX.tap();fi=(fi+1)%faces.length;me.src='art/'+faces[fi]+'.png';doing.textContent=pick(taps);
     me.animate&&me.animate([{transform:'translateY(0)'},{transform:'translateY(-10px)'},{transform:'translateY(0)'}],{duration:260})});
   const scene=h('div',{class:'hscene'},h('img',{class:'hbg',src:'art/'+P.bg+'.png',alt:'',draggable:'false'}),me,
@@ -1392,8 +1402,8 @@ function home(){
     h('div',null,h('small',null,'牢の傷'),h('b',null,S.resets+'本')),
     h('div',null,h('small',null,'いまの卓'),h('b',null,['銅貨','銀貨','金貨','貝殻'][st])),
     h('div',null,h('small',null,'鍵まで'),h('b',null,Math.max(0,Math.floor(100-Math.log10(S.coins+1)/13*100))+'%'))),
-    h('p',{class:'goal'},'目的：一万貝殻で鍵を買い、外の妹のもとへ。帳簿の写しを世に出す。'));
-  if(S.coins>=CFG.KEY)m.append(h('div',{class:'card'},(()=>{const k=ART('key');k.className='keyimg';return k})(),h('h2',null,'脱出の鍵'),h('p',null,'一万貝殻。ついに、手が届いた。'),btn('鍵を買う',buyKey,'pri')));
+    h('p',{class:'goal'},'目的：1万貝で、たった一つの鍵を買う。酔い國を、出る。'));
+  if(S.coins>=CFG.KEY)m.append(h('div',{class:'card'},(()=>{const k=ART('key');k.className='keyimg';return k})(),h('h2',null,'脱出の鍵'),h('p',null,'1万貝。ついに、手が届いた。'),btn('鍵を買う',buyKey,'pri')));
 }
 
 /* ================= ギャンブル（卓で遊ぶ） ================= */
@@ -1457,53 +1467,85 @@ function buyKey(){
    bg/L/C/R は省略すると前の行のまま。null を入れると消える。
    絵: bg_street bg_cell bg_hall bg_office / me_n me_s me_d me_w / gd_n gd_a gd_s / cl_g cl_s cl_u / sis_s sis_w / old */
 const STORY={
-  intro:[
-    {bg:'bg_street',t:'雨の夜だった。'},
-    {L:'me_n',who:'俺',t:'俺は賭けチェスの「算定士」。駒の値を読んで、掛け率を決める仕事をしていた。'},
-    {bg:'bg_office',L:'me_s',R:'cl_g',who:'道化',t:'掛け率はな、動かすためにあるんだ。'},
-    {who:'俺',t:'帳簿には、ありもしない掛け率が並んでいた。客はみんな、見えない盤で負けさせられていた。'},
-    {L:'me_d',R:null,who:'俺',t:'明日、全部話す。帳簿の写しは、もう取ってある。'},
-    {bg:'bg_street',L:'me_w',R:'sis_s',who:'妹',t:'お兄ちゃん、気をつけてね。'},
-    {R:'sis_w',who:'妹',t:'冬至までには、帰ってくるよね。'},
-    {R:'sis_s',who:'俺',t:'ああ。約束だ。'},
-    {bg:'bg_cell',fx:'dark',L:'me_s',R:'gd_n',who:'看守',t:'帳簿を盗んだ罪で、お前を拘束する。'},
-    {who:'俺',t:'盗んだ…？ 俺が？'},
-    {R:'gd_a',who:'看守',t:'…黙ってついてこい。'},
-    {L:'me_n',R:null,t:'目が覚めると、知らない天井だった。ここは、貝殻で動く牢獄街。'},
-    {R:'gd_n',who:'看守',t:'一万貝殻で、「脱出の鍵」が買える。稼ぎたきゃ、賭けろ。'},
-    {L:'me_d',who:'俺',t:'…やってやる。外へ出て、帳簿の写しを世に出す。盤を、ひっくり返してやる。'}
+  /* 序章1：目覚め */
+  wake:[
+    {bg:'bg_ship',L:'me_n',t:'ある日、気づいたら、知らない天井を見ていた。'},
+    {who:'俺',t:'ここが一体何なのか…まずは、周りを見てみよう。'}
   ],
-  /* 牢に戻された回数ごとの回想（最後の一つは繰り返し） */
+  /* 序章2：話せる人をタップ（探索）。talk は会話 */
+  people:[
+    {id:'ex',x:12,art:'ex_t',talk:[
+      {bg:'bg_ship',L:'me_n',R:'ex_t',who:'男',t:'やぁ。お前、何してここに入ってきた？'},
+      {R:'ex_s',who:'男',t:'…え？ 何も覚えていない？ だってお前…ここは、レベル5の！！'},
+      {R:'ex_t',who:'男',t:'犯罪者を誘拐して作られた、海の上の牢獄だよ！？'},
+      {L:'me_s',who:'俺',t:'…牢獄？ 誘拐？ 俺が、犯罪者…？'}]},
+    {id:'old',x:40,art:'old',talk:[
+      {bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'お、見ない顔だな。一つだけ、良いことを教えてやろう。'},
+      {who:'古株',t:'ここでは、死にたくても死ねない。寝ちまうからな。'},
+      {who:'古株',t:'ただ、逃げ出す方法は2つある。まぁ、頑張りな。'},
+      {L:'me_s',who:'俺',t:'…寝ちまう？'}]},
+    {id:'hy',x:68,art:'hy_m',talk:[
+      {bg:'bg_ship',L:'me_n',R:'hy_m',who:'眠らない男',t:'やっはー！！！ もう3日も寝てないぜー！！！'},
+      {R:'hy_s',who:'眠らない男',t:'なのに、お前が来た瞬間が分からなかったぞ！！！ 不思議だな！！！！'},
+      {L:'me_s',R:'hy_b',who:'俺',t:'…なんなんだ、こいつ。'}]}
+  ],
+  /* 序章3：放送、鍵、ゲーム開始 */
+  announce:[
+    {bg:'bg_ship',L:'me_w',R:null,t:'なるほど。ここは、俺が過ごしてきた場所とは違うみたいだ。…帰りたい。'},
+    {fx:'don',t:'ドドンっ！！！！'},
+    {L:'me_s',who:'俺',t:'！？ なんの音だ…？'},
+    {bg:'bg_stage',L:'me_s',R:'cl_g',who:'司会',t:'レディースandジェントルメーン！！！'},
+    {who:'俺',t:'何が始まった…？'},
+    {who:'司会',t:'…そして、犯罪者の皆さん！ ようこそ、よいくにへ！'},
+    {who:'俺',t:'良い国…？ 誘拐しといて…？'},
+    {R:'cl_s',who:'司会',t:'おーっと。勘違いしないでね？ よいくにって、酒に酔う國と書いて「酔い國」！ いい響きでしょ！？'},
+    {R:'cl_u',who:'俺',t:'こいつも、イカれてるタイプか…'},
+    {fx:'don',R:null,t:'ドンッ！！！！ 物音が鳴った。'},
+    {R:'an_s',who:'怒る男',t:'ふざけんな！ 何が酔い國だ！ 嫁が家で待ってる！ 帰らせ…'},
+    {fx:'don',R:'an_c',who:'',t:'1秒前に叫んでいた男は、突如、声を出さず倒れた。'},
+    {R:'cl_s',who:'司会',t:'ほら〜、ちゃんと話は最後まで…まぁいいわ。'},
+    {L:'me_s',R:'cl_s',who:'俺',t:'なんなんだ…何が起きた…？ 死んだ…？ 気絶か？'},
+    {R:'cl_g',who:'司会',t:'はーい、注目〜！ 君らの頭の中に、生命停止装置が埋め込まれたの。だけど、良いこともあるわ。'},
+    {who:'俺',t:'良いこと…？'},
+    {who:'司会',t:'ここは非公式のギャンブルの國。つまり、君らが心の底から求めた、騙し騙されの世界。'},
+    {who:'俺',t:'騙し騙され…って、どこが良いことなん？？'},
+    {R:'cl_s',who:'司会',t:'お前らは、稼ぐのか、人を殺すのか、騙すのか…好きにしろ。ただ。'},
+    {R:'cl_u',who:'俺',t:'…なるほどな。…ってえ！？ 今、殺すって言った…！？'},
+    {R:'cl_s',who:'司会',t:'好きにするのは、好きにされる時のみだ。まぁ、頑張りなさいね？'},
+    {who:'俺',t:'いや、っていうより、殺すって…'},
+    {R:'cl_g',who:'司会',t:'あ、ちなみにここは酔い國。出る方法はギャンブル。稼いで、1つしかない鍵を買うんだ。'},
+    {fx:'dark',bg:'bg_ship',L:'me_n',R:null,t:'——'},
+    {t:'どうやら、通貨は銅貨、銀貨、金貨、貝。それぞれ1000枚で、次の通貨に行けるらしい。'},
+    {t:'金貨から貝は、よく分からないが、鍵は「10000貝」らしい。'},
+    {who:'司会',t:'という事で！！ ギャンブル、スタート！！'},
+    {L:'me_s',who:'俺',t:'いきなりのスタートだな。…まずは、寝床に戻るか。'}
+  ],
+  /* 寝て（停止して）戻されるたびの場面 */
   frag:[
-    [{bg:'bg_cell',L:'me_n',t:'天井の染みは、雨の形に似ている。'},{bg:'bg_street',t:'……あの夜も、雨だった。'}],
-    [{bg:'bg_office',L:'me_s',R:'cl_s',who:'道化',t:'見たな？'},{who:'俺',t:'帳簿の表紙は黒い革。角に、見覚えのある印があった。'}],
-    [{bg:'bg_office',R:'cl_g',who:'道化',t:'掛け率はな、動かすためにあるんだ。'},{L:'me_s',who:'俺',t:'…それを、客は誰も知らない。'}],
-    [{bg:'bg_street',L:'me_w',R:'sis_w',who:'妹',t:'冬至までに、帰ってくるよね。'},{R:'sis_s',who:'俺',t:'ああ。必ず。'}],
-    [{bg:'bg_cell',L:'me_n',R:'gd_a',t:'連行する看守の手は、震えていた。'},{who:'俺',t:'…寒さのせいじゃ、なかった気がする。'}],
-    [{bg:'bg_cell',L:'me_d',R:null,t:'帳簿の写しは、盤の底に隠してある。'},{who:'俺',t:'妹は、まだ気づいていない。'}],
-    [{bg:'bg_cell',L:'me_w',C:'old',who:'老囚人',t:'勝つな。負け方を覚えろ。そうすれば、また立てる。'}],
-    [{bg:'bg_cell',L:'me_n',C:null,who:'俺',t:'また同じ天井。…傷は、道しるべだ。'}]
+    [{bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'お、戻ってきたか。最初は、みんなそうだ。'},{who:'古株',t:'寝ちまうだけだ。死にはしねえ。'}],
+    [{bg:'bg_ship',L:'me_s',R:'hy_m',who:'眠らない男',t:'おおっ！！ 戻ってきたな！！ 寝てたのか！？ 羨ましいぜ！！'}],
+    [{bg:'bg_ship',L:'me_n',R:'ex_g',who:'男',t:'負ける度に、何か思い出すかと思ったけど…俺はまだ、何も思い出せないな。'},{L:'me_w',who:'俺',t:'…俺もだ。'}],
+    [{bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'逃げ方は2つ。1つは、鍵だ。'},{who:'古株',t:'もう1つは…自分で見つけな。'}],
+    [{bg:'bg_stage',L:'me_s',R:'cl_g',who:'司会',t:'今夜も酔ってるー！？ 負けた子もいい顔してるわよー！'},{L:'me_d',who:'俺',t:'…見てろよ。'}],
+    [{bg:'bg_deck',L:'me_w',R:null,t:'窓の外は、海しかない。'},{who:'俺',t:'誰かが、俺を待っている気がする。…顔は、思い出せないけど。'}],
+    [{bg:'bg_ship',L:'me_n',R:'hy_m',who:'眠らない男',t:'お前、前より目が違うな！！ いい目だ！！ 俺は寝てないけどな！！'}],
+    [{bg:'bg_ship',L:'me_n',R:null,who:'俺',t:'また、同じ天井。…まだ、やれる。'}]
   ],
-  /* 所持金が次の段階に入った時 */
+  /* 段階が上がった時 */
   stage:{
-    1:[{bg:'bg_hall',L:'me_n',R:'gd_n',who:'看守',t:'銅貨の卓は抜けたか。銀の卓は、客が変わる。見世物の連中だ。'},{R:null,t:'遠くで、道化の笑い声が、一度だけ聞こえた気がした。'}],
-    2:[{bg:'bg_office',L:'me_s',R:'cl_g',who:'道化',t:'ここの主は、俺だ。'},{who:'俺',t:'道化…！'},{R:null,t:'帳簿は、ここにもある。'}],
-    3:[{bg:'bg_hall',L:'me_n',R:'cl_s',who:'道化',t:'算定士じゃないか。久しぶりだな。'},{R:'gd_a',t:'看守は、目を逸らした。'},{R:null,L:'me_d',who:'俺',t:'鍵まで、あと少しだ。'}]
+    1:[{bg:'bg_hall',L:'me_n',R:'cl_g',who:'司会',t:'おーっと！ 銅貨の卓を抜けたー！ ここからは、見世物の時間よ！'}],
+    2:[{bg:'bg_hall',L:'me_n',R:'old',who:'古株',t:'金貨まで来たか。ここから先は、人が変わる奴が多い。…気をつけな。'}],
+    3:[{bg:'bg_stage',L:'me_d',R:'hy_m',who:'眠らない男',t:'貝！！ 貝だー！！ 鍵まで、あと少しだぜー！！！'},{R:'cl_s',who:'司会',t:'…ふぅん。ここまで来る子、久しぶりね。'}]
   },
-  /* 鍵を買った後 */
+  /* 鍵を買った後（仮） */
   ending:[
-    {bg:'bg_hall',L:'me_n',R:'gd_n',t:'一万貝殻を、卓に積む。'},
-    {R:'gd_s',who:'看守',t:'…数えるまでもない。袋は、持っていけ。'},
-    {who:'看守',t:'鍵代は、もう貰ってる。お前が置いていった、一枚ずつでな。'},
-    {L:'me_s',t:'牢で一文無しになる度に、掌に落ちた「お情けの一枚」。あれは、看守の財布から出ていたのか。'},
-    {R:'gd_a',who:'看守',t:'あの夜、お前を連れていく役を、断れなかった。…それだけだ。'},
-    {R:'gd_s',who:'看守',t:'行け。冬至には、まだ間に合う。'},
-    {bg:'bg_street',L:'me_d',R:null,t:'扉が、開く。外は、雨だった。'},
-    {R:'sis_s',L:'me_w',who:'妹',t:'おかえり、お兄ちゃん。'},
-    {who:'俺',t:'…ただいま。帳簿の写し、取りに行こう。'}
+    {bg:'bg_stage',L:'me_n',R:'cl_g',who:'司会',t:'おめでとーう！！ 1つしかない鍵、買われちゃいましたー！！'},
+    {who:'俺',t:'…10000貝。やっと、揃った。'},
+    {R:'cl_s',who:'司会',t:'さあ、扉は開いたわ。…でも、外が君の知ってる外とは、限らないわよ？'},
+    {bg:'bg_deck',L:'me_d',R:null,who:'俺',t:'…それでも、行く。俺が誰だったのかを、確かめに。'}
   ]
 };
-const NAMEC={'俺':'#e0b84d','看守':'#9fb3a0','道化':'#d96a5e','妹':'#e9b7a0','老囚人':'#c9b78a'};
+const NAMEC={'俺':'#e0b84d','司会':'#d96a5e','古株':'#c9b78a','男':'#9fb3a0','眠らない男':'#c9d96a','怒る男':'#d9a05e'};
 /* ノベル風の場面。タップで文字送り・次へ。背景・立ち絵が切り替わる */
 let vnState=null;
 function vn(steps,done){
@@ -1545,6 +1587,7 @@ function vn(steps,done){
     if('L' in s)setChar('L',s.L);if('C' in s)setChar('C',s.C);if('R' in s)setChar('R',s.R);
     if(s.fx==='dark'){root.classList.add('flash');setTimeout(()=>root.classList.remove('flash'),700);SFX.land()}
     if(s.fx==='shake')shake(root,8,350);
+    if(s.fx==='don'){shake(root,12,400);SFX.land();SFX.bust&&setTimeout(SFX.land,180)}
     speak(s.who);
     name.textContent=s.who||'';name.style.display=s.who?'':'none';name.style.color=NAMEC[s.who]||'#e0b84d';
     box.classList.toggle('narr',!s.who);
@@ -1558,8 +1601,22 @@ function vn(steps,done){
 }
 
 /* ================= イントロ・起動 ================= */
+/* 話せる人をタップして、周りを見る場面 */
+function explore(o,done){
+  const ov=$('#over');ov.hidden=false;
+  const talked=new Set(o.talked||[]);
+  const root=h('div',{class:'vn ex'});
+  root.append(h('img',{class:'vbg on',src:'art/'+o.bg+'.png',alt:'',draggable:'false'}));
+  o.people.forEach(p=>{
+    const b=h('button',{class:'exc'+(talked.has(p.id)?' done':''),type:'button','aria-label':'話す',style:`left:${p.x}%`},h('img',{src:'art/'+p.art+'.png',alt:'',draggable:'false'}),talked.has(p.id)?'':h('span',{class:'bang'},'！'));
+    b.onclick=()=>{SFX.tap();talked.add(p.id);vn(p.talk,()=>{
+      if(talked.size>=o.people.length)done();else explore({...o,talked:[...talked]},done)})};
+    root.append(b);
+  });
+  ov.replaceChildren(root);
+}
 function intro(){
-  vn(STORY.intro,()=>{S.intro=true;save();start()});
+  vn(STORY.wake,()=>explore({bg:'bg_ship',people:STORY.people},()=>vn(STORY.announce,()=>{S.intro=true;save();start()})));
 }
 function start(){$('#hdr').hidden=false;progress();go('home')}
 window.__T={S:()=>S,go,settle,prison,progress,CFG,betInfo,avail,drawAny,val};
