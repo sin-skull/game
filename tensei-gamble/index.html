@@ -307,12 +307,12 @@ body.intable #main{padding-bottom:8px
 .vc{position:absolute;bottom:188px;height:calc(100dvh - 214px);width:46%;display:flex;align-items:flex-end;justify-content:center;opacity:0;transform:translateY(24px);transition:opacity .35s,transform .35s,filter .6s;pointer-events:none}
 .vc.on{opacity:1;transform:none}
 .vc img{max-width:100%;width:auto;object-fit:contain;object-position:50% 100%;filter:drop-shadow(3px 5px 0 #000a)}
-.vc.L{left:0}.vc.R{right:0}.vc.C{left:27%}
+.vc.L,.vc.R{display:none}.vc.C{left:0;width:100%}
 .vc.bust{height:40dvh}
 .vc.dim{filter:brightness(.8)}
 .vface{position:absolute;top:-96px;width:104px;height:104px;object-fit:contain;object-position:50% 100%;filter:drop-shadow(2px 3px 0 #000a);pointer-events:none}
 .vface.l{left:8px}.vface.r{right:8px}
-.vname.l{left:120px}.vname.r{left:auto;right:120px}
+.vname.l{left:16px}.vname.r{left:auto;right:16px}
 .vbox{position:absolute;left:3%;right:3%;bottom:max(14px,env(safe-area-inset-bottom,0px));height:168px;padding:16px 16px 12px;background:#120d08ee;border:3px solid #e8dcc4;border-radius:12px 5px 14px 6px/6px 14px 5px 12px;box-shadow:0 6px 0 #000a;color:#eadfc6}
 .vname{position:absolute;left:14px;top:-16px;padding:2px 14px;font-family:var(--head);font-size:16px;background:#120d08;border:2px solid #e8dcc4;border-radius:8px 3px 9px 4px}
 .vtext{font-size:17px;line-height:1.8;height:7.2em;overflow:hidden;white-space:pre-line;margin-top:4px}
@@ -322,7 +322,7 @@ body.intable #main{padding-bottom:8px
 .vskip{position:absolute;right:10px;top:max(10px,env(safe-area-inset-top,0px));border:0;background:#0008;color:#cbbd9f;font-size:12px;padding:4px 10px;border-radius:12px;cursor:pointer}
 .vn.flash::after{content:"";position:absolute;inset:0;background:#000;animation:fl .7s ease-out forwards;pointer-events:none}
 @keyframes fl{from{opacity:1}to{opacity:0}}
-@media (min-width:900px){.vc{height:56dvh;width:34%}.vc.L{left:14%}.vc.R{right:14%}.vc.C{left:33%}.vbox{max-width:860px;left:50%;right:auto;width:92%;transform:translateX(-50%)}.vtext{font-size:19px}}
+@media (min-width:900px){.vc{height:56dvh;width:34%}.vc.L{left:14%}.vc.R{right:14%}.vc.C{left:0;width:100%}.vbox{max-width:860px;left:50%;right:auto;width:92%;transform:translateX(-50%)}.vtext{font-size:19px}}
 
 .lids{position:fixed;inset:0;z-index:95;pointer-events:none}
 .lids i{position:absolute;left:0;right:0;height:50%;background:#000;transition:transform 1.5s cubic-bezier(.4,0,.2,1)}
@@ -1210,9 +1210,9 @@ const NAMEC={'ディーラー':'#9fb3a0','俺':'#e0b84d','司会':'#d96a5e','古
 /* 立ち絵：名前 → 全身絵。表情がない分は近い絵で代用。fh は全身の高さの比 */
 const SPR={me_n:'fb_me_n',me_d:'fb_me_n',me_w:'fb_me_n',me_s:'fb_me_s',ex_t:'fb_ex_t',ex_s:'fb_ex_s',ex_g:'fb_ex_s',old:'fb_old_n',
   hy_m:'fb_hy_m',hy_s:'fb_hy_m',hy_b:'fb_hy_b',cl_g:'fb_cl_g',cl_s:'fb_cl_s',cl_u:'fb_cl_s',gd_n:'fb_gd_n',gd_a:'fb_gd_a'};
-const FH={fb_me:1,fb_ex:.95,fb_old:.78,fb_hy:1.15,fb_cl:1.2,fb_gd:.82};
+const FH={fb_me:1,fb_ex:.97,fb_old:.8,fb_hy:.98,fb_cl:1,fb_gd:.92};
 const sprName=n=>SPR[n]||n;
-const sprFH=f=>f.startsWith('fb_')?(FH[f.slice(0,5)]||1):.62;
+const sprFH=f=>f.startsWith('fb_')?Math.min(1,FH[f.slice(0,5)]||1):.62;
 function sprImg(n){const f=sprName(n);return h('img',{src:'art/'+f+'.png',alt:'',draggable:'false',style:'height:'+Math.round(sprFH(f)*100)+'%'})}
 /* セリフの改行：1行15文字まで。句読点と助詞の切れ目で折る */
 function wrapJa(t,max=15){
@@ -1253,7 +1253,7 @@ function vn(steps,done){
   const skip=h('button',{class:'vskip',type:'button'},'スキップ');
   root.append(bgA,bgB,rain,slots.L,slots.C,slots.R,box,skip);
   ov.replaceChildren(root);
-  let i=-1,typing=null,full='',pos=0,front=bgA,cur={bg:null,L:null,C:null,R:null},closed=false;
+  let i=-1,typing=null,full='',pos=0,front=bgA,cur={bg:null,L:null,C:null,R:null},closed=false,shown=null,shownCur=null;
   const setBG=n=>{
     if(!n||n===cur.bg)return;cur.bg=n;
     const nb=front===bgA?bgB:bgA;nb.src='art/'+n+'.png';nb.classList.add('on');front.classList.remove('on');front=nb;
@@ -1261,9 +1261,9 @@ function vn(steps,done){
   };
   const cid=f=>f.startsWith('fb_')?f.slice(0,5):f.split('_')[0];
   const setChar=(k,n)=>{
-    if(n===undefined)return;const el=slots[k];
-    if(n===null){cur[k]=null;el.classList.remove('on');return}
-    const f=sprName(n),pf=cur[k]?sprName(cur[k]):null;cur[k]=n;
+    const el=slots.C;
+    if(!n){shownCur=null;el.classList.remove('on');return}
+    const f=sprName(n),pf=shownCur?sprName(shownCur):null;shownCur=n;
     if(pf&&el.classList.contains('on')&&cid(pf)===cid(f)){
       /* 表情が変わるだけ：動かさず、絵だけ差し替える（ガタつき防止） */
       const im=el.querySelector('img');if(im&&pf!==f){im.src='art/'+f+'.png';im.style.height=Math.round(sprFH(f)*100)+'%'}
@@ -1276,20 +1276,20 @@ function vn(steps,done){
   vnState={stop(){closed=true;clearInterval(typing);ov.removeEventListener('click',tap)}};
   const face=h('img',{class:'vface',alt:'',draggable:'false'});box.append(face);
   const speak=(who)=>{
-    const sk=!who?null:(who==='俺'?'L':(cur.C?'C':'R'));
-    ['L','C','R'].forEach(k=>slots[k].classList.toggle('dim',!!sk&&cur[k]&&k!==sk&&!!cur[sk]));
-    const key=sk&&cur[sk];
-    if(!key){face.style.display='none';name.className='vname';return}
-    const side=who==='俺'?'l':'r';
-    if(face.dataset.k!==key){face.dataset.k=key;face.src='art/'+key+'.png'}
-    face.style.display='';face.className='vface '+side;name.className='vname '+side;
+    face.style.display='none';
+    name.className='vname '+(who==='俺'?'l':'r');
   };
   function next(){
     i++;
     if(i>=steps.length){finish();return}
     const s=steps[i];
     setBG(s.bg);
-    if('L' in s)setChar('L',s.L);if('C' in s)setChar('C',s.C);if('R' in s)setChar('R',s.R);
+    ['L','C','R'].forEach(k=>{if(k in s)cur[k]=s[k]});
+    const spk=!s.who?null:(s.who==='俺'?cur.L:(cur.C||cur.R||cur.L));
+    if(spk)shown=spk;
+    else if(s.who&&!spk)shown=null;
+    else if(!s.who&&('L' in s||'C' in s||'R' in s)&&!cur.L&&!cur.C&&!cur.R)shown=null;
+    setChar('C',shown);
     if(s.fx==='dark'){root.classList.add('flash');setTimeout(()=>root.classList.remove('flash'),700);SFX.land()}
     if(s.fx==='shake')shake(root,8,350);
     if(s.fx==='don'){shake(root,12,400);SFX.land();SFX.bust&&setTimeout(SFX.land,180)}
@@ -1325,7 +1325,7 @@ function intro(){
 }
 function start(){$('#hdr').hidden=false;progress();go('home')}
 ['contextmenu','copy','cut','selectstart','dragstart','gesturestart','gesturechange'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
-window.__T={S:()=>S,go,settle,prison,progress,CFG,betInfo,avail};
+window.__T={vn,STORY,S:()=>S,go,settle,prison,progress,CFG,betInfo,avail};
 if(S.key){buyKey();$('#hdr').hidden=false;renderWallet()}
 else if(!S.intro)intro();
 else start();
