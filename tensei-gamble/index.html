@@ -380,7 +380,7 @@ body.inworld #main{padding:0!important;overflow:hidden}
 @keyframes hotp{50%{transform:translateX(-50%) scale(1.05)}}
 .wmebox{position:absolute;left:0;bottom:3%;width:100%;height:58%;display:flex;align-items:flex-end;justify-content:center;pointer-events:none}
 .wme{height:100%;width:auto;max-width:42%;object-fit:contain;object-position:50% 100%;filter:drop-shadow(3px 5px 0 #000a);transform-origin:50% 100%}
-.wmebox.walk .wme{animation:wbob .36s ease-in-out infinite}
+.wmebox.walk .wme{animation:wbob var(--ws,.36s) ease-in-out infinite}
 @keyframes wbob{50%{translate:0 -6px}}
 .wgear{position:absolute;right:10px;top:10px;width:44px;height:44px;display:grid;place-items:center;background:#120d08cc;border:2px solid #e8dcc4;border-radius:10px;color:#eadfc6;cursor:pointer;z-index:3}
 .war{position:absolute;top:50%;font-size:28px;color:#eadfc6;text-shadow:0 0 6px #000;pointer-events:none;transition:opacity .3s}
@@ -391,6 +391,10 @@ body.inworld #main{padding:0!important;overflow:hidden}
 .wtoast{position:fixed;left:50%;top:38%;transform:translateX(-50%);padding:10px 16px;background:#120d08ee;border:2px solid #e8dcc4;color:#eadfc6;border-radius:10px;z-index:90;transition:opacity .4s}
 .wtoast.out{opacity:0}
 .nav{display:none!important}
+
+.wpad{position:absolute;width:132px;height:64px;margin:-32px 0 0 -66px;border:2px solid #e8dcc488;border-radius:999px;background:#ffffff14;opacity:0;pointer-events:none;transition:opacity .15s;z-index:2}
+.wpad.on{opacity:1}
+.wpad i{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:#e8dcc4aa;border:2px solid #e8dcc4}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 html{-webkit-text-size-adjust:100%}
@@ -1084,14 +1088,15 @@ function home(){
   const me=h('img',{class:'wme',src:'art/fb_me_n.png',alt:'囚人',draggable:'false'});
   const meBox=h('div',{class:'wmebox'},me);
   const gear=h('button',{class:'wgear',type:'button','aria-label':'設定',html:GEAR,onclick:e=>{e.stopPropagation();SFX.tap();go('set')}});
-  const hint=h('div',{class:'whint'},'画面を長押しして歩く　／　場所をタップして入る');
+  const hint=h('div',{class:'whint'},'押したまま左右にスライドして歩く　／　場所をタップして入る');
+  const pad=h('div',{class:'wpad'},h('i'));
   const arL=h('div',{class:'war l'},'◀'),arR=h('div',{class:'war r'},'▶');
-  world.append(strip,meBox,gear,arL,arR);
+  world.append(strip,meBox,gear,arL,arR,pad);
   if((S.walkHint||0)<6)world.append(hint);
   if(S.coins>=CFG.KEY)world.append(h('div',{class:'wkey'},(()=>{const k=ART('key');k.className='keyimg';return k})(),btn('鍵を買う',buyKey,'pri')));
   m.append(world);
   const at0=Math.max(0,PL.findIndex(p=>p.id===S.at));
-  let W=world.clientWidth||360,px=(at0+.5)*W,dir=0,autoGo=false,target=at0,held=false,last=performance.now(),faceR=true,step=0;
+  let W=world.clientWidth||360,px=(at0+.5)*W,dir=0,mag=0,x0=0,autoGo=false,target=at0,held=false,last=performance.now(),faceR=true,step=0;
   const nearest=()=>Math.max(0,Math.min(N-1,Math.floor(px/W)));
   const layout=()=>{
     W=world.clientWidth||360;
@@ -1120,28 +1125,42 @@ function home(){
     if(!world.isConnected){cancelAnimationFrame(worldRAF);return}
     const dt=Math.min(.05,(now-last)/1000);last=now;
     let v=0;
-    if(held)v=dir*1;
+    if(held)v=dir*mag;
     else if(autoGo){
       const tx=(target+.5)*W,d=tx-px;
       if(Math.abs(d)<4){px=tx;autoGo=false;draw();enter(target)}
       else v=Math.sign(d);
     }
     if(v){
-      const sp=Math.max(190,W*.55);px=Math.max(36,Math.min(N*W-36,px+v*sp*dt));faceR=v>0;step+=dt;
-      meBox.classList.add('walk');
+      const sp=Math.max(220,W*.65);px=Math.max(36,Math.min(N*W-36,px+v*sp*dt));faceR=v>0;step+=dt;
+      meBox.classList.add('walk');meBox.style.setProperty('--ws',(.5-.2*Math.abs(v)).toFixed(2)+'s');
     }else meBox.classList.remove('walk');
     draw();
     worldRAF=requestAnimationFrame(tick);
   };
-  const ptr=e=>{const r=world.getBoundingClientRect();dir=(e.clientX-r.left)<r.width/2?-1:1};
-  world.addEventListener('pointerdown',e=>{if(e.target.closest('.hot,.wgear,.wkey'))return;held=true;autoGo=false;ptr(e);S.walkHint=(S.walkHint||0)+1;hint.style.opacity=0});
-  world.addEventListener('pointermove',e=>{if(held)ptr(e)});
-  ['pointerup','pointercancel','pointerleave'].forEach(k=>world.addEventListener(k,()=>{
-    if(!held)return;held=false;
+  /* 透明コントローラー：触った所が中心。そこから左右にスライドした分だけ歩く */
+  const R=60;
+  const ptr=e=>{
+    const dx=e.clientX-x0,a=Math.abs(dx);
+    dir=dx<0?-1:1;mag=a<8?0:Math.min(1,(a-8)/(R-8));
+    pad.firstChild.style.transform='translateX('+Math.max(-R,Math.min(R,dx))+'px)';
+  };
+  const release=()=>{
+    if(!held)return;held=false;mag=0;pad.classList.remove('on');
     const ni=nearest();if(Math.abs(px-(ni+.5)*W)<W*.12){target=ni;autoGo=true}  // 近ければ扉の前へ吸い寄せる
-  }));
-  const kd=e=>{if(e.key==='ArrowLeft'){held=true;dir=-1;autoGo=false}else if(e.key==='ArrowRight'){held=true;dir=1;autoGo=false}else if((e.key==='Enter'||e.key===' ')&&!held){const ni=nearest();if(Math.abs(px-(ni+.5)*W)<30)enter(ni)}};
-  const ku=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){held=false;const ni=nearest();if(Math.abs(px-(ni+.5)*W)<W*.12){target=ni;autoGo=true}}};
+  };
+  world.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.hot,.wgear,.wkey'))return;
+    held=true;autoGo=false;x0=e.clientX;mag=0;dir=1;
+    const r=world.getBoundingClientRect();
+    pad.style.left=(e.clientX-r.left)+'px';pad.style.top=(e.clientY-r.top)+'px';pad.firstChild.style.transform='translateX(0)';pad.classList.add('on');
+    try{world.setPointerCapture(e.pointerId)}catch(_){}
+    S.walkHint=(S.walkHint||0)+1;hint.style.opacity=0;
+  });
+  world.addEventListener('pointermove',e=>{if(held)ptr(e)});
+  ['pointerup','pointercancel'].forEach(k=>world.addEventListener(k,release));
+  const kd=e=>{if(e.key==='ArrowLeft'){held=true;dir=-1;mag=1;autoGo=false}else if(e.key==='ArrowRight'){held=true;dir=1;mag=1;autoGo=false}else if((e.key==='Enter'||e.key===' ')&&!held){const ni=nearest();if(Math.abs(px-(ni+.5)*W)<30)enter(ni)}};
+  const ku=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){held=false;mag=0;const ni=nearest();if(Math.abs(px-(ni+.5)*W)<W*.12){target=ni;autoGo=true}}};
   addEventListener('keydown',kd);addEventListener('keyup',ku);
   const rs=()=>{const rel=px/W;layout();px=rel*W;draw()};addEventListener('resize',rs);
   cleanups.push(()=>{cancelAnimationFrame(worldRAF);removeEventListener('keydown',kd);removeEventListener('keyup',ku);removeEventListener('resize',rs)});
