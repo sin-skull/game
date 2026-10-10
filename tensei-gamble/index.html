@@ -212,8 +212,8 @@ body[data-stage="3"]{--fa:#6d6286;--fb:#221c33}
 .vr i{font-style:normal;font-family:var(--head);font-size:17px}
 .opp{position:absolute;right:12px;top:10px;width:calc(100% - 140px);display:grid;grid-template-columns:1fr auto;grid-template-areas:"say face" "hand hand";gap:6px 8px;align-items:end;justify-items:end}
 .faceW{grid-area:face;width:64px}
-.face{width:100%;height:auto;display:block;transform-origin:50% 100%;animation:breathe 3.4s ease-in-out infinite;filter:drop-shadow(2px 3px 0 #0008)}
-@keyframes breathe{50%{transform:translateY(-3px) scaleY(1.015)}}
+.face{width:100%;height:auto;display:block;transform-origin:50% 100%;animation:breathe 8s ease-in-out infinite;filter:drop-shadow(2px 3px 0 #0008)}
+@keyframes breathe{50%{transform:translateY(-2px) scaleY(1.008)}}
 .say{grid-area:say;background:var(--paper);color:var(--ink);border:2px solid var(--ink);padding:5px 10px;border-radius:14px 14px 3px 14px/12px 14px 3px 14px;font-size:14px;min-height:30px;box-shadow:2px 3px 0 #0006;margin-bottom:18px;justify-self:end}
 .say:empty{visibility:hidden}
 .pop{animation:pop .3s ease-out}
@@ -287,7 +287,7 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 /* ===== ホーム ===== */
 .hscene{position:relative;aspect-ratio:4/3;max-height:58dvh;margin:6px auto 12px;overflow:hidden;border:5px solid #1c130b;border-radius:8px 14px 6px 12px/12px 6px 14px 8px;box-shadow:0 6px 0 #0007}
 .hbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.9)}
-.hme{position:absolute;left:4%;bottom:0;height:78%;width:auto;cursor:pointer;filter:drop-shadow(3px 4px 0 #0009);animation:breathe 3.6s ease-in-out infinite;touch-action:manipulation}
+.hme{position:absolute;left:6%;bottom:0;height:96%;width:auto;cursor:pointer;filter:drop-shadow(3px 4px 0 #0009);animation:breathe 8s ease-in-out infinite;touch-action:manipulation}
 .hbox{position:absolute;left:8px;right:8px;bottom:8px;display:grid;gap:2px;padding:8px 12px;background:#14100bd9;border:2px solid #000;border-radius:8px 4px 9px 5px;color:#eadfc6;justify-items:end;text-align:right}
 .hpl{font-family:var(--head);font-size:12px;color:var(--hi)}
 .hdo{font-size:15px;line-height:1.5}
@@ -304,10 +304,11 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .vbg.on{opacity:1}
 .vrain{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s;background:repeating-linear-gradient(100deg,#ffffff00 0 6px,#ffffff22 6px 7px);background-size:40px 100%;animation:rain .5s linear infinite;mix-blend-mode:screen}
 @keyframes rain{to{background-position:-40px 60px}}
-.vc{position:absolute;bottom:26%;height:46dvh;width:44%;display:flex;align-items:flex-end;justify-content:center;opacity:0;transform:translateY(24px);transition:opacity .35s,transform .35s,filter .3s;pointer-events:none}
+.vc{position:absolute;bottom:23%;height:68dvh;width:46%;display:flex;align-items:flex-end;justify-content:center;opacity:0;transform:translateY(24px);transition:opacity .35s,transform .35s,filter .3s;pointer-events:none}
 .vc.on{opacity:1;transform:none}
-.vc img{max-height:100%;max-width:100%;width:auto;height:auto;object-fit:contain;filter:drop-shadow(3px 5px 0 #000a)}
-.vc.L{left:2%}.vc.R{right:2%}.vc.C{left:28%}
+.vc img{max-width:100%;width:auto;object-fit:contain;filter:drop-shadow(3px 5px 0 #000a)}
+.vc.L{left:0}.vc.R{right:0}.vc.C{left:27%}
+.vc.bust{bottom:26%;height:46dvh}
 .vc.dim{filter:brightness(.55)}
 .vbox{position:absolute;left:3%;right:3%;bottom:max(14px,env(safe-area-inset-bottom,0px));min-height:22%;padding:12px 16px 14px;background:#120d08ee;border:3px solid #e8dcc4;border-radius:12px 5px 14px 6px/6px 14px 5px 12px;box-shadow:0 6px 0 #000a;color:#eadfc6}
 .vname{position:absolute;left:14px;top:-16px;padding:2px 14px;font-family:var(--head);font-size:16px;background:#120d08;border:2px solid #e8dcc4;border-radius:8px 3px 9px 4px}
@@ -325,11 +326,11 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .lids i:first-child{top:0;transform:translateY(-100%);animation:lidT 1.6s ease-in forwards}
 .lids i:last-child{bottom:0;transform:translateY(100%);animation:lidB 1.6s ease-in forwards}
 @keyframes lidT{to{transform:translateY(0)}}@keyframes lidB{to{transform:translateY(0)}}
-.exc{position:absolute;bottom:26%;width:28%;max-width:200px;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation;animation:breathe 3.6s ease-in-out infinite}
-.exc img{width:100%;height:auto;display:block;filter:drop-shadow(3px 5px 0 #000a)}
+.exc{position:absolute;bottom:20%;height:52dvh;display:flex;align-items:flex-end;justify-content:center;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation;animation:breathe 8s ease-in-out infinite}
+.exc img{max-width:100%;width:auto;object-fit:contain;display:block;filter:drop-shadow(3px 5px 0 #000a)}
 .exc.done img{filter:drop-shadow(3px 5px 0 #000a) brightness(.7)}
-.exc .bang{position:absolute;left:50%;top:-34px;transform:translateX(-50%);font-family:var(--head);font-size:30px;color:var(--hi);text-shadow:0 2px 0 #000;animation:bang .8s ease-in-out infinite}
-@keyframes bang{50%{transform:translateX(-50%) translateY(-8px)}}
+.exc .bang{position:absolute;left:50%;top:-8px;transform:translateX(-50%);font-family:var(--head);font-size:30px;color:var(--hi);text-shadow:0 2px 0 #000;animation:bang 2s ease-in-out infinite}
+@keyframes bang{50%{transform:translateX(-50%) translateY(-5px)}}
 .exc:hover img{filter:drop-shadow(3px 5px 0 #000a) brightness(1.15)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
@@ -1389,8 +1390,8 @@ function home(){
   if(S.intro&&st>S.storyStage&&STORY.stage[st]&&!S.key){const k=st;S.storyStage=st;save();vn(STORY.stage[k],()=>{})}
   else if(st>S.storyStage)S.storyStage=st;
   const P=PLACES[st];
-  const faces=['me_n','me_d','me_w','me_s'];
-  let fi=S.coins<=1?2:0;
+  const faces=['fb_me_n','fb_me_s'];
+  let fi=0;
   const me=h('img',{class:'hme',src:'art/'+faces[fi]+'.png',alt:'囚人',draggable:'false'});
   const doing=h('div',{class:'hdo'},pick(P.doing));
   const taps=['…なんだ。','まだ、やれる。','誰かの顔が浮かぶ。…気がする。','手の中に、コインの冷たさがある。'];
@@ -1474,17 +1475,17 @@ const STORY={
   ],
   /* 序章2：話せる人をタップ（探索）。talk は会話 */
   people:[
-    {id:'ex',x:12,art:'ex_t',talk:[
+    {id:'ex',x:0,w:36,art:'ex_t',talk:[
       {bg:'bg_ship',L:'me_n',R:'ex_t',who:'男',t:'やぁ。お前、何してここに入ってきた？'},
       {R:'ex_s',who:'男',t:'…え？ 何も覚えていない？ だってお前…ここは、レベル5の！！'},
       {R:'ex_t',who:'男',t:'犯罪者を誘拐して作られた、海の上の牢獄だよ！？'},
       {L:'me_s',who:'俺',t:'…牢獄？ 誘拐？ 俺が、犯罪者…？'}]},
-    {id:'old',x:40,art:'old',talk:[
+    {id:'old',x:30,w:42,art:'old',talk:[
       {bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'お、見ない顔だな。一つだけ、良いことを教えてやろう。'},
       {who:'古株',t:'ここでは、死にたくても死ねない。寝ちまうからな。'},
       {who:'古株',t:'ただ、逃げ出す方法は2つある。まぁ、頑張りな。'},
       {L:'me_s',who:'俺',t:'…寝ちまう？'}]},
-    {id:'hy',x:68,art:'hy_m',talk:[
+    {id:'hy',x:64,w:36,art:'hy_m',talk:[
       {bg:'bg_ship',L:'me_n',R:'hy_m',who:'眠らない男',t:'やっはー！！！ もう3日も寝てないぜー！！！'},
       {R:'hy_s',who:'眠らない男',t:'なのに、お前が来た瞬間が分からなかったぞ！！！ 不思議だな！！！！'},
       {L:'me_s',R:'hy_b',who:'俺',t:'…なんなんだ、こいつ。'}]}
@@ -1547,6 +1548,13 @@ const STORY={
 };
 const NAMEC={'俺':'#e0b84d','司会':'#d96a5e','古株':'#c9b78a','男':'#9fb3a0','眠らない男':'#c9d96a','怒る男':'#d9a05e'};
 /* ノベル風の場面。タップで文字送り・次へ。背景・立ち絵が切り替わる */
+/* 立ち絵：名前 → 全身絵。表情がない分は近い絵で代用。fh は全身の高さの比 */
+const SPR={me_n:'fb_me_n',me_d:'fb_me_n',me_w:'fb_me_n',me_s:'fb_me_s',ex_t:'fb_ex_t',ex_s:'fb_ex_s',ex_g:'fb_ex_s',old:'fb_old_n',
+  hy_m:'fb_hy_m',hy_s:'fb_hy_m',hy_b:'fb_hy_b',cl_g:'fb_cl_g',cl_s:'fb_cl_s',cl_u:'fb_cl_s',gd_n:'fb_gd_n',gd_a:'fb_gd_a'};
+const FH={fb_me:1,fb_ex:.95,fb_old:.78,fb_hy:1.15,fb_cl:1.2,fb_gd:.82};
+const sprName=n=>SPR[n]||n;
+const sprFH=f=>f.startsWith('fb_')?(FH[f.slice(0,5)]||1):.62;
+function sprImg(n){const f=sprName(n);return h('img',{src:'art/'+f+'.png',alt:'',draggable:'false',style:'height:'+Math.round(sprFH(f)*100)+'%'})}
 /* セリフの改行：1行15文字まで。句読点と助詞の切れ目で折る */
 function wrapJa(t,max=15){
   const out=[];
@@ -1596,8 +1604,8 @@ function vn(steps,done){
     if(n===null){cur[k]=null;el.classList.remove('on');return}
     if(cur[k]!==n){
       cur[k]=n;
-      const im=h('img',{src:n==='old'?'art/old.png':'art/'+n+'.png',alt:'',draggable:'false'});
-      el.replaceChildren(im);el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
+      const im=sprImg(n);
+      el.replaceChildren(im);el.classList.toggle('bust',!sprName(n).startsWith('fb_'));el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
     }
   };
   const finish=()=>{if(closed)return;closed=true;clearInterval(typing);ov.removeEventListener('click',tap);ov.hidden=true;vnState=null;done&&done()};
@@ -1632,7 +1640,7 @@ function explore(o,done){
   const root=h('div',{class:'vn ex'});
   root.append(h('img',{class:'vbg on',src:'art/'+o.bg+'.png',alt:'',draggable:'false'}));
   o.people.forEach(p=>{
-    const b=h('button',{class:'exc'+(talked.has(p.id)?' done':''),type:'button','aria-label':'話す',style:`left:${p.x}%`},h('img',{src:'art/'+p.art+'.png',alt:'',draggable:'false'}),talked.has(p.id)?'':h('span',{class:'bang'},'！'));
+    const b=h('button',{class:'exc'+(talked.has(p.id)?' done':''),type:'button','aria-label':'話す',style:`left:${p.x}%;width:${p.w||28}%`},sprImg(p.art),talked.has(p.id)?'':h('span',{class:'bang'},'！'));
     b.onclick=()=>{SFX.tap();talked.add(p.id);vn(p.talk,()=>{
       if(talked.size>=o.people.length)done();else explore({...o,talked:[...talked]},done)})};
     root.append(b);
