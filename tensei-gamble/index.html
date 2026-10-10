@@ -358,7 +358,7 @@ body.intable #main{padding-bottom:8px
 .bcoin b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--head);font-size:20px;color:#fff;text-shadow:0 0 6px #000,0 0 2px #000}
 .bsay{grid-area:auto;margin:8px 0;min-height:2.8em;white-space:pre-line}
 .bpick{display:flex;gap:10px;flex-wrap:wrap;min-height:52px}
-.bpick .btn{flex:1}
+.bpick .btn{flex:1}.bpick .wrow{flex:1 1 100%;width:100%}
 
 .glist{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
 .gcard{flex-direction:column;align-items:stretch!important;gap:6px;padding:8px 10px}
@@ -400,6 +400,18 @@ body.inworld #main{padding:0!important;overflow:hidden}
 .nook{position:absolute;left:50%;top:26%;transform:translateX(-50%);width:40%;min-width:130px;height:24%;padding:6px 10px;background:#ffffff10;border:2px dashed #e8dcc488;color:#eadfc6;font-family:var(--head);text-align:center;cursor:pointer;border-radius:14px 14px 4px 4px;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;transition:box-shadow .2s,background .2s}
 .nook b{font-size:17px}.nook small{font-size:11px;color:#bfb08c}
 .nook.near{background:#e0b84d22;border:2px solid #e0b84d;box-shadow:0 0 22px #e0b84d88}
+
+.wrow{position:relative;height:132px;margin-top:6px;touch-action:none;cursor:ew-resize;overflow:hidden;border-bottom:3px solid #e8dcc433}
+.wrbox{position:absolute;left:0;bottom:4px;width:100%;height:112px;pointer-events:none;display:flex;align-items:flex-end;justify-content:center}
+.wrme{height:112px;width:auto;object-fit:contain;filter:drop-shadow(2px 3px 0 #000a);transform-origin:50% 100%}
+.wrbox.walk .wrme{animation:wbob .34s ease-in-out infinite}
+.wmark{position:absolute;bottom:4px;width:84px;height:22px;margin-left:-42px;border:2px dashed #e8dcc488;border-radius:50%;transition:box-shadow .2s,border-color .2s}
+.wmark b{position:absolute;left:50%;bottom:calc(100% + 70px);transform:translateX(-50%);white-space:nowrap;font-family:var(--head);font-size:16px;padding:4px 10px;background:#120d08d9;border:2px solid #e8dcc4;color:#eadfc6;border-radius:10px}
+.wmark b:empty{display:none}
+.wmark.near{border:2px solid #e0b84d;box-shadow:0 0 16px #e0b84daa}
+.wmark.near b{border-color:#e0b84d;color:#e0b84d}
+.wrhint{position:absolute;left:50%;top:4px;transform:translateX(-50%);padding:3px 10px;background:#120d08cc;border-radius:999px;color:#bfb08c;font-size:11px;white-space:nowrap;pointer-events:none;transition:opacity .4s}
+.wrow .wpad{z-index:3}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 html{-webkit-text-size-adjust:100%}
@@ -664,6 +676,60 @@ function betUI(B,g,t,label,onStart){
   B.append(box,h('div',{class:'row'},btn(label,()=>onStart(v*r.u,v,r),'pri')));
 }
 
+/* ================= 歩いて選ぶ：スライドで歩き、場所の上で上へスライドして決める ================= */
+function Walker(parent,spots,onPick,opts={}){
+  const row=h('div',{class:'wrow'});
+  const marks=spots.map(sp=>{const m=h('div',{class:'wmark',style:'left:'+(sp.x*100)+'%'},h('b',null,sp.label||''));row.append(m);return m});
+  const me=h('img',{class:'wrme',src:'art/fb_me_n.png',alt:'',draggable:'false'});
+  const meBox=h('div',{class:'wrbox'},me);
+  const pad=h('div',{class:'wpad'},h('i'));
+  const hint=h('div',{class:'wrhint'},opts.hint||'スライドで歩く。選ぶ場所の上で、上へスライド');if(opts.hint===' ')hint.style.display='none';
+  row.append(meBox,pad,hint);parent.append(row);
+  let W=row.clientWidth||340,px=W*(opts.start??.5),vx=0,held=false,x0=0,y0=0,live=true,picked=false,faceR=true,last=performance.now(),raf=0,near=-1;
+  const R=60;
+  const nearest=()=>{let b=-1,bd=1e9;spots.forEach((sp,i)=>{const d=Math.abs(px-sp.x*W);if(d<bd){bd=d;b=i}});return bd<W*.11?b:-1};
+  const draw=()=>{
+    meBox.style.transform='translate3d('+(px-W/2)+'px,0,0)';
+    me.style.transform='scaleX('+(faceR?1:-1)+')';
+    const n=nearest();if(n!==near){near=n;marks.forEach((m,i)=>m.classList.toggle('near',i===n))}
+  };
+  const tick=now=>{
+    if(!row.isConnected){return}
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    if(held&&live&&vx){px=Math.max(28,Math.min(W-28,px+vx*Math.max(200,W*.6)*dt));faceR=vx>0;meBox.classList.add('walk')}else meBox.classList.remove('walk');
+    draw();raf=requestAnimationFrame(tick);
+  };
+  const ptr=e=>{
+    const dx=e.clientX-x0,dy=e.clientY-y0,a=Math.abs(dx);
+    vx=a<8?0:Math.sign(dx)*Math.min(1,(a-8)/(R-8));
+    pad.firstChild.style.transform='translate('+Math.max(-R,Math.min(R,dx))+'px,'+Math.max(-R,Math.min(R,dy))+'px)';
+    if(dy<-38&&live&&!picked){
+      const n=nearest();
+      if(n>=0){
+        picked=true;live=false;held=false;vx=0;px=spots[n].x*W;pad.classList.remove('on');
+        me.animate([{transform:'scaleX('+(faceR?1:-1)+') translateY(0)'},{transform:'scaleX('+(faceR?1:-1)+') translateY(-22px)'},{transform:'scaleX('+(faceR?1:-1)+') translateY(0)'}],{duration:320});
+        SFX.tap();draw();setTimeout(()=>onPick(n),260);
+      }
+    }
+  };
+  row.addEventListener('pointerdown',e=>{
+    if(!live)return;held=true;x0=e.clientX;y0=e.clientY;vx=0;
+    const r=row.getBoundingClientRect();pad.style.left=(e.clientX-r.left)+'px';pad.style.top=(e.clientY-r.top)+'px';
+    pad.firstChild.style.transform='translate(0,0)';pad.classList.add('on');hint.style.opacity=0;
+    try{row.setPointerCapture(e.pointerId)}catch(_){}
+  });
+  row.addEventListener('pointermove',e=>{if(held)ptr(e)});
+  const rel=()=>{held=false;vx=0;pad.classList.remove('on')};
+  ['pointerup','pointercancel'].forEach(k=>row.addEventListener(k,rel));
+  const kd=e=>{if(!live)return;if(e.key==='ArrowLeft'){held=true;vx=-1}else if(e.key==='ArrowRight'){held=true;vx=1}else if(e.key==='ArrowUp'){const n=nearest();if(n>=0&&!picked){picked=true;live=false;px=spots[n].x*W;draw();setTimeout(()=>onPick(n),200)}}};
+  const ku=e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight')rel()};
+  addEventListener('keydown',kd);addEventListener('keyup',ku);
+  const stop=()=>{cancelAnimationFrame(raf);removeEventListener('keydown',kd);removeEventListener('keyup',ku)};
+  cleanups.push(stop);
+  draw();raf=requestAnimationFrame(tick);
+  return{row,destroy(){stop();row.remove()}};
+}
+
 /* ================= シェルゲーム ================= */
 const SHELL_T=[
   {n:'シェルゲーム',s:'ピエロがカップを入れ替える。ボールの入ったカップを目で追え。',deco:['clown','cup']},
@@ -698,8 +764,8 @@ function gShell(t=0){
       await sleep(dur+80);if(tk!==tok)return;
     }
     msg.textContent='ボールが入っているのは、どれだ。';
-    cups.forEach((c,i)=>{c.disabled=false;c.onclick=()=>choose(i)});
     let chosen=false;
+    const wk=Walker(B,[0,1,2].map(sl=>({x:(16.6+33.333*sl)/100,label:''})),sl=>{const i=slots.indexOf(sl);wk.destroy();choose(i)});
     async function choose(i){
       if(chosen)return;chosen=true;
       cups.forEach(c=>c.disabled=true);
@@ -794,7 +860,8 @@ function gBluff(t=0){
     const pickC=a=>a[Math.floor(Math.random()*a.length)];
     const upd=()=>{status.textContent='第'+Math.min(round+1,BL_ROUNDS)+'/'+BL_ROUNDS+'戦\n掛け金 '+n.toLocaleString()+T.un+'\nいま '+(net>=0?'+':'−')+fmt(Math.abs(net))};
     const choose=(opts)=>new Promise(res=>{
-      act.replaceChildren(...opts.map(([l,v])=>btn(l,()=>{act.replaceChildren();res(v)},'pri')));
+      act.replaceChildren();
+      const wk=Walker(act,opts.map(([l],i)=>({x:i?.76:.24,label:l})),i=>{wk.destroy();res(opts[i][1])},{start:.5,hint:' '});
     });
     const money=win=>win?Math.round(betC*CFG.psychRake):-betC;
     async function finish(){
