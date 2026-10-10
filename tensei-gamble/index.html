@@ -274,8 +274,39 @@ body[data-stage="3"] .bd{--wa:#7a7090;--wb:#b9b0cd;border-color:#4a4260}
 .ctaw{margin-top:18px}
 .frag{margin:10px 0 4px;padding:8px 12px;border-left:3px solid var(--hi);color:#cbbd9f;font-size:15px;line-height:1.8;font-style:italic;animation:pop .8s ease-out}
 .goal{font-size:13px;color:var(--mut);margin:6px 0 10px;padding-left:10px;border-left:3px solid var(--hi);line-height:1.6}
+
+/* スマホ：卓は1画面に収める（スクロールさせない） */
+@media (max-width:899px){
+  body.intable .hdr{padding:6px 16px 12px}
+  body.intable .hdr .coins,body.intable .hdr .kbl{display:none}
+  body.intable .back{margin-top:6px}
+  body.intable .back .btn{padding:4px 12px;font-size:14px}
+  body.intable .ttlrow{flex-wrap:nowrap;align-items:center;margin-top:-34px;justify-content:flex-end}
+  body.intable .ttlrow h1.big{font-size:20px;margin:0}
+  body.intable .ttlrow .deco,body.intable .note{display:none}
+  body.intable .tbl{gap:8px;margin-top:2px}
+  body.intable .faceW{width:54px}
+  body.intable .say{font-size:14px;padding:4px 10px;min-height:28px}
+  body.intable .dtot{font-size:16px}
+  body.intable .bd{width:min(100%,calc(100dvh - 455px));min-width:200px;margin:0 auto;border-width:7px}
+  body.intable .under{grid-template-columns:70px 1fr 64px;gap:8px}
+  body.intable .pot{min-height:70px}
+  body.intable .deck{width:54px;height:74px}
+  body.intable .deck .dl{bottom:-30px}
+  body.intable .tray{padding:6px 10px}
+  body.intable .ptot{font-size:18px}
+  body.intable main,body.intable #main{padding-bottom:8px}
+  .chiprow:empty,.tmsg:empty{display:none}
+  body.intable .chiprow{margin-top:20px;gap:6px}
+  body.intable .dealer{align-items:center}
+  body.intable .chip{width:46px;height:46px}
+  body.intable .tmsg{margin-top:8px;font-size:13px;min-height:1.2em;line-height:1.4}
+}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
+html{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#main,.over{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 </style>
 </head>
 <body data-stage="0">
@@ -628,6 +659,7 @@ function Table(B){
   const msg=h('div',{class:'tmsg'});
   const chips=h('div',{class:'chiprow'});
   const meter=h('div',{class:'meter'});
+  document.body.classList.add('intable');cleanups.push(()=>document.body.classList.remove('intable'));
   const root=h('div',{class:'tbl'},dealer,bd,meter,h('div',{class:'under'},pot,tray,deck),chips,msg);
   B.append(root);
   let deckHandler=null;deck.dataset.off='1';
