@@ -311,7 +311,7 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .vc.dim{filter:brightness(.55)}
 .vbox{position:absolute;left:3%;right:3%;bottom:max(14px,env(safe-area-inset-bottom,0px));min-height:22%;padding:12px 16px 14px;background:#120d08ee;border:3px solid #e8dcc4;border-radius:12px 5px 14px 6px/6px 14px 5px 12px;box-shadow:0 6px 0 #000a;color:#eadfc6}
 .vname{position:absolute;left:14px;top:-16px;padding:2px 14px;font-family:var(--head);font-size:16px;background:#120d08;border:2px solid #e8dcc4;border-radius:8px 3px 9px 4px}
-.vtext{font-size:17px;line-height:1.85;min-height:3.7em;text-wrap:pretty;margin-top:4px}
+.vtext{font-size:17px;line-height:1.8;min-height:3.6em;white-space:pre-line;margin-top:4px}
 .vbox.narr .vtext{font-style:italic;color:#cbbd9f}
 .vnext{position:absolute;right:14px;bottom:8px;color:var(--hi);opacity:0}
 .vbox.done .vnext{opacity:1;animation:pulse 1s ease-in-out infinite}
@@ -1547,6 +1547,30 @@ const STORY={
 };
 const NAMEC={'俺':'#e0b84d','司会':'#d96a5e','古株':'#c9b78a','男':'#9fb3a0','眠らない男':'#c9d96a','怒る男':'#d9a05e'};
 /* ノベル風の場面。タップで文字送り・次へ。背景・立ち絵が切り替わる */
+/* セリフの改行：1行15文字まで。句読点と助詞の切れ目で折る */
+function wrapJa(t,max=15){
+  const out=[];
+  for(const seg of String(t).replace(/[ 　]+/g,'').split('\n')){
+    const cl=seg.match(/[^、。！？…ー—]*[、。！？…ー—]+[」』）)]*|[^、。！？…ー—]+$/g)||[seg];
+    const parts=[];
+    for(let c of cl){
+      while([...c].length>max){
+        const ch=[...c];let cut=-1;
+        for(let i=max;i>=Math.floor(max/2);i--){if(/[はがをにでともへやか]/.test(ch[i-1])){cut=i;break}}
+        if(cut<0)cut=max;
+        parts.push(ch.slice(0,cut).join(''));c=ch.slice(cut).join('');
+      }
+      if(c)parts.push(c);
+    }
+    let line='';
+    for(const q of parts){
+      if([...line].length+[...q].length<=max)line+=q;
+      else{if(line)out.push(line);line=q}
+    }
+    if(line)out.push(line);
+  }
+  return out.join('\n');
+}
 let vnState=null;
 function vn(steps,done){
   const ov=$('#over');ov.hidden=false;ov.scrollTop=0;
@@ -1591,7 +1615,7 @@ function vn(steps,done){
     speak(s.who);
     name.textContent=s.who||'';name.style.display=s.who?'':'none';name.style.color=NAMEC[s.who]||'#e0b84d';
     box.classList.toggle('narr',!s.who);
-    full=s.t;pos=0;text.textContent='';clearInterval(typing);box.classList.remove('done');
+    full=wrapJa(s.t);pos=0;text.textContent='';clearInterval(typing);box.classList.remove('done');
     typing=setInterval(()=>{pos++;text.textContent=full.slice(0,pos);if(pos%2===0)SFX.tick&&SFX.tick();if(pos>=full.length){clearInterval(typing);box.classList.add('done')}},34);
   }
   const tap=e=>{if(e.target.closest('.vskip'))return;if(pos<full.length){clearInterval(typing);pos=full.length;text.textContent=full;box.classList.add('done')}else next()};
