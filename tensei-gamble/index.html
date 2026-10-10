@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#2a2019">
 <meta name="description" content="転生した海の上の牢獄で、ギャンブルだけを頼りに「脱出の鍵」を買う。負けるほど強くなる裏技に気づけるか。">
 <title>転生ギャンブル</title>
@@ -271,7 +271,6 @@ body.intable #main{padding-bottom:8px
 @media (min-width:900px){.tbl2{height:min(640px,calc(100dvh - 232px));max-width:640px}.pp{width:64px;height:80px}.vnote{width:124px}}
 
 /* ===== 下のナビ ===== */
-body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:center;gap:2px;padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));background:var(--bg2);box-shadow:0 -4px 0 #0005}
 .nav[hidden]{display:none}
 .nav::before{content:"";position:absolute;left:0;right:0;top:-12px;height:8px;background:var(--strip)}
@@ -335,11 +334,28 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .exc .bang{position:absolute;left:50%;top:-8px;transform:translateX(-50%);font-family:var(--head);font-size:30px;color:var(--hi);text-shadow:0 2px 0 #000;animation:bang 2s ease-in-out infinite}
 @keyframes bang{50%{transform:translateX(-50%) translateY(-5px)}}
 .exc:hover img{filter:drop-shadow(3px 5px 0 #000a) brightness(1.15)}
+
+.tiers{display:flex;gap:6px;margin:8px 0 6px}
+.tier{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border:2px solid #0000;background:#ffffff0d;color:var(--mut);font-family:var(--head);font-size:14px;cursor:pointer;border-radius:12px 5px 11px 6px/6px 11px 5px 12px}
+.tier img{height:26px;width:auto}
+.tier.on{color:var(--hi);border-color:var(--hi);background:#ffffff18}
+.tier.off{opacity:.45}
+.glist{gap:8px}
+.gcard small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hscene{max-height:36dvh}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
-html{overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
-body{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
-#main,.over{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html{-webkit-text-size-adjust:100%}
+/* ページ全体は動かさない：スライド・引っ張り更新・拡大・選択・コピーを止める */
+html,body{height:100%;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%}
+body{position:fixed;inset:0;width:100%;display:flex;flex-direction:column;min-height:0;touch-action:manipulation}
+*{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+#hdr{flex:none}
+#main{flex:1 1 auto;min-height:0;width:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:calc(74px + env(safe-area-inset-bottom,0px))}
+#main::-webkit-scrollbar{display:none}
+.over{overscroll-behavior:contain;scrollbar-width:none}
+.over::-webkit-scrollbar{display:none}
+
 </style>
 </head>
 <body data-stage="0">
@@ -1237,15 +1253,19 @@ const JOBS=[
   {id:'det_au',u:'au',name:'金庫破りの犯人探し',desc:'金庫番たちの証言から、正直者を探す。'}
 ];
 const UNIT_NAME={cu:'銅貨',ag:'銀貨',au:'金貨'};
-function baito(){
-  const B=frame('船内のバイト','指先を動かせ。バイトは色当ての余韻を数えない。報酬は軽い。',['guard']);
+function baito(tier){
+  const m=M();
+  const reached=S.baito.au?2:S.baito.ag?1:0;
+  if(tier===undefined)tier=reached;
+  m.append(tierTabs(tier,i=>{M().replaceChildren();baito(i)},2));
   const need={cu:'銅貨100枚を持つ',ag:'銀貨100枚を持つ',au:'金貨100枚を持つ'};
+  const u=['cu','ag','au'][tier];
   const list=h('div',{class:'list glist'});
-  JOBS.forEach(j=>{
+  JOBS.filter(j=>j.u===u).forEach(j=>{
     const open=S.baito[j.u];
     list.append(h('div',{class:'card job'+(open?'':' off')},h('div',null,h('h3',null,j.name),h('small',{class:'mut'},open?j.desc:'解放条件: '+need[j.u])),open?btn('やる',()=>go('job',j.id),'pri'):''));
   });
-  B.append(list);
+  m.append(list);
 }
 function job(id){
   const j=JOBS.find(x=>x.id===id);const t=tok;
@@ -1412,25 +1432,25 @@ function home(){
 }
 
 /* ================= ギャンブル（卓で遊ぶ） ================= */
-function gamble(){
+function tierTabs(cur,pick,reachedMax){
+  return h('div',{class:'tiers'},...['cu','ag','au'].map((u,i)=>{
+    const ok=i<=reachedMax;
+    return h('button',{class:'tier'+(i===cur?' on':'')+(ok?'':' off'),type:'button','aria-label':['銅貨','銀貨','金貨'][i],onclick:()=>{if(!ok){SFX.lose();return}SFX.tap();pick(i)}},ART(ok?u:'cu'),h('span',null,ok?['銅貨','銀貨','金貨'][i]:'？？？'))}));
+}
+function gamble(tier){
   const m=M();
-  m.append(h('div',{class:'eyebrow'},['銅貨の卓 — チェスの駒','銀貨の卓 — サーカス','金貨の卓 — 金の遊び','貝殻の卓 — 金の遊び'][stage(S.coins)]));
+  const reached=tutDone()?Math.max(S.maxStage>=2?2:S.maxStage,0):0;
+  if(tier===undefined)tier=Math.min(2,Math.min(reached,stage(S.coins)));
+  m.append(tierTabs(tier,i=>{M().replaceChildren();gamble(i)},reached));
   if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つ並んでいる。'));
-  if(S.interval<3)m.append(h('p',{class:'note'},'色当ての余韻 — あと'+(3-S.interval)+'回、掛け金は上限に固定。'));
-  const tierNames=['銅貨 — チェスの駒','銀貨 — サーカス','金貨・貝殻 — 金の遊び'];
-  for(let tier=0;tier<3;tier++){
-    const reached=tier===0||S.maxStage>=tier;
-    if(!tutDone()&&tier>0)continue;
-    m.append(h('div',{class:'sec'},ART(['cu','ag','au'][tier]),tierNames[tier]));
-    const list=h('div',{class:'list glist'});
-    GAMES.filter(g=>g.tier===tier).forEach(g=>{
-      if(!reached){list.append(h('div',{class:'card gcard off'},h('div',null,h('h3',null,'？？？'),h('small',{class:'lock'},'まだ見えない'))));return}
-      const a=avail(g.id);
-      list.append(h('div',{class:'card gcard'+(a.ok?'':' off')},h('div',null,h('h3',null,g.name),h('small',{class:'mut'},g.desc),a.why?h('div',{class:'lock'},a.why):''),
-        a.ok?btn('遊ぶ',()=>go(g.id),'pri'):''));
-    });
-    m.append(list);
-  }
+  else if(S.interval<3)m.append(h('p',{class:'note'},'色当ての余韻 — あと'+(3-S.interval)+'回、掛け金は上限に固定。'));
+  const list=h('div',{class:'list glist'});
+  GAMES.filter(g=>g.tier===tier).forEach(g=>{
+    const a=avail(g.id);
+    list.append(h('div',{class:'card gcard'+(a.ok?'':' off')},h('div',null,h('h3',null,g.name),h('small',{class:'mut'},g.desc),a.why?h('div',{class:'lock'},a.why):''),
+      a.ok?btn('遊ぶ',()=>go(g.id),'pri'):''));
+  });
+  m.append(list);
 }
 
 /* ================= ガチャ（あとで） ================= */
@@ -1674,6 +1694,7 @@ function intro(){
   vn(STORY.wake,()=>explore({bg:'bg_ship',people:STORY.people},()=>vn(STORY.announce,()=>{S.intro=true;save();start()})));
 }
 function start(){$('#hdr').hidden=false;progress();go('home')}
+['contextmenu','copy','cut','selectstart','dragstart','gesturestart','gesturechange'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
 window.__T={S:()=>S,go,settle,prison,progress,CFG,betInfo,avail,drawAny,val};
 if(S.key){buyKey();$('#hdr').hidden=false;renderWallet()}
 else if(!S.intro)intro();
