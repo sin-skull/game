@@ -266,6 +266,14 @@ body[data-stage="3"] .bd{--wa:#7a7090;--wb:#b9b0cd;border-color:#4a4260}
 @keyframes stampIn{from{transform:translate(-50%,-50%) rotate(-8deg) scale(2.8);opacity:0}to{transform:translate(-50%,-50%) rotate(-8deg) scale(1);opacity:.96}}
 .snd{position:absolute;right:12px;top:8px}
 @media (min-width:900px){.tbl{max-width:520px}.faceW{width:110px}.under{grid-template-columns:96px 1fr 84px}.deck{width:76px;height:104px}.chip{width:68px;height:68px}}
+
+.story{margin:14px 0 6px;min-height:40vh}
+.sl{margin:14px 0;font-size:17px;line-height:1.9;opacity:0;transform:translateY(8px);transition:opacity .9s,transform .9s;text-wrap:pretty}
+.sl.on{opacity:1;transform:none}
+.tapnote{text-align:center;color:#7d705b;font-size:12px;margin-top:20px;animation:pulse 2s ease-in-out infinite}
+.ctaw{margin-top:18px}
+.frag{margin:10px 0 4px;padding:8px 12px;border-left:3px solid var(--hi);color:#cbbd9f;font-size:15px;line-height:1.8;font-style:italic;animation:pop .8s ease-out}
+.goal{font-size:13px;color:var(--mut);margin:6px 0 10px;padding-left:10px;border-left:3px solid var(--hi);line-height:1.6}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 </style>
@@ -329,7 +337,7 @@ function fmt(c){
 
 /* ================= セーブ ================= */
 const SK='tensei-gamble-v1';
-const fresh=()=>({coins:1,resets:0,tut:{c21:false,bj:false,hl:false},interval:3,colorN:0,baito:{cu:false,ag:false,au:false},jobs:{clean:0},maxStage:0,key:false,intro:false});
+const fresh=()=>({coins:1,resets:0,tut:{c21:false,bj:false,hl:false},interval:3,colorN:0,baito:{cu:false,ag:false,au:false},jobs:{clean:0},maxStage:0,key:false,intro:false,storyStage:0});
 let S=load();
 function load(){
   try{const j=JSON.parse(localStorage.getItem(SK));
@@ -1184,6 +1192,7 @@ function prison(){
     h('h2',null,'牢'),
     h('p',{class:'line'},'所持金は尽きた。看守の手が、肩にかかる。'),
     r>0?h('p',{class:'line'},'天井の同じ染みを見上げて、呟く。「また、ここだ」'):'',
+    r>0?h('p',{class:'frag'},'—— '+STORY.frag[Math.min(r,STORY.frag.length)-1]):'',
     h('div',{class:'cast'},ART('guard'),h('p',null,'看守 '+GUARD(r))),
     r>=2?h('div',{class:'cast'},ART('old'),h('p',{class:'oldm'},'古株の囚人が、壁際で言う。「ここに長く居る奴ほど、懐が温かい」')):'',
     h('div',{class:'wall',html:tallySVG(r)}),
@@ -1357,6 +1366,10 @@ function avail(g){
 }
 function home(){
   const m=M();
+  const st=stage(S.coins);
+  if(S.intro&&st>S.storyStage&&STORY.stage[st]&&!S.key){const k=st;S.storyStage=st;save();scene(STORY.stage[k],()=>{});}
+  else if(st>S.storyStage)S.storyStage=st;
+  if(S.intro&&!S.key)m.append(h('p',{class:'goal'},'目的：一万貝殻で鍵を買い、外の妹のもとへ。帳簿の写しを世に出す。'));
   m.append(h('div',{class:'eyebrow'},['銅貨の卓 — チェスの駒','銀貨の卓 — サーカス','金貨の卓 — 金の遊び','貝殻の卓 — 金の遊び'][stage(S.coins)]));
   if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つ並んでいる。'));
   if(S.coins>=CFG.KEY)m.append(h('div',{class:'card'},(()=>{const k=ART('key');k.className='keyimg';return k})(),h('h2',null,'脱出の鍵'),h('p',null,'一万貝殻。ついに、手が届いた。'),btn('鍵を買う',buyKey,'pri')));
@@ -1386,28 +1399,89 @@ function home(){
     else{try{localStorage.removeItem(SK)}catch(e){}S=fresh();location.reload()}}},'セーブを消す');
   fine.append(reset);m.append(fine);
 }
-function buyKey(){
+function buyKey(first=true){
   S.key=true;save();
-  const ov=$('#over');ov.hidden=false;
-  ov.replaceChildren(h('div',{class:'in'},h('div',{class:'stain'}),
-    (()=>{const k=ART('key');k.className='keyimg';k.style.height='70px';return k})(),h('p',{class:'keyend'},'一万貝殻を、卓に積む。'),
-    h('p',{class:'keyend'},'鍵は、思っていたより軽かった。'),
-    h('p',{class:'line'},'扉が、開く。'),
-    h('p',{class:'line'},'牢の傷は '+S.resets+' 本。'),
-    h('div',{class:'row'},btn('最初から',()=>{try{localStorage.removeItem(SK)}catch(e){}S=fresh();location.reload()},'pri'))));
+  const fin=()=>{
+    const ov=$('#over');ov.hidden=false;
+    ov.replaceChildren(h('div',{class:'in'},h('div',{class:'stain'}),
+      (()=>{const k=ART('key');k.className='keyimg';k.style.height='70px';return k})(),
+      h('p',{class:'line'},'牢の傷は '+S.resets+' 本。'),
+      h('p',{class:'line'},'—— 転生ギャンブル おわり ——'),
+      h('div',{class:'row'},btn('最初から',()=>{try{localStorage.removeItem(SK)}catch(e){}S=fresh();location.reload()},'pri'))));
+  };
+  scene({art:['key'],lines:STORY.ending,cta:'扉をくぐる'},fin);
+}
+
+/* ================= ストーリー（ここを書き換えれば物語が変わる） ================= */
+const STORY={
+  /* 序章：投獄された理由・逃げたい理由・成し遂げたいこと */
+  intro:[
+    '雨の夜だった。',
+    '俺は賭けチェスの「算定士」。駒の値を読み、掛け率を決める仕事だ。',
+    '道化の胴元の帳簿には、ありもしない掛け率が並んでいた。客はみんな、見えない盤で負けさせられていた。',
+    '告発の前夜、俺は「帳簿を盗んだ罪」で捕まった。',
+    '目が覚めると、知らない天井。ここは、貝殻で動く牢獄街。',
+    '所持金は銅貨が一枚。一万貝殻で「脱出の鍵」が買えるという。',
+    '妹と約束した。冬至までに戻る、と。',
+    '外へ出て、帳簿の写しを世に出す。盤を、ひっくり返してやる。'
+  ],
+  /* 牢に戻された回数ごとに甦る記憶（最後の一つは繰り返す） */
+  frag:[
+    '天井の染みは、雨の形に似ている。あの夜も、雨だった。',
+    '帳簿の表紙は黒い革。角に、見覚えのある印があった。',
+    '道化は笑っていた。「掛け率はな、動かすためにあるんだ」',
+    '妹に小さな盤を渡した。「冬至までに戻る」と言ったのを、覚えている。',
+    '俺を連れていく看守の手は、震えていた。寒さのせいだけだったか。',
+    '帳簿の写しは、盤の底に隠してある。妹は、まだ気づいていない。',
+    '老囚人の声がよみがえる。「勝つな。負け方を覚えろ。そうすれば、また立てる」',
+    'また同じ天井。それでも、傷を数えている。傷は、道しるべだ。'
+  ],
+  /* 所持金が次の段階に入った時 */
+  stage:{
+    1:{art:['guard'],lines:['銅貨の卓を抜けた。','看守が顔をしかめる。「銀の卓は、客が変わる。見世物の連中だ」','道化の笑い声が、遠くで一度だけ聞こえた気がした。']},
+    2:{art:['clown'],lines:['金貨の間。空気が冷たい。','壁の向こうから、聞き覚えのある笑い声。','この牢獄街の賭場の主は、あの道化の胴元だった。','帳簿は、ここにもある。']},
+    3:{art:['clown','guard'],lines:['貝殻の卓。ここまで来た者を、道化は初めて名で呼んだ。','「算定士じゃないか。久しぶりだな」','看守は、目を逸らした。','鍵まで、あと少しだ。']}
+  },
+  /* 鍵を買った後 */
+  ending:[
+    '一万貝殻を、卓に積む。',
+    '看守は袋を受け取り、中身を数えもせず、押し返した。',
+    '「鍵代は、もう貰ってる。お前が置いていった、一枚ずつでな」',
+    '牢で一文無しになる度に、掌に落ちた「お情けの一枚」。あれは、看守が自分の財布から置いていたものだった。',
+    '看守は昔、あの賭場の駒運びだった。告発の夜、俺を連れていく役を、断れなかった。',
+    '「行け。冬至には、まだ間に合う」',
+    '扉が、開く。',
+    '外は、雨だった。懐には、帳簿の写しの場所を知る、ただ一人の俺がいる。'
+  ]
+};
+let sceneTimer=null;
+/* 一行ずつ現れる場面。タップで次へ／早送り。最後にボタンが出る */
+function scene(o,done){
+  const ov=$('#over');ov.hidden=false;ov.scrollTop=0;
+  clearTimeout(sceneTimer);
+  const box=h('div',{class:'story'});
+  const lines=o.lines.map(t=>h('p',{class:'sl'},t));
+  const cta=h('div',{class:'row c ctaw'});
+  let i=0,fin=false;
+  const content=h('div',{class:'in'},h('div',{class:'stain'}),o.title?h('h1',{class:'big'},o.title):'',
+    o.art?h('div',{class:'cast'},...o.art.map(n=>ART(n))):'',box,cta,h('p',{class:'tapnote'},'タップで進む'));
+  ov.replaceChildren(content);
+  const showNext=()=>{
+    clearTimeout(sceneTimer);
+    if(i<lines.length){const l=lines[i++];box.append(l);requestAnimationFrame(()=>l.classList.add('on'));SFX&&SFX.tap&&SFX.tap();
+      l.scrollIntoView({block:'nearest',behavior:'smooth'});
+      sceneTimer=setTimeout(showNext,Math.min(3200,900+l.textContent.length*70))}
+    else if(!fin){fin=true;content.querySelector('.tapnote').remove();
+      cta.append(btn(o.cta||'つづける',()=>{clearTimeout(sceneTimer);ov.removeEventListener('click',tap);ov.hidden=true;done&&done()},'pri'))}
+  };
+  const tap=e=>{if(e.target.closest('button'))return;showNext()};
+  ov.addEventListener('click',tap);
+  showNext();
 }
 
 /* ================= イントロ・起動 ================= */
 function intro(){
-  const ov=$('#over');ov.hidden=false;
-  ov.replaceChildren(h('div',{class:'in'},h('div',{class:'stain'}),
-    h('h1',{class:'big'},'転生ギャンブル'),
-    h('div',{class:'cast'},ART('guard'),ART('clown'),ART('old')),
-    h('p',{class:'line'},'目が覚めると、知らない天井だった。'),
-    h('p',{class:'line'},'貝殻で動く牢獄街の一室。所持金は、銅貨が一枚だけ。'),
-    h('p',{class:'line'},'一万貝殻を払えば、「脱出の鍵」が買える。'),
-    h('p',{class:'line'},'稼ぐ手段は、ギャンブルと、牢内のバイトだけだ。'),
-    h('div',{class:'row'},btn('はじめる',()=>{S.intro=true;save();ov.hidden=true;start()},'pri'))));
+  scene({title:'転生ギャンブル',art:['guard','clown','old'],lines:STORY.intro,cta:'はじめる'},()=>{S.intro=true;save();start()});
 }
 function start(){$('#hdr').hidden=false;progress();go('home')}
 window.__T={S:()=>S,go,settle,prison,progress,CFG,betInfo,avail,startAmt,drawAny,val};
