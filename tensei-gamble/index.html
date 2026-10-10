@@ -924,13 +924,13 @@ const UNIT_NAME={cu:'銅貨',ag:'銀貨',au:'金貨'};
 function baito(tier){
   const m=M();
   m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
-  const reached=S.baito.au?2:S.baito.ag?1:0;
+  const reached=Math.min(OPEN_TIER,S.baito.au?2:S.baito.ag?1:0);
   if(tier===undefined)tier=reached;
   m.append(tierTabs(tier,i=>{M().replaceChildren();baito(i)},reached));
   const need={cu:'銅貨100枚を持つ',ag:'銀貨100枚を持つ',au:'金貨100枚を持つ'};
   const u=['cu','ag','au'][tier];
   const list=h('div',{class:'list glist'});
-  JOBS.filter(j=>j.u===u).forEach(j=>{
+  JOBS.filter(j=>j.u===u&&tier<=OPEN_TIER).forEach(j=>{
     list.append(h('div',{class:'card job'},h('div',null,h('h3',null,j.name),h('small',{class:'mut'},j.desc)),btn('やる',()=>go('job',j.id),'pri')));
   });
   m.append(list);
@@ -1057,6 +1057,7 @@ let navEl=null,curView='home';
 function renderNav(v){if(navEl)navEl.hidden=true}
 
 /* ================= ワールド：船の中を歩く。場所の前で、タップして入る ================= */
+const OPEN_TIER=0; /* いま公開する貨幣の階層(0=銅のみ)。銀・金は世界観の絵ができたら上げる */
 const WORLD=[
   {id:'bed',name:'寝床',bg:'bg_cell',sub:'壁の傷を数える場所'},
   {id:'work',name:'仕事場',bg:'bg_office',sub:'バイト'},
@@ -1065,7 +1066,7 @@ const WORLD=[
   {id:'au',name:'金貨の賭場',bg:'bg_stage',sub:'壇上の卓',need:2},
   {id:'ex',name:'換金所',bg:'bg_deck',sub:'もうすぐ開く'}
 ];
-function worldOpen(p){return !p.need||(tutDone()&&S.maxStage>=p.need)}
+function worldOpen(p){return !p.need||(p.need<=OPEN_TIER&&tutDone()&&S.maxStage>=p.need)}
 function worldShown(p){if(p.id==='work')return !!S.baito.cu;if(p.id==='ex')return false;return worldOpen(p)}
 let worldRAF=0;
 function home(){
@@ -1180,7 +1181,7 @@ function tierTabs(cur,pick,reachedMax){
 function gamble(tier){
   const m=M();
   m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
-  const reached=tutDone()?Math.max(S.maxStage>=2?2:S.maxStage,0):0;
+  const reached=tutDone()?Math.min(OPEN_TIER,Math.max(S.maxStage>=2?2:S.maxStage,0)):0;
   if(tier===undefined)tier=lastTier!==null&&lastTier<=reached?lastTier:Math.min(2,Math.min(reached,stage(S.coins)));
   m.append(tierTabs(tier,i=>{M().replaceChildren();gamble(i)},reached));
   if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つある。'));
