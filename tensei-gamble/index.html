@@ -922,13 +922,12 @@ function baito(tier){
   m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
   const reached=S.baito.au?2:S.baito.ag?1:0;
   if(tier===undefined)tier=reached;
-  m.append(tierTabs(tier,i=>{M().replaceChildren();baito(i)},2));
+  m.append(tierTabs(tier,i=>{M().replaceChildren();baito(i)},reached));
   const need={cu:'銅貨100枚を持つ',ag:'銀貨100枚を持つ',au:'金貨100枚を持つ'};
   const u=['cu','ag','au'][tier];
   const list=h('div',{class:'list glist'});
   JOBS.filter(j=>j.u===u).forEach(j=>{
-    const open=S.baito[j.u];
-    list.append(h('div',{class:'card job'+(open?'':' off')},h('div',null,h('h3',null,j.name),h('small',{class:'mut'},open?j.desc:'解放条件: '+need[j.u])),open?btn('やる',()=>go('job',j.id),'pri'):''));
+    list.append(h('div',{class:'card job'},h('div',null,h('h3',null,j.name),h('small',{class:'mut'},j.desc)),btn('やる',()=>go('job',j.id),'pri')));
   });
   m.append(list);
 }
@@ -1063,6 +1062,7 @@ const WORLD=[
   {id:'ex',name:'換金所',bg:'bg_deck',sub:'もうすぐ開く'}
 ];
 function worldOpen(p){return !p.need||(tutDone()&&S.maxStage>=p.need)}
+function worldShown(p){if(p.id==='work')return !!S.baito.cu;if(p.id==='ex')return false;return worldOpen(p)}
 let worldRAF=0;
 function home(){
   const m=M();
@@ -1072,8 +1072,9 @@ function home(){
   document.body.classList.add('inworld');
   const world=h('div',{class:'world'});
   const strip=h('div',{class:'wstrip'});
-  const N=WORLD.length;
-  const hots=WORLD.map((p,i)=>{
+  const PL=WORLD.filter(worldShown);
+  const N=PL.length;
+  const hots=PL.map((p,i)=>{
     const open=worldOpen(p);
     const hot=h('button',{class:'hot'+(open?'':' lock'),type:'button','aria-label':p.name},h('b',null,p.name),h('small',null,open?p.sub:'まだ入れない'));
     hot.onclick=e=>{e.stopPropagation();target=i;autoGo=true};
@@ -1089,13 +1090,14 @@ function home(){
   if((S.walkHint||0)<6)world.append(hint);
   if(S.coins>=CFG.KEY)world.append(h('div',{class:'wkey'},(()=>{const k=ART('key');k.className='keyimg';return k})(),btn('鍵を買う',buyKey,'pri')));
   m.append(world);
-  let W=world.clientWidth||360,px=((S.at||0)+.5)*W,dir=0,autoGo=false,target=S.at||0,held=false,last=performance.now(),faceR=true,step=0;
+  const at0=Math.max(0,PL.findIndex(p=>p.id===S.at));
+  let W=world.clientWidth||360,px=(at0+.5)*W,dir=0,autoGo=false,target=at0,held=false,last=performance.now(),faceR=true,step=0;
   const nearest=()=>Math.max(0,Math.min(N-1,Math.floor(px/W)));
   const layout=()=>{
     W=world.clientWidth||360;
     strip.style.width=(W*N)+'px';[...strip.children].forEach(c=>c.style.width=W+'px');
   };
-  layout();px=((S.at||0)+.5)*W;
+  layout();px=(at0+.5)*W;
   const draw=()=>{
     const cam=Math.max(0,Math.min(N*W-W,px-W/2));
     strip.style.transform='translate3d('+(-cam)+'px,0,0)';
@@ -1106,7 +1108,7 @@ function home(){
     arL.style.opacity=px>W*.6?.8:0;arR.style.opacity=px<W*(N-.6)?.8:0;
   };
   const enter=i=>{
-    const p=WORLD[i];S.at=i;save();
+    const p=PL[i];S.at=p.id;save();
     if(!worldOpen(p)){SFX.lose&&SFX.lose();toast('まだ入れない。'+(p.id==='ag'?'銅貨の勝負を、もっと勝ち上がれ。':'銀貨の勝負を、もっと勝ち上がれ。'));return}
     SFX.tap();
     if(p.id==='bed')vn([{bg:'bg_cell',t:'壁の傷は '+S.resets+' 本。'},{t:'目的：1万貝で、たった一つの鍵を買う。'},{t:'酔い國を、出る。'}],()=>{});
@@ -1151,9 +1153,10 @@ function toast(t){
 
 /* ================= ギャンブル（卓で遊ぶ） ================= */
 function tierTabs(cur,pick,reachedMax){
-  return h('div',{class:'tiers'},...['cu','ag','au'].map((u,i)=>{
-    const ok=i<=reachedMax;
-    return h('button',{class:'tier'+(i===cur?' on':'')+(ok?'':' off'),type:'button','aria-label':['銅貨','銀貨','金貨'][i],onclick:()=>{if(!ok){SFX.lose();return}SFX.tap();pick(i)}},ART(ok?u:'cu'),h('span',null,ok?['銅貨','銀貨','金貨'][i]:'？？？'))}));
+  const els=['cu','ag','au'].map((u,i)=>{
+    if(i>reachedMax)return null;
+    return h('button',{class:'tier'+(i===cur?' on':''),type:'button','aria-label':['銅貨','銀貨','金貨'][i],onclick:()=>{SFX.tap();pick(i)}},ART(u),h('span',null,['銅貨','銀貨','金貨'][i]))}).filter(Boolean);
+  return els.length>1?h('div',{class:'tiers'},...els):h('div');
 }
 function gamble(tier){
   const m=M();
