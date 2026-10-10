@@ -266,6 +266,7 @@ body.intable .back .btn{padding:4px 12px;font-size:14px}
 body.intable .ttlrow{flex-wrap:nowrap;align-items:center;margin-top:-34px;justify-content:flex-end}
 body.intable .ttlrow h1.big{font-size:20px;margin:0}
 body.intable .ttlrow .deco,body.intable .note{display:none}
+body.ingame .hdr{padding:6px 16px 12px}body.ingame .hdr .coins,body.ingame .hdr .kbl{display:none}body.ingame .back{margin-top:6px}body.ingame .back .btn{padding:4px 12px;font-size:14px}body.ingame .ttlrow{flex-wrap:nowrap;align-items:center;margin-top:-34px;justify-content:flex-end}body.ingame .ttlrow h1.big{font-size:20px;margin:0}body.ingame .ttlrow .deco,body.ingame #main>.note{display:none}body.ingame #main{padding-bottom:8px}
 body.intable #main{padding-bottom:8px
 }
 @media (min-width:900px){.tbl2{height:min(640px,calc(100dvh - 232px));max-width:640px}.pp{width:64px;height:80px}.vnote{width:124px}}
@@ -343,6 +344,27 @@ body.intable #main{padding-bottom:8px
 .glist{gap:8px}
 .gcard small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hscene{max-height:36dvh}
+
+.gskin{position:relative;padding:8px 10px;border-radius:12px;background:linear-gradient(#000a,#000d),var(--bg) center/cover;border:2px solid #000}
+.gskin.s1{background:linear-gradient(#1a1020aa,#000d),var(--bg) center/cover}
+.gskin.s2{background:linear-gradient(#3a2a05aa,#000d),var(--bg) center/cover;border-color:#8a6a1c}
+.gskin .note{margin:6px 0;white-space:pre-line}
+.bhead{display:flex;justify-content:space-between;align-items:flex-end;gap:8px;height:30dvh;min-height:150px}
+.bleft{flex:1;display:flex;flex-direction:column;justify-content:space-between;align-self:stretch}
+.oppw{height:100%;display:flex;align-items:flex-end;justify-content:flex-end;flex:none;width:44%}
+.oppw{overflow:hidden}.oppw img{height:100%!important;max-width:100%;object-fit:contain;object-position:50% 100%}
+.bcoin{position:relative;width:84px;height:84px;margin:0 0 6px}
+.bcoin img{width:100%;height:100%;object-fit:contain}
+.bcoin b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--head);font-size:20px;color:#fff;text-shadow:0 0 6px #000,0 0 2px #000}
+.bsay{grid-area:auto;margin:8px 0;min-height:2.8em;white-space:pre-line}
+.bpick{display:flex;gap:10px;flex-wrap:wrap;min-height:52px}
+.bpick .btn{flex:1}
+
+.glist{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
+.gcard{flex-direction:column;align-items:stretch!important;gap:6px;padding:8px 10px}
+.gcard h3{font-size:16px;margin:0}
+.gcard .btn{width:100%;min-height:40px}
+@media (max-height:700px){.gskin .row{margin:8px 0}.gskin .card{padding:8px}.bet{gap:4px}.cups{margin-top:84px}.gcard small{-webkit-line-clamp:1}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 html{-webkit-text-size-adjust:100%}
@@ -417,7 +439,7 @@ function fmt(c){
 
 /* ================= セーブ ================= */
 const SK='tensei-gamble-v1';
-const fresh=()=>({coins:1,resets:0,tut:{c21:false,bj:false,hl:false},interval:3,colorN:0,baito:{cu:false,ag:false,au:false},jobs:{clean:0},maxStage:0,key:false,intro:false,storyStage:0,hintN:0,mute:false,fragSeen:0,seenTable:false});
+const fresh=()=>({coins:1,resets:0,tut:{shell:false,dice:false,roul:false},interval:3,colorN:0,baito:{cu:false,ag:false,au:false},jobs:{clean:0},maxStage:0,key:false,intro:false,storyStage:0,hintN:0,mute:false,fragSeen:0,seenTable:false});
 let S=load();
 function load(){
   try{const j=JSON.parse(localStorage.getItem(SK));
@@ -425,8 +447,7 @@ function load(){
   return fresh();
 }
 function save(){try{localStorage.setItem(SK,JSON.stringify(S))}catch(e){}}
-const tutDone=()=>S.tut.c21&&S.tut.bj&&S.tut.hl;
-const COPPER=['c21','bj','hl'];
+const tutDone=()=>S.tut.shell&&S.tut.dice&&S.tut.roul;
 const rigOn=()=>!tutDone()||S.coins===1;
 
 /* ================= 財布 ================= */
@@ -455,7 +476,6 @@ function progress(){
 /* 勝負の決着。count=false はバイト */
 function settle(delta,count=true){
   S.coins=Math.max(0,Math.round(S.coins+delta));
-  if(count&&S.interval<3)S.interval++;
   progress();
 }
 
@@ -463,14 +483,14 @@ function settle(delta,count=true){
 let tok=0,cleanups=[];
 const M=()=>$('#main');
 function go(view,arg){
-  tok++;cleanups.splice(0).forEach(f=>{try{f()}catch(e){}});
+  document.body.classList.remove('ingame');tok++;cleanups.splice(0).forEach(f=>{try{f()}catch(e){}});
   const m=M();m.replaceChildren();window.scrollTo(0,0);
   $('#over').hidden=true;
   if(S.key){return}
   if(S.coins===0&&view!=='prison'){prison();return}
   curView=view;renderNav(view);
-  if(!S.seenTable&&['c21','bj','hl','shell','fall','color','dice','roul','psych'].includes(view)){S.seenTable=true;save();vn(STORY.firstTable,()=>go(view,arg));return}
-  ({home,gamble,gacha,set:settings,baito,job:()=>job(arg),c21:()=>gBJ('c21'),bj:()=>gBJ('bj'),hl:gHL,shell:gShell,fall:gFall,color:gColor,dice:gDice,roul:gRoul,psych:gPsych}[view]||home)(arg);
+  if(!S.seenTable&&['shell','dice','roul','bluff'].includes(view)){S.seenTable=true;save();vn(STORY.firstTable,()=>go(view,arg));return}
+  ({home,gamble,gacha,set:settings,baito,job:()=>job(arg),shell:gShell,dice:gDice,roul:gRoul,bluff:gBluff}[view]||home)(arg);
 }
 function frame(title,sub,deco){
   const m=M();
@@ -486,64 +506,6 @@ function endBox(B,msg,cls,again){
   B.append(row);
 }
 const gain=d=>(d>=0?'+':'−')+fmt(Math.abs(d));
-
-/* ================= 賭け金 ================= */
-function psychLevels(){
-  const st=stage(S.coins);
-  const mk=(arr,u,un)=>arr.filter(x=>x*u<=S.coins).map(n=>({n,c:n*u,un}));
-  if(st>=3)return mk([1,2,4,8,16,32,64,128,256],1e9,'貝殻');
-  if(st>=2)return mk([100,200,400,800],1e6,'金貨');
-  return [];
-}
-function betInfo(g){
-  const st=stage(S.coins);let r;
-  if(COPPER.includes(g)){
-    r={u:1,un:'銅貨',min:1,max:Math.min(CFG.copper.max,S.coins)};
-    if(!tutDone()){r.min=r.max=S.coins;r.lock='tut'}
-    else if(S.coins===1){r.min=r.max=1;r.lock='rescue'}
-  }else if(g==='shell'||g==='fall'){
-    r={u:1e3,un:'銀貨',min:1,max:Math.min(g==='shell'?CFG.shellMax:CFG.fallMax,Math.floor(S.coins/1e3))};
-  }else if(g==='color'){r={u:1e3,un:'銀貨',min:1,max:S.coins>=1e3?1:0}}
-  else if(g==='dice'){const b=CFG.diceBet;r=st>=3?{u:1e9,un:'貝殻',min:b[1],max:b[1]}:{u:1e6,un:'金貨',min:b[0],max:b[0]}}
-  else if(g==='roul'){const b=CFG.roulBet;r=st>=3?{u:1e9,un:'貝殻',min:b[1],max:b[1]}:{u:1e6,un:'金貨',min:b[0],max:b[0]}}
-  r.ok=r.max>=r.min&&r.min*r.u<=S.coins;
-  if(!r.lock&&r.ok&&r.min<r.max&&S.interval<3){r.lock='max';r.min=r.max}
-  r.fixed=r.ok&&r.min===r.max;
-  return r;
-}
-function betUI(B,g,label,onStart){
-  const r=betInfo(g);let v=r.min;
-  const box=h('div',{class:'card bet'});
-  const out=h('div',{class:'bv'});
-  const upd=()=>{out.textContent='掛け金 '+v.toLocaleString()+r.un};
-  upd();box.append(out);
-  if(!r.ok){box.append(h('p',{class:'mut'},'ここで賭けられるだけの手持ちがない。'));B.append(box);return}
-  if(r.lock==='tut')box.append(h('p',{class:'mut'},'有り金を、全部卓に置く。'));
-  else if(r.lock==='max')box.append(h('p',{class:'mut'},'色当ての余韻が残っている。掛け金は上限に固定される(あと'+(3-S.interval)+'回)。'));
-  else if(r.fixed&&g!=='color')box.append(h('p',{class:'mut'},'この卓の掛け金は決まっている。'));
-  if(!r.fixed){
-    const inp=h('input',{type:'range',min:r.min,max:r.max,value:v,step:1,'aria-label':'掛け金',
-      oninput:e=>{v=+e.target.value;upd()}});
-    box.append(inp,h('div',{class:'mm'},
-      btn('最小',()=>{v=r.min;inp.value=v;upd()}),
-      btn('半分',()=>{v=Math.max(r.min,Math.floor(r.max/2));inp.value=v;upd()}),
-      btn('最大',()=>{v=r.max;inp.value=v;upd()})));
-  }
-  B.append(box,h('div',{class:'row'},btn(label,()=>onStart(v*r.u,v,r),'pri')));
-}
-
-/* ================= 駒 ================= */
-/* 数字は固定。画面すみの「駒の値」の表で見られる。数字は駒の上には出さない */
-const PT=[['p','♟','ポーン',1,5],['n','♞','ナイト',3,3],['b','♝','ビショップ',3,3],['r','♜','ルーク',5,2],['q','♛','クイーン',10,2],['k','♚','キング',11,1]];
-const PM=Object.fromEntries(PT.map(([k,g,n,v,w])=>[k,{g,n,v,w}]));
-function drawAny(pred){
-  let ts=Object.keys(PM).filter(t=>!pred||pred(PM[t].v));
-  if(!ts.length)ts=Object.keys(PM);
-  const t=wpick(ts,x=>PM[x].w);
-  return{t,v:PM[t].v};
-}
-const val=t=>PM[t].v;
-const pv=a=>a.reduce((s,c)=>s+c.v,0);
 
 /* ================= 演出 (FX) ================= */
 const SND={ctx:null,on:true};
@@ -626,372 +588,79 @@ function floatTxt(text,x,y,cls){
   const e=h('div',{class:'ftxt '+(cls||'')},text);e.style.left=x+'px';e.style.top=y+'px';document.body.append(e);
   setTimeout(()=>e.remove(),1300);
 }
-/* 長押し */
-function holdable(el,ms,cb,ringEl){
-  let on=false,t0=0,raf=0,done=false,last=0;
-  const ring=ringEl||el;
-  const set=p=>ring.style.setProperty('--p',p);
-  const stop=()=>{on=false;cancelAnimationFrame(raf);if(!done)set(0)};
-  const tick=now=>{
-    if(!on)return;const p=Math.min(1,(now-t0)/ms);set(p);
-    if(Math.floor(p*8)!==last){last=Math.floor(p*8);SFX.hold(p)}
-    if(p>=1){on=false;done=true;set(1);cb();return}
-    raf=requestAnimationFrame(tick);
-  };
-  const dn=e=>{if(done||el.dataset.off)return;e.preventDefault&&e.preventDefault();on=true;t0=performance.now();last=0;raf=requestAnimationFrame(tick)};
-  el.addEventListener('pointerdown',dn);
-  ['pointerup','pointerleave','pointercancel'].forEach(k=>el.addEventListener(k,stop));
-  el.addEventListener('contextmenu',e=>e.preventDefault());
-  el.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!done&&!el.dataset.off){e.preventDefault();done=true;set(1);cb()}});
-  return{reset(){done=false;set(0)}};
+/* ================= 勝負の舞台：銅・銀・金で衣替え ================= */
+const TH=[
+  {u:1,un:'銅貨',art:'cu',bg:'bg_ship',cap:100,cup:'cup'},
+  {u:1e3,un:'銀貨',art:'ag',bg:'bg_hall',cap:30,cup:'cup2'},
+  {u:1e6,un:'金貨',art:'au',bg:'bg_stage',cap:15,cup:'cup2'}];
+let lastTier=null;
+const TUT=['shell','dice','roul'];
+const tutMark=g=>{if(TUT.includes(g)&&!S.tut[g]){S.tut[g]=true;save()}};
+function gframe(title,sub,t,deco){
+  const B=frame(title,sub,deco);lastTier=t;if(innerHeight<700)document.body.classList.add('ingame');
+  B.className='gskin s'+t;B.style.setProperty('--bg','url(art/'+TH[t].bg+'.png)');return B;
 }
-const pieceImg=t=>h('img',{src:'art/'+t+'.png',alt:PM[t].n,draggable:'false'});
-
-/* ================= 動くチェス卓（盤なし。右上が相手、左下が自分、隅に駒の値） ================= */
-function Table(B){
-  document.body.classList.add('intable');cleanups.push(()=>document.body.classList.remove('intable'));
-  const face=ART('guard');face.className='face';
-  const sayEl=h('div',{class:'say'},'');
-  const hand={me:h('div',{class:'hand me'}),dl:h('div',{class:'hand dl'})};
-  const ptot=h('div',{class:'ptot'});
-  const stack=h('div',{class:'stack'});const pvl=h('div',{class:'pv'});
-  const pot=h('div',{class:'pot',tabindex:'0','aria-label':'賭けたコイン'},stack,pvl);
-  const meter=h('div',{class:'meter'});
-  const hl=h('div',{class:'hl'});
-  const mine=h('div',{class:'mine',tabindex:'0',role:'button','aria-label':'長押しで勝負'},ptot,hand.me,hl);mine.dataset.off='1';
-  const deckLabel=h('span',{class:'dl'});
-  const deck=h('div',{class:'deck',tabindex:'0',role:'button','aria-label':'山札'},h('i'),h('i'),h('i'),deckLabel);
-  const note=h('div',{class:'vnote'},...PT.map(([k,g,n,v])=>h('div',{class:'vr'},pieceImg(k),h('i',null,v))));
-  const msg=h('div',{class:'tmsg'});
-  const chips=h('div',{class:'chiprow'});
-  const root=h('div',{class:'tbl2'},h('div',{class:'felt'}),note,
-    h('div',{class:'opp'},h('div',{class:'faceW'},face),sayEl,hand.dl),pot,meter,msg,mine,deck,chips);
-  B.append(root);
-  const hint=(el,label)=>{if(!label||(S.hintN||0)>=8){el.textContent='';return}S.hintN=(S.hintN||0)+1;el.textContent=label};
-  let deckHandler=null;deck.dataset.off='1';
-  /* 山札: ドラッグでも、タップでも */
-  deck.addEventListener('pointerdown',e=>{
-    if(deck.dataset.off||!deckHandler)return;e.preventDefault();
-    try{deck.setPointerCapture(e.pointerId)}catch(_){}
-    const sx=e.clientX,sy=e.clientY;let moved=0;SFX.tap();
-    const g=h('div',{class:'ghost'});document.body.append(g);
-    const pos=(x,y)=>{g.style.left=x+'px';g.style.top=y+'px'};pos(sx,sy);
-    deck.classList.add('drag');
-    const mv=ev=>{moved=Math.max(moved,Math.hypot(ev.clientX-sx,ev.clientY-sy));pos(ev.clientX,ev.clientY)};
-    const up=ev=>{
-      deck.removeEventListener('pointermove',mv);deck.removeEventListener('pointerup',up);deck.removeEventListener('pointercancel',up);
-      g.remove();deck.classList.remove('drag');
-      const p=moved<14?center(deck):{x:ev.clientX,y:ev.clientY};
-      const hdl=deckHandler;if(hdl&&!deck.dataset.off)hdl(p);
-    };
-    deck.addEventListener('pointermove',mv);deck.addEventListener('pointerup',up);deck.addEventListener('pointercancel',up);
-  });
-  deck.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!deck.dataset.off&&deckHandler){e.preventDefault();deckHandler(center(deck))}});
-  const mkPiece=(card,hidden,own)=>{
-    const box=h('div',{class:'pp '+own});const r=rnd(-6,6);box.style.setProperty('--r',r+'deg');box._r=r;
-    const pc=pieceImg(card.t);pc.className='pc';box.append(pc);
-    if(hidden){box.classList.add('hid');pc.style.visibility='hidden';box.append(h('img',{class:'cover',src:'art/cup.png',alt:'',draggable:'false'}))}
-    return box;
-  };
-  const T={root,deck,pot,mine,chips,msg,face,meter,ptot,hand,
-    say(txt){sayEl.textContent=txt;sayEl.classList.remove('pop');void sayEl.offsetWidth;sayEl.classList.add('pop')},
-    react(k){
-      if(!face.animate)return;
-      if(k==='hop')face.animate([{transform:'translateY(0)'},{transform:'translateY(-16px) rotate(-3deg)'},{transform:'translateY(0)'}],{duration:420,easing:'ease-out'});
-      else if(k==='recoil')face.animate([{transform:'translateX(0) rotate(0)',filter:'brightness(1)'},{transform:'translateX(12px) rotate(6deg)',filter:'brightness(1.5) saturate(1.5)'},{transform:'translateX(0) rotate(0)',filter:'brightness(1)'}],{duration:480,easing:'ease-out'});
-    },
-    setPot(c){
-      stack.replaceChildren();
-      const n=c>0?Math.min(9,Math.max(1,Math.ceil(Math.log2(c+1)))):0;
-      for(let i=0;i<n;i++){const im=ART(c>=1e6?'au':c>=1e3?'ag':'cu');im.style.setProperty('--i',i);im.style.setProperty('--r',(Math.random()*24-12)+'deg');stack.append(im)}
-      pvl.textContent=c>0?fmt(c):'';
-    },
-    deckOn(label,fn){deckHandler=fn;delete deck.dataset.off;deck.classList.add('pulse');hint(deckLabel,label)},
-    deckOff(){deckHandler=null;deck.dataset.off='1';deck.classList.remove('pulse');deckLabel.textContent=''},
-    holdOn(label,fn){delete mine.dataset.off;mine.classList.add('ready');hint(hl,label);
-      if(!T._hold)T._hold=holdable(mine,650,()=>{mine.classList.remove('ready');const f=T._holdFn;T._holdFn=null;f&&f()});else T._hold.reset();T._holdFn=fn},
-    holdOff(){mine.dataset.off='1';mine.classList.remove('ready');T._holdFn=null;hl.textContent='';mine.style.setProperty('--p',0)},
-    /* 自分の合計は、卓にチョークで書かれる */
-    setTotal(p){ptot.textContent=p>0?p:'';ptot.classList.remove('pop');void ptot.offsetWidth;ptot.classList.add('pop')},
-    place(card,o={}){
-      const{own='p',hidden=false,from=null}=o;
-      return new Promise(res=>{
-        const box=mkPiece(card,hidden,own==='d'?'d':'p');
-        (own==='d'?hand.dl:hand.me).append(box);
-        const src=from||center(deck),tgt=center(box);
-        const dx=src.x-tgt.x,dy=src.y-tgt.y;SFX.deal();
-        const land=()=>{SFX.land();shake(root,3,200);res(box)};
-        if(!box.animate){land();return}
-        const a=box.animate([{transform:`translate(${dx}px,${dy}px) scale(1.6) rotate(${rnd(-25,25)}deg)`,opacity:.2},
-          {transform:`translate(${dx*.4}px,${dy*.4-34}px) scale(1.3)`,offset:.55,opacity:1},
-          {transform:`translate(0,0) scale(1) rotate(${box._r}deg)`,opacity:1}],{duration:480,easing:'cubic-bezier(.2,.7,.3,1)'});
-        a.onfinish=land;
-      });
-    },
-    /* 伏せたコップを持ち上げる */
-    reveal(box){
-      return new Promise(res=>{
-        SFX.flip();const cv=box.querySelector('.cover'),pc=box.querySelector('.pc');
-        if(pc)pc.style.visibility='visible';box.classList.remove('hid');
-        const done=()=>{cv&&cv.remove();SFX.land();res()};
-        if(!cv||!cv.animate){done();return}
-        const a=cv.animate([{transform:'translateY(0) rotate(0)',opacity:1},{transform:'translateY(-46px) rotate(-14deg)',opacity:1,offset:.5},{transform:'translateY(-70px) rotate(-24deg)',opacity:0}],{duration:520,easing:'ease-out',fill:'forwards'});
-        a.onfinish=done;
-      });
-    },
-    stamp(text,cls){const s=h('div',{class:'stamp '+cls},text);root.append(s);return s},
-    lockBet(){chips.replaceChildren();msg.textContent=''},
-    /* コインを積んで賭ける */
-    betChips(r,onChange){
-      const vals=[1,5,10,50,100].filter(v=>v>=r.min&&v<=r.max);
-      if(!vals.length)vals.push(r.min);
-      let cur=0;const hist=[];
-      const upd=()=>{T.setPot(cur*r.u);onChange(cur)};
-      chips.replaceChildren(...vals.map(v=>{
-        const b=h('button',{class:'chip',type:'button','aria-label':v+r.un},ART('cu'),h('b',null,v));
-        b.onclick=()=>{if(cur+v>r.max){SFX.lose();shake(pot,4,200);return}cur+=v;hist.push(v);SFX.coin();
-          const f=center(b),t=center(pot);fly('cu',f,t,{dur:380,size:24,arc:-30});setTimeout(upd,300)};
-        return b}));
-      pot.onclick=()=>{if(hist.length){cur-=hist.pop();SFX.tap();upd()}};
-      upd();
-    },
-    /* 結果演出。commit は所持金の確定 */
-    async result(res,o){
-      const{betC,delta,commit}=o;
-      await sleep(110); // ヒットストップ
-      const pc=center(pot);
-      if(res==='win'||res==='nat'){
-        SFX.win();T.stamp(res==='nat'?'ナチュラル':'勝ち','win');burst(pc.x,pc.y,{n:34});T.react('recoil');
-        const n=Math.max(3,Math.min(12,Math.ceil(Math.log2(betC+delta+1))));
-        const to=center($('#tot')||$('#wallet'));let first=true;
-        for(let i=0;i<n;i++)fly(betC+delta>=1e6?'au':betC+delta>=1e3?'ag':'cu',pc,to,{dur:720,delay:i*70,size:30,onend:()=>{SFX.coin();if(first){first=false;commit()}burst(to.x,to.y,{n:5,spd:120,life:.4})}});
-        floatTxt(gain(delta),pc.x,pc.y-30,'win');
-        await sleep(720+n*70+200);
-      }else if(res==='push'){
-        SFX.tap();T.stamp('引き分け','push');commit();await sleep(700);
-      }else{
-        const bust=res==='bust';
-        (bust?SFX.bust:SFX.lose)();T.stamp(bust?'バスト':'負け','lose');shake(root,bust?10:6,420);T.react('hop');
-        root.classList.add('dim');
-        if(pot.animate)pot.animate([{transform:'translate(-50%,-50%)',opacity:1},{transform:'translate(-50%,-260%) scale(.8)',opacity:0}],{duration:700,easing:'ease-in',fill:'forwards'});
-        floatTxt(gain(delta),pc.x,pc.y-30,'lose');
-        setTimeout(commit,500);await sleep(1000);root.classList.remove('dim');
-      }
-    },
-    /* 勝負のあと: 山札をタップで次へ。所持金0なら眠気が来る */
-    after(text,again){
-      msg.textContent=text||'';
-      T.holdOff();T.chips.replaceChildren();
-      if(S.coins===0){T.deckOff();guardArrive();return}
-      T.deckOn('次の勝負',()=>{SFX.tap();again()});
-    }
-  };
-  return T;
+function betInfo(g,t){
+  const T=TH[t||0];
+  const r={u:T.u,un:T.un,min:1,max:Math.min(T.cap,Math.floor(S.coins/T.u))};
+  if(!tutDone()){r.min=r.max=Math.max(1,S.coins);r.lock='tut'}
+  else if(S.coins===1){r.min=r.max=1;r.lock='rescue'}
+  r.ok=r.max>=r.min&&r.min*r.u<=S.coins;
+  r.fixed=r.ok&&r.min===r.max;
+  return r;
 }
-/* まぶたが落ちる（生命停止装置） */
-async function guardArrive(){
-  const t=tok;await sleep(600);if(t!==tok)return;
-  const lid=h('div',{class:'lids'},h('i'),h('i'));document.body.append(lid);
-  tone(220,1.4,{type:'sine',v:.12,to:55});
-  await sleep(2000);lid.remove();
-  if(t===tok)prison();
-}
-/* 賭けの準備: コインを積み、山札で開始 */
-function betPhase(T,id,onGo){
-  const r=betInfo(id);
-  if(!r.ok){T.msg.textContent='ここで賭けられるだけの手持ちがない。';return}
-  let bet=r.min;
-  const ready=()=>T.deckOn('山札で配る',()=>{SFX.tap();onGo(bet*r.u)});
-  if(r.fixed){
-    T.setPot(bet*r.u);
-    T.msg.textContent=r.lock==='tut'?'有り金を全部、卓に置いた。':r.lock==='max'?'色当ての余韻。掛け金は上限に固定される。':'';
-    ready();
-  }else{
-    T.betChips(r,v=>{bet=v;if(v>=r.min)ready();else T.deckOff()});
-    T.deckOff();
+function betUI(B,g,t,label,onStart){
+  const r=betInfo(g,t);let v=r.min;
+  const box=h('div',{class:'card bet'});
+  const out=h('div',{class:'bv'});
+  const upd=()=>{out.textContent='掛け金 '+v.toLocaleString()+r.un};
+  upd();box.append(out);
+  if(!r.ok){box.append(h('p',{class:'mut'},'ここで賭けられるだけの手持ちがない。'));B.append(box);return}
+  if(r.lock==='tut')box.append(h('p',{class:'mut'},'有り金を、全部卓に置く。'));
+  else if(r.fixed)box.append(h('p',{class:'mut'},'手持ちが一枚だけ。それを置く。'));
+  if(!r.fixed){
+    const inp=h('input',{type:'range',min:r.min,max:r.max,value:v,step:1,'aria-label':'掛け金',
+      oninput:e=>{v=+e.target.value;upd()}});
+    box.append(inp,h('div',{class:'mm'},
+      btn('最小',()=>{v=r.min;inp.value=v;upd()}),
+      btn('半分',()=>{v=Math.max(r.min,Math.floor(r.max/2));inp.value=v;upd()}),
+      btn('最大',()=>{v=r.max;inp.value=v;upd()})));
   }
-}
-const DEALER_SAY={think:['…どうする。','引くのか。','悪くない手だ。','慎重だな。'],bust:['バストだな。','欲張りすぎだ。'],win:['…くそ。','運がいいだけだ。'],lose:['ふん、いつものことだ。','また来い。'],start:['賭けろ。','座れ。']};
-
-/* ================= 21 / ブラックジャック ================= */
-function gBJ(id){
-  const t=tok,bj=id==='bj';
-  const B=frame(bj?'ブラックジャック':'21','',[]);
-  const T=Table(B);
-  const rig=rigOn(),st0=stage(S.coins)===0;
-  T.say(pick(DEALER_SAY.start));
-  betPhase(T,id,betC=>start(betC));
-  async function start(betC){
-    T.lockBet();T.deckOff();T.holdOff();
-    const n=bj?2:3;
-    let P=[],D=[],over=false,busy=true,hidEl=null;
-    const mk=pred=>drawAny(pred);
-    const upd=()=>T.setTotal(pv(P));
-    const mult=rig?CFG.rig:(st0?CFG.m21[0]:CFG.m21[1]);
-    const natM=rig?CFG.rig:(st0?CFG.natBJ[0]:CFG.natBJ[1]);
-    // 配る
-    for(let i=0;i<n;i++){
-      P.push(mk());await T.place(P[i],{own:'p'});if(t!==tok)return;upd();
-      D.push(mk(rig?(v=>v<=4):undefined));
-      const hid=bj&&i===1;
-      const el=await T.place(D[i],{own:'d',hidden:hid});if(t!==tok)return;
-      if(hid)hidEl=el;
-    }
-    if(bj&&pv(P)===21){await sleep(500);await dealerPlay(true);return}
-    busy=false;T.say(pick(DEALER_SAY.think));
-    T.deckOn('山札をドラッグでひく',hit);
-    T.holdOn('ここを長押しで勝負',()=>stand());
-    async function hit(p){
-      if(busy||over)return;busy=true;T.holdOff();
-      const left=21-pv(P);
-      const c=mk(rig?(v=>v<=left):undefined);P.push(c);
-      await T.place(c,{own:'p',from:p});if(t!==tok)return;upd();
-      if(pv(P)>21){T.deckOff();finish('bust');return}
-      if(pv(P)===21){T.deckOff();await sleep(400);stand();return}
-      busy=false;T.holdOn('ここを長押しで勝負',()=>stand());
-      if(Math.random()<.4)T.say(pick(DEALER_SAY.think));
-    }
-    async function stand(){
-      if(over)return;busy=true;T.deckOff();T.holdOff();await dealerPlay(false);
-    }
-    async function dealerPlay(natural){
-      if(hidEl){const e=hidEl;hidEl=null;await T.reveal(e);if(t!==tok)return}
-      if(!natural){
-        while(pv(D)<17){
-          await sleep(550);if(t!==tok)return;
-          const tt=pv(D);
-          const c=mk(rig?(tt>=11?(v=>v>21-tt):(v=>v>=12-tt&&tt+v<=16)):undefined);D.push(c);
-          await T.place(c,{own:'d'});if(t!==tok)return;
-        }
-      }
-      await sleep(350);if(t!==tok)return;
-      const a=pv(P),d=pv(D);
-      if(natural)finish(d===21?'push':'nat');
-      else finish(d>21||a>d?'win':a===d?'push':'lose');
-    }
-    async function finish(res){
-      over=true;
-      let delta=0,msg;
-      if(res==='win'||res==='nat'){delta=Math.round(betC*(res==='nat'?natM:mult))-betC;msg=(res==='nat'?'ナチュラル21。':'勝ち。')+gain(delta);T.say(pick(DEALER_SAY.win))}
-      else if(res==='push'){msg='引き分け。掛け金は戻る。';T.say('…引き分けか。')}
-      else{delta=-betC;msg=(res==='bust'?'バスト。':'負け。')+gain(delta);T.say(pick(res==='bust'?DEALER_SAY.bust:DEALER_SAY.lose))}
-      const wasTut=!tutDone();
-      if(rig&&wasTut)S.tut[id]=true;
-      await T.result(res,{betC,delta,commit:()=>settle(delta)});
-      if(t!==tok)return;
-      if(wasTut&&tutDone())msg+=' 三つの勝負を使い切った。本物の賭け場が開く。';
-      T.after(msg,()=>go(id));
-    }
-  }
+  B.append(box,h('div',{class:'row'},btn(label,()=>onStart(v*r.u,v,r),'pri')));
 }
 
-/* ================= ハイ&ロー ================= */
-function gHL(){
-  const t=tok;
-  const B=frame('ハイ&ロー','',[]);
-  const T=Table(B);
-  const rig=rigOn(),base=stage(S.coins)===0?CFG.hl[0]:CFG.hl[1];
-  T.say(pick(DEALER_SAY.start));
-  betPhase(T,'hl',betC=>start(betC));
-  async function start(betC){
-    T.lockBet();T.deckOff();T.deck.style.visibility='hidden';
-    let over=false,busy=true,streak=0;
-    let cur=drawAny(rig?(v=>v>=3&&v<=9):undefined);
-    let curEl=await T.place(cur,{own:'p'});if(t!==tok)return;
-    const mult=()=>rig?CFG.rig:Math.pow(base,streak);
-    const setMeter=()=>{T.meter.textContent=streak>0&&!rig?'×'+mult().toFixed(1):''};
-    let marker=null;
-    function spawn(){
-      marker=h('div',{class:'pp d nx',tabindex:'0',role:'button','aria-label':'次の駒を上か下へ弾く'},
-        h('img',{class:'cover',src:'art/cup.png',alt:'',draggable:'false'}),h('span',{class:'arr u'},'↑ 高い'),h('span',{class:'arr d'},'↓ 低い'));
-      T.hand.dl.append(marker);
-      if(marker.animate)marker.animate([{transform:'scale(0)'},{transform:'scale(1.2)'},{transform:'scale(1)'}],{duration:320});
-      bindDrag(marker);
-    }
-    function bindDrag(m){
-      let sy=0,dy=0,on=false;
-      const arrows=[m.querySelector('.arr.u'),m.querySelector('.arr.d')];
-      m.addEventListener('pointerdown',e=>{if(busy||over)return;e.preventDefault();try{m.setPointerCapture(e.pointerId)}catch(_){}on=true;sy=e.clientY;dy=0;SFX.tap();m.classList.add('grab')});
-      m.addEventListener('pointermove',e=>{
-        if(!on)return;dy=e.clientY-sy;m.style.transform=`translateY(${dy*.7}px) scale(1.1)`;
-        arrows[0].style.opacity=dy<0?Math.min(1,-dy/60):0;arrows[1].style.opacity=dy>0?Math.min(1,dy/60):0;
-      });
-      const up=()=>{
-        if(!on)return;on=false;m.classList.remove('grab');
-        if(Math.abs(dy)>55){guess(dy<0?1:-1)}
-        else{arrows.forEach(a=>a.style.opacity=0);m.style.transition='transform .25s cubic-bezier(.3,1.6,.5,1)';m.style.transform='';setTimeout(()=>m.style.transition='',260)}
-      };
-      m.addEventListener('pointerup',up);m.addEventListener('pointercancel',up);
-      m.addEventListener('keydown',e=>{if(busy||over)return;if(e.key==='ArrowUp'){e.preventDefault();guess(1)}else if(e.key==='ArrowDown'){e.preventDefault();guess(-1)}});
-    }
-    async function guess(dir){
-      if(busy||over)return;busy=true;T.holdOff();
-      const from=center(marker);marker.remove();marker=null;
-      const pred=rig?(v=>dir>0?v>cur.v:v<cur.v):undefined;
-      const nx=drawAny(pred);
-      const el=await T.place(nx,{own:'d',from});if(t!==tok)return;
-      const ok=dir>0?nx.v>cur.v:nx.v<cur.v;
-      await sleep(450);
-      if(!ok){
-        over=true;T.say(pick(DEALER_SAY.lose));
-        const msg=(nx.v===cur.v?'同じ数字。':'外れ。')+gain(-betC);
-        await T.result('lose',{betC,delta:-betC,commit:()=>settle(-betC)});if(t!==tok)return;
-        T.after(msg,()=>go('hl'));return;
-      }
-      streak++;SFX.win();burst(center(el).x,center(el).y,{n:16});
-      T.setPot(Math.round(betC*mult()));setMeter();
-      T.say(['…ほう。','続けるのか。','運がいい。'][Math.min(2,streak-1)]);
-      // 前の駒を片づけ、当てた駒を手元に引き寄せる
-      const old=curEl;
-      if(old.animate)old.animate([{opacity:1},{opacity:0,transform:'scale(.6)'}],{duration:300,fill:'forwards'});setTimeout(()=>old.remove(),320);
-      const f2=center(el);el.remove();
-      curEl=await T.place(nx,{own:'p',from:f2});if(t!==tok)return;cur=nx;
-      if(rig||streak>=CFG.hlMax){await cash();return}
-      spawn();busy=false;
-      T.holdOn('ここを長押しで受け取る',()=>cash());
-    }
-    async function cash(){
-      if(over)return;over=true;busy=true;T.holdOff();
-      const delta=Math.round(betC*mult())-betC;
-      const wasTut=!tutDone();if(rig&&wasTut)S.tut.hl=true;
-      let msg='受け取った。'+gain(delta);T.say(pick(DEALER_SAY.win));
-      await T.result('win',{betC,delta,commit:()=>settle(delta)});if(t!==tok)return;
-      if(wasTut&&tutDone())msg+=' 三つの勝負を使い切った。本物の賭け場が開く。';
-      T.after(msg,()=>go('hl'));
-    }
-    spawn();busy=false;
-    T.holdOff(); // 1回当てるまでは受け取れない
-  }
-}
-
-/* ================= 銀貨: シェルゲーム ================= */
-function gShell(){
-  const t=tok;
-  const B=frame('シェルゲーム','ピエロがカップを入れ替える。ボールの入ったカップを目で追え。',['clown','cup']);
-  betUI(B,'shell','始める',async(betC)=>{
+/* ================= シェルゲーム ================= */
+const SHELL_T=[
+  {n:'シェルゲーム',s:'ピエロがカップを入れ替える。ボールの入ったカップを目で追え。',deco:['clown','cup']},
+  {n:'シェルゲーム',s:'広間の卓。磨かれた杯が、音もなく入れ替わる。',deco:['clown','cup2']},
+  {n:'シェルゲーム',s:'壇上。金の杯が、観客の前で入れ替わる。',deco:['clown','cup2']}];
+function gShell(t=0){
+  const tk=tok,T=SHELL_T[t];
+  const B=gframe(T.n,T.s,t,T.deco);
+  betUI(B,'shell',t,'始める',async(betC)=>{
+    const rig=rigOn();
     B.replaceChildren();
     const slotL=s=>(s*33.333+1.6)+'%';
     let ballAt=rnd(0,2);const slots=[0,1,2];
     const cups=[0,1,2].map(i=>{
-      const c=h('button',{class:'cw up',type:'button','aria-label':'カップ'+(i+1),disabled:true},(()=>{const b=ART('ball');b.className='ball';if(i!==ballAt)b.style.display='none';return b})(),(()=>{const c=ART('cup');c.className='cup';return c})());
+      const c=h('button',{class:'cw up',type:'button','aria-label':'カップ'+(i+1),disabled:true},(()=>{const b=ART('ball');b.className='ball';if(i!==ballAt)b.style.display='none';return b})(),(()=>{const c=ART(TH[t].cup);c.className='cup';return c})());
       c.style.left=slotL(i);return c});
     const stageEl=h('div',{class:'cups'},...cups);
     const msg=h('p',{class:'note'},'ボールはここだ。よく見ておけ。');
     B.append(stageEl,msg,h('p',{class:'note'},'掛け金 '+fmt(betC)));
-    await sleep(1300);if(t!==tok)return;
+    await sleep(1300);if(tk!==tok)return;
     cups.forEach(c=>c.classList.remove('up'));
-    await sleep(700);if(t!==tok)return;
+    await sleep(700);if(tk!==tok)return;
     msg.textContent='…………';
-    const swaps=rnd(6,9);
+    const swaps=rnd(6,9)+t;
     for(let k=0;k<swaps;k++){
-      const dur=Math.max(160,340-k*28);
+      const dur=Math.max(150-t*10,340-k*28-t*30);
       cups.forEach(c=>c.style.transitionDuration=dur+'ms');
       let a=rnd(0,2),b;do{b=rnd(0,2)}while(b===a);
       const ia=slots.indexOf(a),ib=slots.indexOf(b);
-      // slot a と b を入れ替える
       slots[ia]=b;slots[ib]=a;
       cups.forEach((c,i)=>c.style.left=slotL(slots[i]));
-      await sleep(dur+80);if(t!==tok)return;
+      await sleep(dur+80);if(tk!==tok)return;
     }
     msg.textContent='ボールが入っているのは、どれだ。';
     cups.forEach((c,i)=>{c.disabled=false;c.onclick=()=>choose(i)});
@@ -999,185 +668,154 @@ function gShell(){
     async function choose(i){
       if(chosen)return;chosen=true;
       cups.forEach(c=>c.disabled=true);
+      if(rig){ballAt=i;cups.forEach((c,j)=>c.firstChild.style.display=j===i?'':'none')}
       cups[i].classList.add('pk');
       await sleep(300);cups.forEach(c=>c.classList.add('up'));cups.forEach(c=>c.style.transitionDuration='450ms');
-      await sleep(700);if(t!==tok)return;
+      await sleep(700);if(tk!==tok)return;
       const win=i===ballAt;const d=win?betC:-betC;
-      settle(d);
-      endBox(B,(win?'当たり。':'空っぽだ。')+gain(d),win?'win':'lose',()=>go('shell'));
+      settle(d);tutMark('shell');
+      endBox(B,(win?'当たり。':'空っぽだ。')+gain(d),win?'win':'lose',()=>go('shell',t));
     }
   });
 }
 
-/* ================= 銀貨: 落下予想 ================= */
-function gFall(){
-  const t=tok;
-  const B=frame('落下予想','カラーボールが揺れている。落ちる場所を5か所から選び、「落とす」を押す。押して1.8秒後の位置から、まっすぐ落ちる。',['clown','marbles']);
-  betUI(B,'fall','台につく',betC=>{
-    B.replaceChildren();
-    const A=0.35+Math.random()*0.12,om=1.6+Math.random()*1.6,ph=Math.random()*Math.PI*2;
-    const xAt=ms=>0.5+A*Math.sin(om*ms/1000+ph);
-    const ball=ART('ball');ball.className='bl';
-    const arena=h('div',{class:'arena'},ball);
-    let sel=-1,dropped=false;
-    const slots=[0,1,2,3,4].map(i=>h('button',{class:'tile slot',type:'button',onclick:()=>{if(dropped)return;sel=i;slots.forEach((s,j)=>s.classList.toggle('sel',j===i));goB.disabled=false}},['左端','左','中','右','右端'][i]));
-    const goB=btn('落とす',drop,'pri');goB.disabled=true;
-    const msg=h('p',{class:'note'},'掛け金 '+fmt(betC)+'。揺れの速さと位置を目で覚えろ。');
-    B.append(arena,h('div',{class:'slots'},...slots),msg,h('div',{class:'row'},goB));
-    const t0=performance.now();let raf,tDrop=null,tx=0,landT=0;
-    const stop=()=>cancelAnimationFrame(raf);cleanups.push(stop);
-    function frameFn(now){
-      if(t!==tok)return;
-      const el=now-t0;
-      if(tDrop==null){ball.style.left=(xAt(el)*100)+'%';ball.style.top='8px'}
-      else if(now<tDrop){ball.style.left=(xAt(el)*100)+'%'}
-      else{
-        const k=Math.min(1,(now-tDrop)/600);
-        ball.style.left=(tx*100)+'%';ball.style.top=(8+k*k*(arena.clientHeight-46))+'px';
-        if(k>=1){settleFall();return}
-      }
-      raf=requestAnimationFrame(frameFn);
-    }
-    function drop(){
-      if(dropped||sel<0)return;dropped=true;goB.disabled=true;
-      const now=performance.now();tDrop=now+1800;
-      tx=Math.max(0.0001,Math.min(0.9999,xAt(tDrop-t0)));
-      msg.textContent='……';
-    }
-    let ended=false;
-    function settleFall(){
-      if(ended)return;ended=true;
-      const land=Math.min(4,Math.floor(tx*5));
-      slots.forEach((s,i)=>{if(i===land)s.classList.add('hit')});
-      const win=land===sel;let d;
-      if(win)d=betC*3;else d=-Math.round(betC*(1+0.5+Math.random()));
-      d=Math.max(d,-S.coins);
-      let m=win?'当たり。':'外れ。ボールが体に当たった。治療費がかかる。';
-      settle(d);endBox(B,m+gain(d),win?'win':'lose',()=>go('fall'));
-    }
-    raf=requestAnimationFrame(frameFn);
-  });
-}
-
-/* ================= 銀貨: 色当て ================= */
-function gColor(){
-  const t=tok;
-  const B=frame('色当て','隠れた3色が一瞬だけ見える。覚えて、パレットから選び出せ。負けても掛け金は減らない。',['clown','marbles']);
-  betUI(B,'color','挑戦する',async betC=>{
-    B.replaceChildren();
-    const k=Math.min(12,5+S.colorN);
-    const cols=[];const off=Math.random()*360;
-    for(let i=0;i<k;i++)cols.push(`hsl(${Math.round(off+i*360/k+rnd(-6,6))} ${rnd(55,80)}% ${i%2?rnd(42,50):rnd(55,64)}%)`);
-    const ans=[];while(ans.length<3){const i=rnd(0,k-1);if(!ans.includes(i))ans.push(i)}
-    S.colorN++;S.interval=0;save();
-    const sw=(c,extra)=>h('div',{class:'sw '+(extra||''),style:`background:${c};--r:${rnd(-8,8)}deg;cursor:default`});
-    B.append(h('p',{class:'note'},'覚えろ。'),h('div',{class:'sws'},...ans.map(i=>sw(cols[i]))));
-    await sleep(2500);if(t!==tok)return;
-    B.replaceChildren(h('p',{class:'note'},'見た3色を選べ('+k+'色から)。'));
-    const order=cols.map((c,i)=>i).sort(()=>Math.random()-.5);
-    const chosen=new Set();
-    const sws=h('div',{class:'sws'});
-    const ans_b=btn('答える',check,'pri');ans_b.disabled=true;
-    order.forEach(i=>{
-      const s=h('button',{class:'sw',type:'button','aria-label':'色'+(i+1),style:`background:${cols[i]};--r:${rnd(-8,8)}deg`,onclick:()=>{
-        if(chosen.has(i)){chosen.delete(i);s.classList.remove('sel')}else if(chosen.size<3){chosen.add(i);s.classList.add('sel')}
-        ans_b.disabled=chosen.size!==3}});
-      s.dataset.i=i;sws.append(s)});
-    B.append(sws,h('div',{class:'row'},ans_b));
-    function check(){
-      ans_b.disabled=true;
-      let n=0;chosen.forEach(i=>{if(ans.includes(i))n++});
-      sws.querySelectorAll('.sw').forEach(s=>{const i=+s.dataset.i;s.disabled=true;if(ans.includes(i))s.classList.add('ok');else if(chosen.has(i))s.classList.add('ng')});
-      const mults=[1,1.5,2,4];const d=Math.round(betC*mults[n])-betC;
-      settle(d,false);
-      endBox(B,n+'個、当たり。'+(d>0?gain(d):'掛け金が戻っただけだ。')+'(次の3回、他の掛け金は上限に固定される)',d>0?'win':'push',null);
-    }
-  });
-}
-
-/* ================= 金貨: サイコロ ================= */
-function gDice(){
-  const t=tok;
-  const B=frame('ゾロ目','二つの賽を振る。ゾロ目が出れば'+CFG.DICE_MULT+'倍。出なければ掛け金は卓のものだ。',['die1','die2']);
-  betUI(B,'dice','振る',async betC=>{
+/* ================= ゾロ目 ================= */
+const DICE_T=[
+  {s:'二つの賽を振る。ゾロ目が出れば'+CFG.DICE_MULT+'倍。出なければ、掛け金は卓のものだ。'},
+  {s:'象牙の賽が二つ。ゾロ目で'+CFG.DICE_MULT+'倍。広間の客が息を呑む。'},
+  {s:'金の賽が二つ。ゾロ目で'+CFG.DICE_MULT+'倍。壇上の光が、手元だけを照らす。'}];
+function gDice(t=0){
+  const tk=tok;
+  const B=gframe('ゾロ目',DICE_T[t].s,t,['die1','die2']);
+  betUI(B,'dice',t,'振る',async betC=>{
+    const rig=rigOn();
     B.replaceChildren();
     const d1=h('div',{class:'die'},'?'),d2=h('div',{class:'die'},'?');
     B.append(h('div',{class:'dice'},d1,d2),h('p',{class:'note'},'掛け金 '+fmt(betC)));
-    const a=rnd(1,6),b=rnd(1,6);
-    for(let i=0;i<10;i++){d1.textContent=rnd(1,6);d2.textContent=rnd(1,6);d1.style.setProperty('--r',rnd(-14,14)+'deg');d2.style.setProperty('--r',rnd(-14,14)+'deg');await sleep(70+i*14);if(t!==tok)return}
+    const a=rnd(1,6),b=rig?a:rnd(1,6);
+    for(let i=0;i<10;i++){d1.textContent=rnd(1,6);d2.textContent=rnd(1,6);d1.style.setProperty('--r',rnd(-14,14)+'deg');d2.style.setProperty('--r',rnd(-14,14)+'deg');await sleep(70+i*14);if(tk!==tok)return}
     d1.textContent=a;d2.textContent=b;
-    const win=a===b;const d=win?betC*(CFG.DICE_MULT-1):-betC;
-    settle(d);endBox(B,(win?'ゾロ目。':'ばらばらだ。')+gain(d),win?'win':'lose',()=>go('dice'));
+    const win=a===b;const d=win?betC*(rig?1:CFG.DICE_MULT-1):-betC;
+    settle(d);tutMark('dice');endBox(B,(win?'ゾロ目。':'ばらばらだ。')+gain(d),win?'win':'lose',()=>go('dice',t));
   });
 }
 
-/* ================= 金貨: ルーレット ================= */
-function gRoul(){
-  const t=tok;
-  const B=frame('ルーレット','十のマスを光が回る。最大で+10倍、最低で−10倍。夢はあるが、長く遊ぶと減る。',['au']);
-  betUI(B,'roul','回す',async betC=>{
+/* ================= ルーレット ================= */
+const ROUL_T=[
+  '十のマスを光が回る。最大で+10倍、最低で−10倍。',
+  '十のマスを、広間のランプが回る。最大で+10倍、最低で−10倍。',
+  '十のマスを、壇上の照明が回る。最大で+10倍、最低で−10倍。'];
+function gRoul(t=0){
+  const tk=tok;
+  const B=gframe('ルーレット',ROUL_T[t],t,[TH[t].art]);
+  betUI(B,'roul',t,'回す',async betC=>{
+    const rig=rigOn();
     B.replaceChildren();
     const tiles=CFG.ROUL.map(v=>h('div',{class:'tile'+(v<0?' neg':'')},(v>0?'+':v<0?'−':'')+Math.abs(v)));
     B.append(h('div',{class:'ring'},...tiles),h('p',{class:'note'},'掛け金 '+fmt(betC)+'(マスの数字は掛け金の倍数)'));
-    const target=rnd(0,9);let cur=rnd(0,9);
+    const target=rig?1:rnd(0,9);let cur=rnd(0,9);
     const steps=30+((target-cur)%10+10)%10;
     for(let i=0;i<steps;i++){
       tiles[cur].classList.remove('on');cur=(cur+1)%10;tiles[cur].classList.add('on');
-      await sleep(45+Math.pow(i/steps,3)*320);if(t!==tok)return;
+      await sleep(45+Math.pow(i/steps,3)*320);if(tk!==tok)return;
     }
     const m=CFG.ROUL[target];let d=m*betC;let extra='';
     if(d<0&&-d>S.coins){d=-S.coins;extra='所持金を全て没収された。'}
-    settle(d);
-    endBox(B,(m>0?'当たり。':m<0?'損だ。':'何も起きない。')+extra+gain(d),d>0?'win':d<0?'lose':'push',()=>go('roul'));
+    settle(d);tutMark('roul');
+    endBox(B,(m>0?'当たり。':m<0?'損だ。':'何も起きない。')+extra+gain(d),d>0?'win':d<0?'lose':'push',()=>go('roul',t));
   });
 }
 
-/* ================= 金貨: 心理戦 ================= */
-function gPsych(){
-  const t=tok;
-  const B=frame('心理戦','相手より低い段に賭けた方が勝つ。同じ段なら引き分け。勝てば自分の掛け金の9割、負ければ自分の掛け金を失う。',['scale']);
-  const lv=psychLevels();
-  if(!lv.length){B.append(h('p',{class:'note'},'賭けられる段がない。'));return}
-  const OPP=[
-    {n:'強気の男',d:'高い段を選びがち。',pick:L=>wpick([...Array(L).keys()],i=>Math.pow(1.45,i))},
-    {n:'慎重な女',d:'低く構える。たまに、こちらの癖を読んで一つ下に潜ってくる。',pick:(L,hist)=>{
-      if(hist.length&&Math.random()<.35){const cnt={};hist.forEach(x=>cnt[x]=(cnt[x]||0)+1);const mode=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];return Math.max(0,mode-1)}
-      return wpick([...Array(L).keys()],i=>Math.pow(.55,i))}},
-    {n:'老いた囚人',d:'こちらの前の段を、そのままなぞる癖がある。',pick:(L,hist)=>hist.length?Math.min(L-1,hist[hist.length-1]):rnd(0,Math.min(L-1,2))}
-  ];
-  const hist=[];let oi=0,sel=S.interval<3?lv.length-1:0;
-  const area=h('div');B.append(area);
-  let busy=false;
-  function render(res){
-    const L=betInfoPsych();
-    area.replaceChildren(
-      h('div',{class:'card'},h('h3',null,'相手を選ぶ'),h('div',{class:'opp'},...OPP.map((o,i)=>{
-        const b=btn(o.n+' — '+o.d,()=>{if(busy)return;oi=i;render(res)},i===oi?'pri':'');return b}))),
-      h('div',{class:'card'},h('h3',null,'賭ける段'),
-        S.interval<3?h('p',{class:'mut'},'色当ての余韻で、掛け金は上限に固定されている。'):'',
-        h('div',{class:'lv'},...L.map((l,i)=>{
-          const b=btn(l.n.toLocaleString()+l.un,()=>{if(busy||S.interval<3)return;sel=i;render(res)},i===sel?'sel':'');return b}))),
-      h('div',{class:'row'},(()=>{const b=btn('勝負',fight,'pri');b.disabled=busy;return b})()),
-      res?h('div',{class:'card'},h('div',null,'あなた: '+res.me+' / 相手: '+res.op),h('div',{class:'res '+res.cls},res.msg)):'');
-    if(S.coins===0)area.append(h('div',{class:'row'},btn('眠気が来る…',prison,'pri')));
-  }
-  function betInfoPsych(){const l=psychLevels();if(sel>=l.length)sel=l.length-1;if(S.interval<3)sel=l.length-1;return l}
-  async function fight(){
-    const L=betInfoPsych();if(!L.length){go('gamble');return}
-    busy=true;
-    const me=L[sel],oLv=OPP[oi].pick(L.length,hist);
-    // 相手は自分の払える範囲の段のみ(段数L)
-    hist.push(sel);
-    const op=L[Math.min(oLv,L.length-1)];
-    let d,msg,cls;
-    if(sel<oLv){d=Math.round(me.c*CFG.psychRake);msg='あなたの勝ち。'+gain(d);cls='win'}
-    else if(sel>oLv){d=-me.c;msg='相手の勝ち。'+gain(d);cls='lose'}
-    else{d=0;msg='引き分け。';cls='push'}
-    settle(d);busy=false;
-    render({me:me.n+me.un,op:op.n+op.un,msg,cls});
-    if(t!==tok)return;
-  }
-  render(null);
+/* ================= 騙し騙され：握った硬貨は、本物か偽物か ================= */
+const BLUFF=[
+  {name:'老いた囚人',a:'old',b:'fb_old_g',tl:.8,tt:.2,
+   lie:()=>.35,doubt:h=>.35+.3*h.myLie,
+   open:['「…これは本物だ」','「見ろ、本物じゃよ」'],think:['「ふむ…」','「どうかのう…」'],
+   tell:'口の端が、わずかに上がった。'},
+  {name:'ピエロ',a:'cl_g',b:'cl_s',tl:.3,tt:.6,
+   lie:()=>.5,doubt:h=>.5,
+   open:['「ほんもの、ほんもの！」','「ぼくは嘘つかないよ〜」'],think:['「さあさあ、どっち？」','「あれれ〜？」'],
+   tell:'目が笑っていない。'},
+  {name:'ハイエナ',a:'hy_m',b:'hy_b',tl:.5,tt:.5,
+   lie:h=>Math.max(.15,.7-.5*h.myDoubt),doubt:h=>Math.min(.9,.25+.65*h.myLie),
+   open:['「本物だ。疑うなよ」','「いい硬貨だろう？」'],think:['「…………」','「お前の目、読めるぞ」'],
+   tell:'指先が、微かに動いた。'}];
+const BL_ROUNDS=4;
+function gBluff(t=0){
+  const tk=tok,O=BLUFF[t],T=TH[t];
+  const B=gframe('騙し騙され','握った硬貨は、本物か偽物か。見抜け。そして、騙せ。',t,[T.art]);
+  betUI(B,'bluff',t,'相手と向き合う',(betC,n)=>{
+    B.replaceChildren();
+    const hist={myLie:.5,myDoubt:.5,lies:0,offers:0,doubts:0,guesses:0};
+    let net=0,round=0;
+    const oppW=h('div',{class:'oppw'},sprImg(O.a));
+    const say=h('div',{class:'say bsay'},'');
+    const status=h('p',{class:'note'},'');
+    const coinEl=h('div',{class:'bcoin'},ART(T.art),h('b',null,'？'));
+    const act=h('div',{class:'bpick'});
+    B.append(h('div',{class:'bhead'},h('div',{class:'bleft'},status,coinEl),oppW),say,act);
+    const setFace=b=>{oppW.replaceChildren(sprImg(b?O.b:O.a))};
+    const sayT=s=>{say.textContent=wrapJa(s,15)};
+    const pickC=a=>a[Math.floor(Math.random()*a.length)];
+    const upd=()=>{status.textContent='第'+Math.min(round+1,BL_ROUNDS)+'/'+BL_ROUNDS+'戦\n掛け金 '+n.toLocaleString()+T.un+'\nいま '+(net>=0?'+':'−')+fmt(Math.abs(net))};
+    const choose=(opts)=>new Promise(res=>{
+      act.replaceChildren(...opts.map(([l,v])=>btn(l,()=>{act.replaceChildren();res(v)},'pri')));
+    });
+    const money=win=>win?Math.round(betC*CFG.psychRake):-betC;
+    async function finish(){
+      if(tk!==tok)return;
+      setFace(false);coinEl.querySelector('b').textContent='';act.replaceChildren();
+      endBox(act,'勝負は終わった。'+(net>0?'手応えがある。':net<0?'やられた。':'五分だ。')+gain(net),net>0?'win':net<0?'lose':'push',()=>go('bluff',t));
+    }
+    async function next(){
+      if(tk!==tok)return;
+      upd();
+      if(round>=BL_ROUNDS||S.coins<betC||S.coins===0)return finish();
+      const theyOffer=round%2===0;
+      setFace(false);
+      if(theyOffer){
+        const truth=Math.random()>=O.lie(hist);
+        const shown=Math.random()<(truth?O.tt:O.tl);
+        coinEl.querySelector('b').textContent='？';
+        sayT(pickC(O.open));
+        await sleep(900);if(tk!==tok)return;
+        if(shown){setFace(true);status.textContent=status.textContent;}
+        await sleep(700);if(tk!==tok)return;
+        const g=await choose([['本物だ',true],['偽物だ',false]]);
+        if(tk!==tok)return;
+        hist.guesses++;if(!g)hist.doubts++;hist.myDoubt=hist.doubts/hist.guesses;
+        const right=g===truth;const d=money(right);
+        settle(d);net+=d;
+        coinEl.querySelector('b').textContent=truth?'本物':'偽物';
+        setFace(!truth);
+        sayT(right?(truth?'「ちっ、信じたか…」':'「…見抜いたな」'):(truth?'「疑うとは、失礼な」':'「ははは、騙されたな」'));
+        status.textContent=right?'見抜いた。':'外した。';
+        await sleep(1500);if(tk!==tok)return;
+        if(S.coins===0){upd();return finish()}
+      }else{
+        coinEl.querySelector('b').textContent='';
+        status.textContent='握る硬貨を選べ。相手は、それが本物か疑う。';
+        const mine=await choose([['本物を握る',true],['偽物を握る',false]]);
+        if(tk!==tok)return;
+        hist.offers++;if(!mine)hist.lies++;hist.myLie=hist.lies/hist.offers;
+        coinEl.querySelector('b').textContent=mine?'本物':'偽物';
+        sayT(pickC(O.think));await sleep(1200);if(tk!==tok)return;
+        const doubts=Math.random()<O.doubt(hist);
+        setFace(doubts);
+        sayT(doubts?'「偽物だな」':'「…本物と見た」');
+        await sleep(900);if(tk!==tok)return;
+        const oppRight=doubts===!mine;
+        const d=money(!oppRight);
+        settle(d);net+=d;
+        sayT(oppRight?(mine?'「ふん、疑って悪いね」':'「甘いな」'):(mine?'「ちくしょう…」':'「やられた…」'));
+        status.textContent=oppRight?'見抜かれた。':'騙しきった。';
+        await sleep(1500);if(tk!==tok)return;
+        if(S.coins===0){upd();return finish()}
+      }
+      round++;next();
+    }
+    next();
+  });
 }
 
 /* ================= 牢 ================= */
@@ -1243,7 +881,7 @@ function prison(){
 
 /* ================= バイト ================= */
 const JOBS=[
-  {id:'clean',u:'cu',name:'チェスの清掃',desc:'100回タップ。20回やると時給が上がる。'},
+  {id:'clean',u:'cu',name:'賭場の清掃',desc:'100回タップ。20回やると時給が上がる。'},
   {id:'det_cu',u:'cu',name:'探偵(嘘つき探し)',desc:'三人のうち、正直者は一人だけ。'},
   {id:'knife',u:'ag',name:'ナイフ磨き',desc:'100回タップで銀貨3〜9枚。'},
   {id:'balls',u:'ag',name:'カラーボール集め',desc:'落ちてくる玉を50個集める。'},
@@ -1366,29 +1004,22 @@ function job(id){
 
 /* ================= ホーム ================= */
 const GAMES=[
-  {id:'c21',tier:0,name:'21',desc:'駒を引いて、21に近い方が勝ち。'},
-  {id:'bj',tier:0,name:'ブラックジャック',desc:'ディーラーの一枚は伏せられている。'},
-  {id:'hl',tier:0,name:'ハイ&ロー',desc:'次の駒は上か下か。'},
-  {id:'shell',tier:1,name:'シェルゲーム',desc:'ピエロの手元を目で追う。'},
-  {id:'fall',tier:1,name:'落下予想',desc:'揺れるボールの落下点を読む。'},
-  {id:'color',tier:1,name:'色当て',desc:'一瞬見えた三色を選ぶ。'},
-  {id:'dice',tier:2,name:'ゾロ目',desc:'二つの賽のゾロ目を当てる。'},
-  {id:'roul',tier:2,name:'ルーレット',desc:'最大+10倍、最低−10倍。'},
-  {id:'psych',tier:2,name:'心理戦',desc:'相手より少なく賭けた方が勝つ。'}
+  {id:'shell',name:'シェルゲーム',desc:['ピエロの手元を目で追う。','磨かれた杯の行方を追う。','金の杯。速さが違う。']},
+  {id:'dice',name:'ゾロ目',desc:['二つの賽のゾロ目を当てる。','象牙の賽。ゾロ目で4倍。','金の賽。ゾロ目で4倍。']},
+  {id:'roul',name:'ルーレット',desc:['最大+10倍、最低−10倍。','光が回る。夢はある。','壇上の大勝負。']},
+  {id:'bluff',name:'騙し騙され',desc:['老いた囚人と、硬貨で読み合う。','ピエロの嘘は、読めない。','ハイエナは、こちらを読んでくる。']}
 ];
-function avail(g){
+function avail(g,t){
   if(!tutDone()){
-    if(!COPPER.includes(g))return{ok:false,why:''};
+    if(t!==0)return{ok:false,why:''};
+    if(g==='bluff')return{ok:false,why:'三つ勝つと、相手が現れる'};
     if(S.tut[g])return{ok:false,why:'済'};
     return{ok:true};
   }
-  if(g==='psych'){return psychLevels().length?{ok:true}:{ok:false,why:'金貨100枚から'}}
-  const r=betInfo(g);
-  if(!r.ok)return{ok:false,why:['shell','fall','color'].includes(g)?'銀貨が足りない':'最低掛け金に届かない'};
-  if(g==='color'&&S.interval<3)return{ok:false,why:'あと'+(3-S.interval)+'回、他の勝負を遊んでから'};
+  const r=betInfo(g,t);
+  if(!r.ok)return{ok:false,why:TH[t].un+'が足りない'};
   return{ok:true};
 }
-/* ================= 下のナビ（ガチャ／ギャンブル／ホーム／仕事／設定） ================= */
 const GEAR='<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/></g></svg>';
 const TABS=[['gacha','ガチャ','ball'],['gamble','ギャンブル','die1'],['home','ホーム','key'],['baito','仕事','cu'],['set','設定',null]];
 const tabOf=v=>({gacha:'gacha',gamble:'gamble',home:'home',baito:'baito',job:'baito',set:'set'}[v]||'gamble');
@@ -1440,15 +1071,14 @@ function tierTabs(cur,pick,reachedMax){
 function gamble(tier){
   const m=M();
   const reached=tutDone()?Math.max(S.maxStage>=2?2:S.maxStage,0):0;
-  if(tier===undefined)tier=Math.min(2,Math.min(reached,stage(S.coins)));
+  if(tier===undefined)tier=lastTier!==null&&lastTier<=reached?lastTier:Math.min(2,Math.min(reached,stage(S.coins)));
   m.append(tierTabs(tier,i=>{M().replaceChildren();gamble(i)},reached));
-  if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つ並んでいる。'));
-  else if(S.interval<3)m.append(h('p',{class:'note'},'色当ての余韻 — あと'+(3-S.interval)+'回、掛け金は上限に固定。'));
+  if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つある。'));
   const list=h('div',{class:'list glist'});
-  GAMES.filter(g=>g.tier===tier).forEach(g=>{
-    const a=avail(g.id);
-    list.append(h('div',{class:'card gcard'+(a.ok?'':' off')},h('div',null,h('h3',null,g.name),h('small',{class:'mut'},g.desc),a.why?h('div',{class:'lock'},a.why):''),
-      a.ok?btn('遊ぶ',()=>go(g.id),'pri'):''));
+  GAMES.forEach(g=>{
+    const a=avail(g.id,tier);
+    list.append(h('div',{class:'card gcard'+(a.ok?'':' off')},h('div',null,h('h3',null,g.name),h('small',{class:'mut'},g.desc[tier]),a.why?h('div',{class:'lock'},a.why):''),
+      a.ok?btn('遊ぶ',()=>go(g.id,tier),'pri'):''));
   });
   m.append(list);
 }
@@ -1695,7 +1325,7 @@ function intro(){
 }
 function start(){$('#hdr').hidden=false;progress();go('home')}
 ['contextmenu','copy','cut','selectstart','dragstart','gesturestart','gesturechange'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault(),{passive:false}));
-window.__T={S:()=>S,go,settle,prison,progress,CFG,betInfo,avail,drawAny,val};
+window.__T={S:()=>S,go,settle,prison,progress,CFG,betInfo,avail};
 if(S.key){buyKey();$('#hdr').hidden=false;renderWallet()}
 else if(!S.intro)intro();
 else start();
