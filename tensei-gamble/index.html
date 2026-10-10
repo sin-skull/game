@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#2a2019">
-<meta name="description" content="転生した牢獄街で、ギャンブルだけを頼りに「脱出の鍵」を買う。負けるほど強くなる裏技に気づけるか。">
+<meta name="description" content="転生した海の上の牢獄で、ギャンブルだけを頼りに「脱出の鍵」を買う。負けるほど強くなる裏技に気づけるか。">
 <title>転生ギャンブル</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -212,8 +212,8 @@ body[data-stage="3"]{--fa:#6d6286;--fb:#221c33}
 .vr i{font-style:normal;font-family:var(--head);font-size:17px}
 .opp{position:absolute;right:12px;top:10px;width:calc(100% - 140px);display:grid;grid-template-columns:1fr auto;grid-template-areas:"say face" "hand hand";gap:6px 8px;align-items:end;justify-items:end}
 .faceW{grid-area:face;width:64px}
-.face{width:100%;height:auto;display:block;transform-origin:50% 100%;animation:breathe 8s ease-in-out infinite;filter:drop-shadow(2px 3px 0 #0008)}
-@keyframes breathe{50%{transform:translateY(-2px) scaleY(1.008)}}
+.face{width:100%;height:auto;display:block;transform-origin:50% 100%;animation:breathe 8s ease-in-out infinite;will-change:transform}
+@keyframes breathe{50%{transform:translateY(-3px)}}
 .say{grid-area:say;background:var(--paper);color:var(--ink);border:2px solid var(--ink);padding:5px 10px;border-radius:14px 14px 3px 14px/12px 14px 3px 14px;font-size:14px;min-height:30px;box-shadow:2px 3px 0 #0006;margin-bottom:18px;justify-self:end}
 .say:empty{visibility:hidden}
 .pop{animation:pop .3s ease-out}
@@ -228,7 +228,7 @@ body[data-stage="3"]{--fa:#6d6286;--fb:#221c33}
 .pp.nx.grab{cursor:grabbing;animation:none;z-index:6}
 .arr{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--head);font-size:20px;color:var(--hi);text-shadow:0 2px 0 #000;opacity:0;pointer-events:none}
 .arr.u{top:-34px}.arr.d{bottom:-34px}
-@keyframes pulse{50%{transform:scale(1.07);filter:brightness(1.2)}}
+@keyframes pulse{50%{transform:scale(1.05)}}
 .pot{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);min-width:70px;min-height:80px;cursor:pointer;display:grid;align-content:end;justify-items:center;z-index:2}
 .stack{position:relative;width:46px;height:56px}
 .stack img{position:absolute;left:0;bottom:calc(var(--i)*6px);width:46px;height:46px;object-fit:contain;transform:rotate(var(--r));filter:drop-shadow(0 2px 0 #0007)}
@@ -287,7 +287,7 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 /* ===== ホーム ===== */
 .hscene{position:relative;aspect-ratio:4/3;max-height:58dvh;margin:6px auto 12px;overflow:hidden;border:5px solid #1c130b;border-radius:8px 14px 6px 12px/12px 6px 14px 8px;box-shadow:0 6px 0 #0007}
 .hbg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.9)}
-.hme{position:absolute;left:6%;bottom:0;height:96%;width:auto;cursor:pointer;filter:drop-shadow(3px 4px 0 #0009);animation:breathe 8s ease-in-out infinite;touch-action:manipulation}
+.hme{position:absolute;left:6%;bottom:0;height:96%;width:auto;cursor:pointer;animation:breathe 8s ease-in-out infinite;will-change:transform;touch-action:manipulation}
 .hbox{position:absolute;left:8px;right:8px;bottom:8px;display:grid;gap:2px;padding:8px 12px;background:#14100bd9;border:2px solid #000;border-radius:8px 4px 9px 5px;color:#eadfc6;justify-items:end;text-align:right}
 .hpl{font-family:var(--head);font-size:12px;color:var(--hi)}
 .hdo{font-size:15px;line-height:1.5}
@@ -304,15 +304,18 @@ body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
 .vbg.on{opacity:1}
 .vrain{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .6s;background:repeating-linear-gradient(100deg,#ffffff00 0 6px,#ffffff22 6px 7px);background-size:40px 100%;animation:rain .5s linear infinite;mix-blend-mode:screen}
 @keyframes rain{to{background-position:-40px 60px}}
-.vc{position:absolute;bottom:23%;height:68dvh;width:46%;display:flex;align-items:flex-end;justify-content:center;opacity:0;transform:translateY(24px);transition:opacity .35s,transform .35s,filter .3s;pointer-events:none}
+.vc{position:absolute;bottom:188px;height:calc(100dvh - 214px);width:46%;display:flex;align-items:flex-end;justify-content:center;opacity:0;transform:translateY(24px);transition:opacity .35s,transform .35s,filter .6s;pointer-events:none}
 .vc.on{opacity:1;transform:none}
 .vc img{max-width:100%;width:auto;object-fit:contain;object-position:50% 100%;filter:drop-shadow(3px 5px 0 #000a)}
 .vc.L{left:0}.vc.R{right:0}.vc.C{left:27%}
-.vc.bust{bottom:26%;height:46dvh}
-.vc.dim{filter:brightness(.55)}
-.vbox{position:absolute;left:3%;right:3%;bottom:max(14px,env(safe-area-inset-bottom,0px));min-height:22%;padding:12px 16px 14px;background:#120d08ee;border:3px solid #e8dcc4;border-radius:12px 5px 14px 6px/6px 14px 5px 12px;box-shadow:0 6px 0 #000a;color:#eadfc6}
+.vc.bust{height:40dvh}
+.vc.dim{filter:brightness(.8)}
+.vface{position:absolute;top:-96px;width:104px;height:104px;object-fit:contain;object-position:50% 100%;filter:drop-shadow(2px 3px 0 #000a);pointer-events:none}
+.vface.l{left:8px}.vface.r{right:8px}
+.vname.l{left:120px}.vname.r{left:auto;right:120px}
+.vbox{position:absolute;left:3%;right:3%;bottom:max(14px,env(safe-area-inset-bottom,0px));height:168px;padding:16px 16px 12px;background:#120d08ee;border:3px solid #e8dcc4;border-radius:12px 5px 14px 6px/6px 14px 5px 12px;box-shadow:0 6px 0 #000a;color:#eadfc6}
 .vname{position:absolute;left:14px;top:-16px;padding:2px 14px;font-family:var(--head);font-size:16px;background:#120d08;border:2px solid #e8dcc4;border-radius:8px 3px 9px 4px}
-.vtext{font-size:17px;line-height:1.8;min-height:3.6em;white-space:pre-line;margin-top:4px}
+.vtext{font-size:17px;line-height:1.8;height:7.2em;overflow:hidden;white-space:pre-line;margin-top:4px}
 .vbox.narr .vtext{font-style:italic;color:#cbbd9f}
 .vnext{position:absolute;right:14px;bottom:8px;color:var(--hi);opacity:0}
 .vbox.done .vnext{opacity:1;animation:pulse 1s ease-in-out infinite}
@@ -398,7 +401,7 @@ function fmt(c){
 
 /* ================= セーブ ================= */
 const SK='tensei-gamble-v1';
-const fresh=()=>({coins:1,resets:0,tut:{c21:false,bj:false,hl:false},interval:3,colorN:0,baito:{cu:false,ag:false,au:false},jobs:{clean:0},maxStage:0,key:false,intro:false,storyStage:0,hintN:0,mute:false,fragSeen:0});
+const fresh=()=>({coins:1,resets:0,tut:{c21:false,bj:false,hl:false},interval:3,colorN:0,baito:{cu:false,ag:false,au:false},jobs:{clean:0},maxStage:0,key:false,intro:false,storyStage:0,hintN:0,mute:false,fragSeen:0,seenTable:false});
 let S=load();
 function load(){
   try{const j=JSON.parse(localStorage.getItem(SK));
@@ -450,6 +453,7 @@ function go(view,arg){
   if(S.key){return}
   if(S.coins===0&&view!=='prison'){prison();return}
   curView=view;renderNav(view);
+  if(!S.seenTable&&['c21','bj','hl','shell','fall','color','dice','roul','psych'].includes(view)){S.seenTable=true;save();vn(STORY.firstTable,()=>go(view,arg));return}
   ({home,gamble,gacha,set:settings,baito,job:()=>job(arg),c21:()=>gBJ('c21'),bj:()=>gBJ('bj'),hl:gHL,shell:gShell,fall:gFall,color:gColor,dice:gDice,roul:gRoul,psych:gPsych}[view]||home)(arg);
 }
 function frame(title,sub,deco){
@@ -1217,7 +1221,7 @@ function prison(){
       msg='外れ。目が覚めると、最初の寝床の天井だった。壁の傷が、また一本増えている。';
     }
     save();
-    resultBox.replaceChildren(h('p',{class:'line'},msg),h('div',{class:'row c'},btn('房を出る',()=>{ov.hidden=true;progress();go('home')},'pri')));
+    resultBox.replaceChildren(h('p',{class:'line'},msg),h('div',{class:'row c'},btn('寝床を出る',()=>{ov.hidden=true;progress();go('home')},'pri')));
   }
 }
 
@@ -1234,7 +1238,7 @@ const JOBS=[
 ];
 const UNIT_NAME={cu:'銅貨',ag:'銀貨',au:'金貨'};
 function baito(){
-  const B=frame('牢内のバイト','指先を動かせ。バイトは色当ての余韻を数えない。報酬は軽い。',['guard']);
+  const B=frame('船内のバイト','指先を動かせ。バイトは色当ての余韻を数えない。報酬は軽い。',['guard']);
   const need={cu:'銅貨100枚を持つ',ag:'銀貨100枚を持つ',au:'金貨100枚を持つ'};
   const list=h('div',{class:'list glist'});
   JOBS.forEach(j=>{
@@ -1400,7 +1404,7 @@ function home(){
   const scene=h('div',{class:'hscene'},h('img',{class:'hbg',src:'art/'+P.bg+'.png',alt:'',draggable:'false'}),me,
     h('div',{class:'hbox'},h('span',{class:'hpl'},P.place),doing));
   m.append(scene,h('div',{class:'hstat'},
-    h('div',null,h('small',null,'牢の傷'),h('b',null,S.resets+'本')),
+    h('div',null,h('small',null,'壁の傷'),h('b',null,S.resets+'本')),
     h('div',null,h('small',null,'いまの卓'),h('b',null,['銅貨','銀貨','金貨','貝殻'][st])),
     h('div',null,h('small',null,'鍵まで'),h('b',null,Math.max(0,Math.floor(100-Math.log10(S.coins+1)/13*100))+'%'))),
     h('p',{class:'goal'},'目的：1万貝で、たった一つの鍵を買う。酔い國を、出る。'));
@@ -1456,7 +1460,7 @@ function buyKey(){
     const ov=$('#over');ov.hidden=false;if(navEl)navEl.hidden=true;
     ov.replaceChildren(h('div',{class:'in'},h('div',{class:'stain'}),
       (()=>{const k=ART('key');k.className='keyimg';k.style.height='70px';return k})(),
-      h('p',{class:'line'},'牢の傷は '+S.resets+' 本。'),
+      h('p',{class:'line'},'壁の傷は '+S.resets+' 本。'),
       h('p',{class:'line'},'—— 転生ギャンブル おわり ——'),
       h('div',{class:'row'},btn('最初から',()=>{try{localStorage.removeItem(SK)}catch(e){}S=fresh();location.reload()},'pri'))));
   };
@@ -1521,9 +1525,14 @@ const STORY={
     {who:'司会',t:'という事で！！ ギャンブル、スタート！！'},
     {L:'me_s',who:'俺',t:'いきなりのスタートだな。…まずは、寝床に戻るか。'}
   ],
+  /* 初めて卓についた時 */
+  firstTable:[
+    {bg:'bg_hall',L:'me_n',R:'gd_n',who:'ディーラー',t:'座れ。ここが、お前の最初の卓だ。'},
+    {R:'gd_a',who:'ディーラー',t:'賭けるのは銅貨。…最初の勝負くらいは、勝たせてやる。'}
+  ],
   /* 寝て（停止して）戻されるたびの場面 */
   frag:[
-    [{bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'お、戻ってきたか。最初は、みんなそうだ。'},{who:'古株',t:'寝ちまうだけだ。死にはしねえ。'}],
+    [{bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'お、戻ってきたか。最初は、みんなそうだ。'},{who:'古株',t:'あの怒鳴ってた奴も、今ごろ寝てる。死にはしねえ。'},{who:'古株',t:'ここじゃ、所持金が尽きりゃ、装置が眠らせる。それが終わり方だ。'}],
     [{bg:'bg_ship',L:'me_s',R:'hy_m',who:'眠らない男',t:'おおっ！！ 戻ってきたな！！ 寝てたのか！？ 羨ましいぜ！！'}],
     [{bg:'bg_ship',L:'me_n',R:'ex_g',who:'男',t:'負ける度に、何か思い出すかと思ったけど…俺はまだ、何も思い出せないな。'},{L:'me_w',who:'俺',t:'…俺もだ。'}],
     [{bg:'bg_ship',L:'me_n',R:'old',who:'古株',t:'逃げ方は2つ。1つは、鍵だ。'},{who:'古株',t:'もう1つは…自分で見つけな。'}],
@@ -1546,7 +1555,7 @@ const STORY={
     {bg:'bg_deck',L:'me_d',R:null,who:'俺',t:'…それでも、行く。俺が誰だったのかを、確かめに。'}
   ]
 };
-const NAMEC={'俺':'#e0b84d','司会':'#d96a5e','古株':'#c9b78a','男':'#9fb3a0','眠らない男':'#c9d96a','怒る男':'#d9a05e'};
+const NAMEC={'ディーラー':'#9fb3a0','俺':'#e0b84d','司会':'#d96a5e','古株':'#c9b78a','男':'#9fb3a0','眠らない男':'#c9d96a','怒る男':'#d9a05e'};
 /* ノベル風の場面。タップで文字送り・次へ。背景・立ち絵が切り替わる */
 /* 立ち絵：名前 → 全身絵。表情がない分は近い絵で代用。fh は全身の高さの比 */
 const SPR={me_n:'fb_me_n',me_d:'fb_me_n',me_w:'fb_me_n',me_s:'fb_me_s',ex_t:'fb_ex_t',ex_s:'fb_ex_s',ex_g:'fb_ex_s',old:'fb_old_n',
@@ -1584,6 +1593,8 @@ function vn(steps,done){
   const ov=$('#over');ov.hidden=false;ov.scrollTop=0;
   if(vnState)vnState.stop();
   const root=h('div',{class:'vn'});
+  /* 先読み（切り替え時のちらつき防止） */
+  steps.forEach(st=>['L','C','R'].forEach(k=>{if(st[k]){[sprName(st[k]),st[k]].forEach(f=>{const im=new Image();im.src='art/'+f+'.png'})}}));
   const bgA=h('img',{class:'vbg',alt:'',draggable:'false'}),bgB=h('img',{class:'vbg',alt:'',draggable:'false'});
   const slots={L:h('div',{class:'vc L'}),C:h('div',{class:'vc C'}),R:h('div',{class:'vc R'})};
   const rain=h('div',{class:'vrain'});
@@ -1598,19 +1609,31 @@ function vn(steps,done){
     const nb=front===bgA?bgB:bgA;nb.src='art/'+n+'.png';nb.classList.add('on');front.classList.remove('on');front=nb;
     rain.style.opacity=n==='bg_street'||n==='bg_cell'?1:0;
   };
-  const setChar=(k,n,speaker)=>{
-    const el=slots[k];
-    if(n===undefined)return;
+  const cid=f=>f.startsWith('fb_')?f.slice(0,5):f.split('_')[0];
+  const setChar=(k,n)=>{
+    if(n===undefined)return;const el=slots[k];
     if(n===null){cur[k]=null;el.classList.remove('on');return}
-    if(cur[k]!==n){
-      cur[k]=n;
-      const im=sprImg(n);
-      el.replaceChildren(im);el.classList.toggle('bust',!sprName(n).startsWith('fb_'));el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
+    const f=sprName(n),pf=cur[k]?sprName(cur[k]):null;cur[k]=n;
+    if(pf&&el.classList.contains('on')&&cid(pf)===cid(f)){
+      /* 表情が変わるだけ：動かさず、絵だけ差し替える（ガタつき防止） */
+      const im=el.querySelector('img');if(im&&pf!==f){im.src='art/'+f+'.png';im.style.height=Math.round(sprFH(f)*100)+'%'}
+      return;
     }
+    el.replaceChildren(sprImg(n));el.classList.toggle('bust',!f.startsWith('fb_'));
+    el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
   };
   const finish=()=>{if(closed)return;closed=true;clearInterval(typing);ov.removeEventListener('click',tap);ov.hidden=true;vnState=null;done&&done()};
   vnState={stop(){closed=true;clearInterval(typing);ov.removeEventListener('click',tap)}};
-  const speak=(who)=>{['L','C','R'].forEach(k=>slots[k].classList.toggle('dim',!!who&&who!=='俺'&&k==='L'||!!who&&who==='俺'&&k!=='L'&&!!cur.L))};
+  const face=h('img',{class:'vface',alt:'',draggable:'false'});box.append(face);
+  const speak=(who)=>{
+    const sk=!who?null:(who==='俺'?'L':(cur.C?'C':'R'));
+    ['L','C','R'].forEach(k=>slots[k].classList.toggle('dim',!!sk&&cur[k]&&k!==sk&&!!cur[sk]));
+    const key=sk&&cur[sk];
+    if(!key){face.style.display='none';name.className='vname';return}
+    const side=who==='俺'?'l':'r';
+    if(face.dataset.k!==key){face.dataset.k=key;face.src='art/'+key+'.png'}
+    face.style.display='';face.className='vface '+side;name.className='vname '+side;
+  };
   function next(){
     i++;
     if(i>=steps.length){finish();return}
