@@ -395,6 +395,11 @@ body.inworld #main{padding:0!important;overflow:hidden}
 .wpad{position:absolute;width:132px;height:64px;margin:-32px 0 0 -66px;border:2px solid #e8dcc488;border-radius:999px;background:#ffffff14;opacity:0;pointer-events:none;transition:opacity .15s;z-index:2}
 .wpad.on{opacity:1}
 .wpad i{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:#e8dcc4aa;border:2px solid #e8dcc4}
+
+.wback{right:auto;left:10px;width:auto;padding:0 12px;font-family:var(--head);font-size:15px}
+.nook{position:absolute;left:50%;top:26%;transform:translateX(-50%);width:40%;min-width:130px;height:24%;padding:6px 10px;background:#ffffff10;border:2px dashed #e8dcc488;color:#eadfc6;font-family:var(--head);text-align:center;cursor:pointer;border-radius:14px 14px 4px 4px;display:flex;flex-direction:column;justify-content:flex-start;align-items:center;transition:box-shadow .2s,background .2s}
+.nook b{font-size:17px}.nook small{font-size:11px;color:#bfb08c}
+.nook.near{background:#e0b84d22;border:2px solid #e0b84d;box-shadow:0 0 22px #e0b84d88}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media (max-width:380px){.coins{grid-template-columns:repeat(2,1fr)}.pc{width:80px}}
 html{-webkit-text-size-adjust:100%}
@@ -520,7 +525,7 @@ function go(view,arg){
   if(S.coins===0&&view!=='prison'){prison();return}
   curView=view;renderNav(view);
   if(!S.seenTable&&['shell','dice','roul','bluff'].includes(view)){S.seenTable=true;save();vn(STORY.firstTable,()=>go(view,arg));return}
-  ({home,gamble,gacha,set:settings,baito,job:()=>job(arg),shell:gShell,dice:gDice,roul:gRoul,bluff:gBluff}[view]||home)(arg);
+  ({home,area,gamble,gacha,set:settings,baito,job:()=>job(arg),shell:gShell,dice:gDice,roul:gRoul,bluff:gBluff}[view]||home)(arg);
 }
 function frame(title,sub,deco){
   const m=M();
@@ -762,11 +767,11 @@ const BLUFF=[
    lie:()=>.35,doubt:h=>.35+.3*h.myLie,
    open:['「…これは本物だ」','「見ろ、本物じゃよ」'],think:['「ふむ…」','「どうかのう…」'],
    tell:'口の端が、わずかに上がった。'},
-  {name:'ピエロ',a:'cl_g',b:'cl_s',tl:.3,tt:.6,
+  {name:'ピエロ',a:'pj_g',b:'pj_s',tl:.3,tt:.6,
    lie:()=>.5,doubt:h=>.5,
    open:['「ほんもの、ほんもの！」','「ぼくは嘘つかないよ〜」'],think:['「さあさあ、どっち？」','「あれれ〜？」'],
    tell:'目が笑っていない。'},
-  {name:'ハイエナ',a:'hy_m',b:'hy_b',tl:.5,tt:.5,
+  {name:'金の男',a:'au_s',b:'au_a',tl:.5,tt:.5,
    lie:h=>Math.max(.15,.7-.5*h.myDoubt),doubt:h=>Math.min(.9,.25+.65*h.myLie),
    open:['「本物だ。疑うなよ」','「いい硬貨だろう？」'],think:['「…………」','「お前の目、読めるぞ」'],
    tell:'指先が、微かに動いた。'}];
@@ -1037,7 +1042,7 @@ const GAMES=[
   {id:'shell',name:'シェルゲーム',desc:['ピエロの手元を目で追う。','磨かれた杯の行方を追う。','金の杯。速さが違う。']},
   {id:'dice',name:'ゾロ目',desc:['二つの賽のゾロ目を当てる。','象牙の賽。ゾロ目で4倍。','金の賽。ゾロ目で4倍。']},
   {id:'roul',name:'ルーレット',desc:['最大+10倍、最低−10倍。','光が回る。夢はある。','壇上の大勝負。']},
-  {id:'bluff',name:'騙し騙され',desc:['老いた囚人と、硬貨で読み合う。','ピエロの嘘は、読めない。','ハイエナは、こちらを読んでくる。']}
+  {id:'bluff',name:'騙し騙され',desc:['老いた囚人と、硬貨で読み合う。','ピエロの嘘は、読めない。','金の男は、こちらを読んでくる。']}
 ];
 function avail(g,t){
   if(!tutDone()){
@@ -1057,17 +1062,15 @@ let navEl=null,curView='home';
 function renderNav(v){if(navEl)navEl.hidden=true}
 
 /* ================= ワールド：船の中を歩く。場所の前で、タップして入る ================= */
-const OPEN_TIER=0; /* いま公開する貨幣の階層(0=銅のみ)。銀・金は世界観の絵ができたら上げる */
+const OPEN_TIER=2;
 const WORLD=[
   {id:'bed',name:'寝床',bg:'bg_cell',sub:'壁の傷を数える場所'},
   {id:'work',name:'仕事場',bg:'bg_office',sub:'バイト'},
-  {id:'cu',name:'銅貨の賭場',bg:'bg_ship',sub:'船底の卓'},
-  {id:'ag',name:'銀貨の賭場',bg:'bg_hall',sub:'広間の卓',need:1},
-  {id:'au',name:'金貨の賭場',bg:'bg_stage',sub:'壇上の卓',need:2},
+  {id:'gamble',name:'ギャンブルエリア',bg:'bg_ship',sub:'卓が並ぶ場所'},
   {id:'ex',name:'換金所',bg:'bg_deck',sub:'もうすぐ開く'}
 ];
-function worldOpen(p){return !p.need||(p.need<=OPEN_TIER&&tutDone()&&S.maxStage>=p.need)}
-function worldShown(p){if(p.id==='work')return !!S.baito.cu;if(p.id==='ex')return false;return worldOpen(p)}
+function worldOpen(p){return true}
+function worldShown(p){if(p.id==='work')return !!S.baito.cu;if(p.id==='ex')return false;return true}
 let worldRAF=0;
 function home(){
   const m=M();
@@ -1115,12 +1118,12 @@ function home(){
   };
   const enter=i=>{
     const p=PL[i];S.at=p.id;save();
-    if(!worldOpen(p)){SFX.lose&&SFX.lose();toast('まだ入れない。'+(p.id==='ag'?'銅貨の勝負を、もっと勝ち上がれ。':'銀貨の勝負を、もっと勝ち上がれ。'));return}
+    if(!worldOpen(p)){SFX.lose&&SFX.lose();return}
     SFX.tap();
     if(p.id==='bed')vn([{bg:'bg_cell',t:'壁の傷は '+S.resets+' 本。'},{t:'目的：1万貝で、たった一つの鍵を買う。'},{t:'酔い國を、出る。'}],()=>{});
     else if(p.id==='work')go('baito');
     else if(p.id==='ex')go('gacha');
-    else go('gamble',{cu:0,ag:1,au:2}[p.id]);
+    else go('area');
   };
   const tick=now=>{
     if(!world.isConnected){cancelAnimationFrame(worldRAF);return}
@@ -1167,6 +1170,99 @@ function home(){
   cleanups.push(()=>{cancelAnimationFrame(worldRAF);removeEventListener('keydown',kd);removeEventListener('keyup',ku);removeEventListener('resize',rs)});
   draw();last=performance.now();worldRAF=requestAnimationFrame(tick);
 }
+/* ================= ギャンブルエリア：歩いて奥のコーナーに入る ================= */
+function area(){
+  const m=M();
+  document.body.classList.add('inworld');
+  const open=[0,1,2].filter(t=>t<=OPEN_TIER&&(t===0||(tutDone()&&S.maxStage>=t)));
+  const N=open.length;
+  const world=h('div',{class:'world area'});
+  const strip=h('div',{class:'wstrip'});
+  const nooks=open.map((t,i)=>{
+    const nk=h('button',{class:'nook',type:'button','aria-label':TH[t].un+'のコーナー'},h('b',null,TH[t].un+'のコーナー'),h('small',null,'奥へ進むと入れる'));
+    nk.onclick=e=>{e.stopPropagation();goal=i;auto=true};
+    strip.append(h('div',{class:'wp',style:'background-image:linear-gradient(#0000 55%,#000a),url(art/'+TH[t].bg+'.png)'},nk));
+    return nk;
+  });
+  const me=h('img',{class:'wme',src:'art/fb_me_n.png',alt:'囚人',draggable:'false'});
+  const meBox=h('div',{class:'wmebox'},me);
+  const back=h('button',{class:'wgear wback',type:'button','aria-label':'外へ',onclick:e=>{e.stopPropagation();SFX.tap();go('home')}},'← 外へ');
+  const hint=h('div',{class:'whint'},'押したままスライド。コーナーの前で上へスライドすると、中に入れる');
+  const pad=h('div',{class:'wpad'},h('i'));
+  world.append(strip,meBox,back,pad);
+  if((S.areaHint||0)<6)world.append(hint);
+  m.append(world);
+  const at0=Math.max(0,Math.min(N-1,S.areaAt||0));
+  let W=world.clientWidth||360,px=(at0+.5)*W,py=0,vx=0,vy=0,x0=0,y0=0,held=false,auto=false,goal=at0,faceR=true,last=performance.now(),done=false;
+  const ZONE=.2,SHALLOW=.12;
+  const layout=()=>{W=world.clientWidth||360;strip.style.width=(W*N)+'px';[...strip.children].forEach(c=>c.style.width=W+'px')};
+  layout();px=(at0+.5)*W;
+  const sec=()=>Math.max(0,Math.min(N-1,Math.floor(px/W)));
+  const inZone=()=>Math.abs(px-(sec()+.5)*W)<W*ZONE;
+  const draw=()=>{
+    const cam=Math.max(0,Math.min(N*W-W,px-W/2));
+    const H=world.clientHeight||600;
+    strip.style.transform='translate3d('+(-cam)+'px,0,0)';
+    meBox.style.transform='translate3d('+(px-cam-W/2)+'px,'+(-py*H*.26)+'px,0)';
+    me.style.transform='scale('+((faceR?1:-1)*(1-.2*py))+','+(1-.2*py)+')';
+    nooks.forEach((nk,i)=>nk.classList.toggle('near',i===sec()&&inZone()));
+  };
+  const enter=i=>{
+    if(done)return;done=true;S.areaAt=i;save();SFX.tap();go('gamble',open[i]);
+  };
+  const tick=now=>{
+    if(!world.isConnected){return}
+    const dt=Math.min(.05,(now-last)/1000);last=now;
+    let ax=0,ay=0;
+    if(held){ax=vx;ay=vy}
+    else if(auto){
+      const cx=(goal+.5)*W,d=cx-px;
+      if(Math.abs(d)>6&&py<=SHALLOW+.001)ax=Math.sign(d);else{px=Math.abs(d)<=6?cx:px;ay=1}
+    }
+    const sp=Math.max(220,W*.65);
+    if(ax){px+=ax*sp*dt;faceR=ax>0}
+    if(ay)py+=ay*dt*.9;
+    /* 透明な壁：奥へ上がっている間は、コーナーの幅に収める。扉の横からは上へ行けない */
+    const c=(sec()+.5)*W;
+    if(py>SHALLOW){
+      if(!inZone())py=SHALLOW;
+      else{px=Math.max(c-W*ZONE,Math.min(c+W*ZONE,px));px+=(c-px)*Math.min(1,dt*5)}
+    }
+    py=Math.max(0,Math.min(1,py));
+    px=Math.max(36,Math.min(N*W-36,px));
+    if(!held&&!auto&&py>SHALLOW&&py<1)py=Math.max(SHALLOW,py-dt*.9*.6);   // 離したら、少し戻る
+    meBox.classList.toggle('walk',!!(ax||ay));
+    if(py>=.98&&inZone()){draw();enter(sec());return}
+    draw();requestAnimationFrame(tick);
+  };
+  const R=60;
+  const ptr=e=>{
+    const dx=e.clientX-x0,dy=e.clientY-y0;
+    const fx=Math.abs(dx)<8?0:Math.sign(dx)*Math.min(1,(Math.abs(dx)-8)/(R-8));
+    const fy=Math.abs(dy)<10?0:-Math.sign(dy)*Math.min(1,(Math.abs(dy)-10)/(R-10));
+    vx=fx;vy=fy;
+    pad.firstChild.style.transform='translate('+Math.max(-R,Math.min(R,dx))+'px,'+Math.max(-R,Math.min(R,dy))+'px)';
+  };
+  world.addEventListener('pointerdown',e=>{
+    if(e.target.closest('.nook,.wgear'))return;
+    held=true;auto=false;x0=e.clientX;y0=e.clientY;vx=vy=0;
+    const r=world.getBoundingClientRect();pad.style.left=(e.clientX-r.left)+'px';pad.style.top=(e.clientY-r.top)+'px';
+    pad.firstChild.style.transform='translate(0,0)';pad.classList.add('on');
+    try{world.setPointerCapture(e.pointerId)}catch(_){}
+    S.areaHint=(S.areaHint||0)+1;hint.style.opacity=0;
+  });
+  world.addEventListener('pointermove',e=>{if(held)ptr(e)});
+  const release=()=>{if(!held)return;held=false;vx=vy=0;pad.classList.remove('on')};
+  ['pointerup','pointercancel'].forEach(k=>world.addEventListener(k,release));
+  const kd=e=>{if(e.key==='ArrowLeft'){held=true;vx=-1;auto=false}else if(e.key==='ArrowRight'){held=true;vx=1;auto=false}else if(e.key==='ArrowUp'){held=true;vy=1;auto=false}else if(e.key==='ArrowDown'){held=true;vy=-1;auto=false}};
+  const ku=e=>{if(e.key.startsWith('Arrow')){held=false;vx=vy=0}};
+  addEventListener('keydown',kd);addEventListener('keyup',ku);
+  const rs=()=>{const rel=px/W;layout();px=rel*W;draw()};addEventListener('resize',rs);
+  cleanups.push(()=>{done=true;removeEventListener('keydown',kd);removeEventListener('keyup',ku);removeEventListener('resize',rs)});
+  
+  draw();last=performance.now();requestAnimationFrame(tick);
+}
+
 function toast(t){
   const e=h('div',{class:'wtoast'},t);document.body.append(e);setTimeout(()=>e.classList.add('out'),1600);setTimeout(()=>e.remove(),2100);
 }
@@ -1180,10 +1276,9 @@ function tierTabs(cur,pick,reachedMax){
 }
 function gamble(tier){
   const m=M();
-  m.append(h('div',{class:'back'},btn('← 外へ',()=>go('home'))));
+  m.append(h('div',{class:'back'},btn('← 戻る',()=>go('area'))));
   const reached=tutDone()?Math.min(OPEN_TIER,Math.max(S.maxStage>=2?2:S.maxStage,0)):0;
-  if(tier===undefined)tier=lastTier!==null&&lastTier<=reached?lastTier:Math.min(2,Math.min(reached,stage(S.coins)));
-  m.append(tierTabs(tier,i=>{M().replaceChildren();gamble(i)},reached));
+  if(tier===undefined)tier=lastTier!==null?lastTier:0;
   if(!tutDone())m.append(h('p',{class:'note'},'卓の上に、必ず当たる勝負が三つある。'));
   const list=h('div',{class:'list glist'});
   GAMES.forEach(g=>{
@@ -1321,11 +1416,11 @@ const STORY={
 const NAMEC={'ディーラー':'#9fb3a0','俺':'#e0b84d','司会':'#d96a5e','古株':'#c9b78a','男':'#9fb3a0','眠らない男':'#c9d96a','怒る男':'#d9a05e'};
 /* ノベル風の場面。タップで文字送り・次へ。背景・立ち絵が切り替わる */
 /* 立ち絵：名前 → 全身絵。表情がない分は近い絵で代用。fh は全身の高さの比 */
-const SPR={me_n:'fb_me_n',me_d:'fb_me_n',me_w:'fb_me_n',me_s:'fb_me_s',ex_t:'fb_ex_t',ex_s:'fb_ex_s',ex_g:'fb_ex_s',old:'fb_old_n',
-  hy_m:'fb_hy_m',hy_s:'fb_hy_m',hy_b:'fb_hy_b',cl_g:'fb_cl_g',cl_s:'fb_cl_s',cl_u:'fb_cl_s',gd_n:'fb_gd_n',gd_a:'fb_gd_a'};
-const FH={fb_me:1,fb_ex:.97,fb_old:.8,fb_hy:.98,fb_cl:1,fb_gd:.92};
+const SPR={me_n:'fb_me_n',me_d:'fb_me_n',me_w:'fb_me_n',me_s:'fb_me_s',ex_t:'fb_ex_t',ex_s:'fb_ex_s',ex_g:'fb_ex_s',old:'fb_old_n',old_g:'fb_old_g',
+  hy_m:'fb_hy_m',hy_s:'fb_hy_m',hy_b:'fb_hy_b',cl_g:'fb_mc',cl_s:'fb_mc',cl_u:'fb_mc',gd_n:'fb_gd_n',gd_a:'fb_gd_n',pj_g:'fb_pj_g',pj_s:'fb_pj_s',au_s:'fb_au_s',au_a:'fb_au_a'};
+const FH={};
 const sprName=n=>SPR[n]||n;
-const sprFH=f=>f.startsWith('fb_')?Math.min(1,FH[f.slice(0,5)]||1):.62;
+const sprFH=f=>f.startsWith('fb_')?1:.62;
 function sprImg(n){const f=sprName(n);return h('img',{src:'art/'+f+'.png',alt:'',draggable:'false',style:'height:'+Math.round(sprFH(f)*100)+'%'})}
 /* セリフの改行：1行15文字まで。句読点と助詞の切れ目で折る */
 function wrapJa(t,max=15){
