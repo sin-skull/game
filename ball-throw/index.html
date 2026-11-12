@@ -99,10 +99,22 @@
       }
       #hudDist { font-size: 64px; line-height: .95; text-shadow: 4px 4px 0 #000; }
       #hudDist small { font-size: 26px; }
-      #hudEarn {
-        display: inline-block; margin-top: 8px;
+      #hudStats {
+        margin-top: 10px;
+        display: flex; gap: 8px; justify-content: center;
+      }
+      .hstat {
+        background: #000; border: 2px solid #fff;
+        padding: 4px 12px 6px; min-width: 96px;
+      }
+      .hstat .k { display: block; font-size: 9px; font-weight: 900; letter-spacing: .24em; line-height: 1.2; }
+      .hstat .v { font-size: 21px; line-height: 1.1; }
+      .hstat .v small { font-size: 12px; }
+      #ffTag {
+        display: none; margin-top: 8px;
         background: #fff; color: #000;
-        font-weight: 900; font-size: 16px; padding: 3px 12px;
+        font-weight: 900; font-size: 14px; letter-spacing: .14em;
+        padding: 3px 12px;
       }
 
       /* ---------- select: tap hint + cards ---------- */
@@ -199,7 +211,17 @@
       #boostBtn svg { width: 34px; height: 34px; display: block; }
       #boostBtn .bt { font-size: 10px; letter-spacing: .08em; line-height: 1; margin-top: 1px; }
       #boostBtn.used { background: #555; color: #111; outline-color: #555; }
-      #boostBtn:not(.used):active { transform: scale(.93); }
+      #boostBtn.on { background: #000; color: #fff; transform: scale(.93); }
+      #boostBtn { touch-action: none; }
+      /* the black ring just inside the white button face IS the gauge:
+         full = the ring closes the whole circle; holding BOOST burns it
+         and the ring is consumed clockwise until nothing is left */
+      #boostBtn svg.ring {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+        pointer-events: none;
+      }
+      #boostBtn.on #boostRing { stroke: #fff; }
 
       /* ---------- result ---------- */
       #result {
@@ -229,6 +251,13 @@
         display: flex; align-items: center; justify-content: center; gap: 8px;
       }
       #resCoins .coin-ic { border-color: #000; color: #000; background: #fff; }
+      #resAir { font-size: 13px; font-weight: 900; padding-top: 2px; letter-spacing: .08em; }
+      #resSkill {
+        display: none; margin: 8px auto 0; width: fit-content;
+        background: #fff; color: #000; font-weight: 900; font-size: 12px;
+        padding: 3px 10px; letter-spacing: .06em;
+        border: 2px solid #000;
+      }
       #resBest { font-size: 12px; font-weight: 700; padding-bottom: 14px; letter-spacing: .06em; }
       #okBtn {
         display: block; width: calc(100% - 24px); margin: 0 12px 14px;
@@ -244,6 +273,59 @@
         color: #fff; background: #000; border: 1px solid #fff;
         padding: 4px 8px; min-height: 2rem; display: none;
       }
+
+      /* ---------- skills ---------- */
+      #skillBtn {
+        position: absolute; left: 10px; top: 64px; z-index: 25;
+        background: #fff; color: #000; border: 2px solid #fff;
+        font-weight: 900; font-size: 14px; letter-spacing: .18em;
+        padding: 6px 16px 6px calc(16px + .18em); min-height: 2.25rem; display: none;
+      }
+      #skillBtn:active { background: #000; color: #fff; }
+      #skills {
+        position: absolute; inset: 0; z-index: 40;
+        display: none; align-items: center; justify-content: center;
+        background: rgba(0,0,0,.6);
+        padding: 20px;
+      }
+      #skillPanel {
+        background: #fff; color: #000; width: 100%; max-width: 330px;
+        border: 3px solid #fff; outline: 2px solid #000; outline-offset: -6px;
+        max-height: 100%; overflow-y: auto;
+      }
+      #skillPanel .rhead {
+        background: #000; color: #fff; font-weight: 900; font-size: 19px;
+        letter-spacing: .34em; padding: 9px 0 9px .34em; text-align: center;
+      }
+      .skrow { padding: 10px 12px 12px; border-bottom: 2px solid #000; }
+      .skrow .top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+      .skrow .nm { font-weight: 900; font-size: 15px; }
+      .skrow .slv {
+        background: #000; color: #fff; flex: none;
+        font-size: 11px; font-weight: 900; padding: 1px 5px;
+        font-family: "Archivo", sans-serif; font-style: italic;
+      }
+      .skrow .ds { font-size: 11px; font-weight: 700; margin-top: 3px; letter-spacing: .03em; }
+      .skrow .lock { font-size: 11px; font-weight: 900; margin-top: 6px; letter-spacing: .05em; }
+      .skrow.locked .nm, .skrow.locked .ds { opacity: .45; }
+      .skrow .buy {
+        margin-top: 8px; width: 100%;
+        background: #000; color: #fff;
+        font-weight: 900; font-size: 15px;
+        padding: 8px 4px; min-height: 2.5rem;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+      }
+      .skrow .buy .coin-ic { width: 16px; height: 16px; border-width: 2px; font-size: 9px; }
+      .skrow .buy:disabled { background: #8a8a8a; color: #000; cursor: default; }
+      .skrow .buy:not(:disabled):active { background: #fff; color: #000; }
+      .skrow .max { margin-top: 8px; text-align: center; font-weight: 900; font-size: 13px; letter-spacing: .3em; }
+      #skillClose {
+        display: block; width: calc(100% - 24px); margin: 12px;
+        background: #000; color: #fff; font-weight: 900; font-size: 17px;
+        letter-spacing: .24em; padding: 10px 0 10px .24em; min-height: 3rem;
+        border: 3px solid #000;
+      }
+      #skillClose:active { background: #fff; color: #000; }
     </style>
   </head>
   <body>
@@ -264,7 +346,11 @@
 
       <div id="hud">
         <div id="hudDist" class="num">0<small>m</small></div>
-        <div><span id="hudEarn">+0</span></div>
+        <div id="hudStats">
+          <div class="hstat"><span class="k">SPEED</span><span class="v num" id="hudSpeed">0<small> km/h</small></span></div>
+          <div class="hstat"><span class="k">AIR TIME</span><span class="v num" id="hudAir">0.00<small> s</small></span></div>
+        </div>
+        <div><span id="ffTag">»» 2倍速</span></div>
       </div>
 
       <div id="tapHint">タップでスタート</div>
@@ -304,6 +390,9 @@
       </div>
 
       <button id="boostBtn" type="button" aria-label="ブースト">
+        <svg class="ring" viewBox="0 0 76 76" aria-hidden="true">
+          <circle id="boostRing" cx="38" cy="38" r="30.5" fill="none" stroke="#000" stroke-width="4" stroke-linecap="butt" transform="rotate(-90 38 38)" stroke-dasharray="191.6 191.6" />
+        </svg>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
           <path d="M12 2.5c3 2.6 4.5 6.2 4.5 10.2l-2.3 3.8h-4.4L7.5 12.7C7.5 8.7 9 5.1 12 2.5z" fill="currentColor" stroke="none"/>
           <circle cx="12" cy="9.5" r="1.9" fill="#fff"/>
@@ -318,8 +407,20 @@
           <div id="resDist" class="num">0<small>m</small></div>
           <div id="resNewBest">★ NEW RECORD ★</div>
           <div id="resCoins"><span class="coin-ic">C</span><span id="resCoinVal" class="num">+0</span></div>
+          <div id="resAir">滞空時間 0.00秒</div>
+          <div id="resSkill"></div>
           <div id="resBest">ベスト 0m</div>
           <button id="okBtn" type="button">OK</button>
+        </div>
+      </div>
+
+      <button id="skillBtn" type="button">スキル</button>
+
+      <div id="skills">
+        <div id="skillPanel">
+          <div class="rhead">SKILL</div>
+          <div id="skillRows"></div>
+          <button id="skillClose" type="button">とじる</button>
         </div>
       </div>
 
@@ -330,7 +431,7 @@
       'use strict';
       /* ================= save (localStorage) ================= */
       var SAVE_KEY = 'ball-throw-github-v1';
-      var save = { coins: 0, lv: { catapult: 1, ball: 1, income: 1 }, best: 0 };
+      var save = { coins: 0, lv: { catapult: 1, ball: 1, income: 1 }, best: 0, sk: { bounce: 0, income: 0, jet: 0 } };
       try {
         var raw = localStorage.getItem(SAVE_KEY);
         if (raw) {
@@ -342,6 +443,11 @@
             save.lv.income = p.lv.income | 0 || 1;
           }
           if (p && typeof p.best === 'number') save.best = p.best;
+          if (p && p.sk) {
+            save.sk.bounce = Math.max(0, p.sk.bounce | 0);
+            save.sk.income = Math.max(0, p.sk.income | 0);
+            save.sk.jet = Math.max(0, p.sk.jet | 0);
+          }
         }
       } catch (e) { /* storage unavailable: play without saving */ }
       function persist() {
@@ -355,12 +461,29 @@
         return Math.round(base * Math.pow(1.18, save.lv[kind] - 1) / 5) * 5;
       }
       function launchSpeed() { return 13 + save.lv.catapult * 2.6; }        // m/s at full power
+      // ball card upgrades ONLY bounce + rolling; airtime is pure physics
+      // (launch speed x angle under real gravity), never a hidden stat
       function bounceK() { return Math.min(0.78, 0.40 + save.lv.ball * 0.032); }
       function rollFriction() { return Math.max(0.85, 4.4 - save.lv.ball * 0.30); }
-      // airtime stat: a stronger ball feels less gravity, so it stays up
-      // longer and distance (= speed x airtime) stretches with it
-      function gravK() { return Math.max(0.55, 1 - (save.lv.ball - 1) * 0.04); }
       function incomeMult() { return 1 + (save.lv.income - 1) * 0.5; }
+
+      /* ================= skills (unlocked by best distance) ================= */
+      var SKILLS = [
+        { id: 'bounce', name: 'バウンド回数増加', unlock: 30, max: 5, base: 300,
+          fx: function (lv) { return 'バウンド上限 ' + (1 + lv) + '回'; } },
+        { id: 'income', name: '収入ブースト', unlock: 80, max: 5, base: 500,
+          fx: function (lv) { return '収入倍率に ×' + trimNum(1 + 0.5 * lv) + ' を追加'; } },
+        { id: 'jet', name: 'ジェットパック強化', unlock: 150, max: 5, base: 800,
+          fx: function (lv) { return 'ブースト推力 ×' + trimNum(1 + 0.2 * lv) + '・ゲージ ' + trimNum(1.8 * (1 + 0.25 * lv)) + '秒'; } }
+      ];
+      function skillCost(s) { return Math.round(s.base * Math.pow(1.35, save.sk[s.id]) / 5) * 5; }
+      function maxBounces() { return 1 + save.sk.bounce; }              // base 1 bounce + skill
+      function skillIncomeMult() { return 1 + 0.5 * save.sk.income; }   // multiplies the card multiplier
+      function totalIncomeMult() { return incomeMult() * skillIncomeMult(); }
+      function jetK() { return 1 + 0.2 * save.sk.jet; }                 // boost thrust multiplier
+      function gaugeSeconds() { return 1.8 * (1 + 0.25 * save.sk.jet); } // boost gauge capacity, in seconds of burn
+      // skins change every 5 levels: tier 0 = Lv1-4, 1 = Lv5-9, 2 = Lv10-14...
+      function skinTier(lv) { return Math.min(4, Math.floor((lv - 1) / 5)); }
 
       function fmt(n) {
         n = Math.floor(n);
@@ -381,7 +504,9 @@
       var bestVal = document.getElementById('bestVal');
       var hud = document.getElementById('hud');
       var hudDist = document.getElementById('hudDist');
-      var hudEarn = document.getElementById('hudEarn');
+      var hudSpeed = document.getElementById('hudSpeed');
+      var hudAir = document.getElementById('hudAir');
+      var ffTag = document.getElementById('ffTag');
       var tapHint = document.getElementById('tapHint');
       var cardsEl = document.getElementById('cards');
       var aimUI = document.getElementById('aimUI');
@@ -390,8 +515,12 @@
       var gPower = document.getElementById('gPower');
       var gBar = document.getElementById('gBar');
       var boostBtn = document.getElementById('boostBtn');
+      var boostRing = document.getElementById('boostRing');
       var resultEl = document.getElementById('result');
       var resetBtn = document.getElementById('resetBtn');
+      var skillBtn = document.getElementById('skillBtn');
+      var skillsEl = document.getElementById('skills');
+      var skillRows = document.getElementById('skillRows');
 
       var W = 0, H = 0;
       function resize() {
@@ -407,18 +536,31 @@
       if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
 
       /* ================= game state ================= */
-      var GRAV = 9.8;
+      var GRAV = 9.8; // real gravity: falls accelerate naturally, no float factor
       var state = 'select'; // select | aim | fly | result
-      var ball = { z: 0, y: 0, vz: 0, vy: 0, rolling: false, spin: 0 };
+      var ball = { z: 0, y: 0, vz: 0, vy: 0, rolling: false, spin: 0, bounces: 0 };
       var camZ = 0, camY = 0;
       var pull = null;      // {startY, r} while dragging in aim
-      var boostUsed = false;
-      var flightEarned = 0; // coins earned so far this flight (not yet committed until stop)
+      var boostGauge = 1;   // 0..1, refilled at every launch; hold BOOST to burn it
+      var boosting = false; // true while the BOOST button is held with gauge left
+      var airTime = 0;      // seconds spent airborne this flight (physics time)
+      var ff = false;       // long-press fast-forward (x2) during flight
       var lastTs = 0;
       var dirty = true; // repaint only when something actually changed (flight = every frame)
 
       function pullAngle(r) { return (65 - 20 * r) * Math.PI / 180; }
       function pullSpeed(r) { return launchSpeed() * (0.30 + 0.70 * r); }
+
+      /* boost gauge = the black ring inside the BOOST button. Full: the ring
+         closes the circle. As it burns, the ring's tail end stays at the top
+         and its start is eaten away clockwise, so the remaining arc shrinks
+         clockwise until the ring disappears entirely. */
+      var RING_C = 2 * Math.PI * 30.5; // circumference of the gauge ring
+      function renderBoostRing() {
+        var g = Math.max(0, Math.min(1, boostGauge));
+        boostRing.setAttribute('stroke-dasharray', (g * RING_C).toFixed(2) + ' ' + RING_C.toFixed(2));
+        boostRing.setAttribute('transform', 'rotate(' + (-90 + (1 - g) * 360).toFixed(2) + ' 38 38)');
+      }
 
       function toAim() {
         state = 'aim';
@@ -426,6 +568,8 @@
         cardsEl.style.display = 'none';
         tapHint.style.display = 'none';
         resetBtn.style.display = 'none';
+        skillBtn.style.display = 'none';
+        skillsEl.style.display = 'none';
         aimUI.style.display = 'block';
         pull = null;
         gauge.style.display = 'none';
@@ -433,11 +577,13 @@
       function toSelect() {
         state = 'select';
         dirty = true;
-        ball.z = 0; ball.y = 0; ball.vz = 0; ball.vy = 0; ball.rolling = false;
-        camZ = 0; camY = 0; pull = null; boostUsed = false; flightEarned = 0;
+        ball.z = 0; ball.y = 0; ball.vz = 0; ball.vy = 0; ball.rolling = false; ball.bounces = 0;
+        camZ = 0; camY = 0; pull = null; boostGauge = 1; boosting = false; airTime = 0;
+        ff = false; ffTag.style.display = 'none';
         cardsEl.style.display = 'flex';
         tapHint.style.display = 'block';
         resetBtn.style.display = 'block';
+        skillBtn.style.display = 'block';
         aimUI.style.display = 'none';
         hud.style.display = 'none';
         boostBtn.style.display = 'none';
@@ -448,26 +594,45 @@
         var a = pullAngle(r), v = pullSpeed(r);
         ball.vz = v * Math.cos(a);
         ball.vy = v * Math.sin(a);
-        ball.z = 0; ball.y = 0; ball.rolling = false;
-        boostUsed = false; flightEarned = 0;
+        ball.z = 0; ball.y = 0; ball.rolling = false; ball.bounces = 0;
+        boostGauge = 1; boosting = false; airTime = 0;   // gauge starts full every flight
+        renderBoostRing();
+        ff = false; ffTag.style.display = 'none';
         state = 'fly';
         aimUI.style.display = 'none';
         hud.style.display = 'block';
         boostBtn.style.display = 'flex';
         boostBtn.classList.remove('used');
+        boostBtn.classList.remove('on');
       }
       function finishFlight() {
         var dist = ball.z;
-        var earned = Math.floor(dist * incomeMult());
+        // coins are settled only here, at the result (nothing accrues on the HUD)
+        var earned = Math.floor(dist * totalIncomeMult());
         save.coins += earned;
+        var oldBest = save.best;
         var isBest = dist > save.best;
         if (isBest) save.best = dist;
+        var unlockedNow = [];
+        SKILLS.forEach(function (s) {
+          if (oldBest < s.unlock && save.best >= s.unlock) unlockedNow.push(s.name);
+        });
         persist();
         state = 'result';
+        ff = false; ffTag.style.display = 'none';
+        boosting = false;
         hud.style.display = 'none';
         boostBtn.style.display = 'none';
         document.getElementById('resDist').innerHTML = fmt(dist) + '<small>m</small>';
         document.getElementById('resCoinVal').textContent = '+' + fmt(earned);
+        document.getElementById('resAir').textContent = '滞空時間 ' + airTime.toFixed(2) + '秒';
+        var resSkill = document.getElementById('resSkill');
+        if (unlockedNow.length) {
+          resSkill.textContent = 'スキル開放：' + unlockedNow.join(' / ');
+          resSkill.style.display = 'block';
+        } else {
+          resSkill.style.display = 'none';
+        }
         document.getElementById('resBest').textContent = 'ベスト ' + fmt(save.best) + 'm';
         document.getElementById('resNewBest').style.display = isBest ? 'block' : 'none';
         resultEl.style.display = 'flex';
@@ -477,6 +642,32 @@
       /* ================= physics ================= */
       function stepPhysics(dt) {
         if (state !== 'fly') return;
+        // hold-to-boost: while BOOST is held and gauge remains, thrust is
+        // applied continuously and the gauge drains; empty = done for this flight
+        if (boosting) {
+          if (boostGauge > 0) {
+            boostGauge = Math.max(0, boostGauge - dt / gaugeSeconds());
+            var jk = jetK();
+            if (ball.rolling) {
+              // jet liftoff from a roll; the next landing rolls again
+              ball.rolling = false;
+              ball.vy = 6.5 * jk;
+              ball.bounces = maxBounces();
+            } else {
+              ball.vz += 16 * jk * dt;
+              ball.vy += 10.5 * jk * dt;
+            }
+            if (boostGauge <= 0) {
+              boosting = false;
+              boostBtn.classList.remove('on');
+              boostBtn.classList.add('used');
+            }
+          } else {
+            boosting = false;
+            boostBtn.classList.remove('on');
+          }
+        }
+        renderBoostRing();
         var steps = Math.max(1, Math.ceil(dt / 0.0083));
         var h = dt / steps;
         for (var i = 0; i < steps; i++) {
@@ -485,20 +676,24 @@
             if (ball.vz <= 0) { ball.vz = 0; break; }
             ball.z += ball.vz * h;
           } else {
-            ball.vy -= GRAV * gravK() * h;
+            ball.vy -= GRAV * h;
             ball.z += ball.vz * h;
             ball.y += ball.vy * h;
             if (ball.y <= 0) {
               ball.y = 0;
-              if (Math.abs(ball.vy) < 2.3) {
-                ball.rolling = true; ball.vy = 0;
-              } else {
+              // bounce only up to the cap (base 1 + bounce skill);
+              // the next ground contact after that rolls instead
+              if (ball.bounces < maxBounces() && Math.abs(ball.vy) >= 2.3) {
+                ball.bounces++;
                 ball.vy = -ball.vy * bounceK();
                 ball.vz *= 0.90;
+              } else {
+                ball.rolling = true; ball.vy = 0;
               }
             }
           }
         }
+        if (!ball.rolling) airTime += dt;
         ball.spin += ball.vz * dt * 1.6;
         // camera chases the ball
         var targetZ = Math.max(0, ball.z - 7);
@@ -506,10 +701,10 @@
         if (state === 'fly' && ball.z - camZ < 6) camZ = Math.max(0, ball.z - 7);
         var targetY = Math.max(0, ball.y - 3.5) * 0.72;
         camY += (targetY - camY) * Math.min(1, dt * 5);
-        flightEarned = Math.floor(ball.z * incomeMult());
         hudDist.innerHTML = fmt(ball.z) + '<small>m</small>';
-        hudEarn.textContent = '+' + fmt(flightEarned);
-        coinVal.textContent = fmt(save.coins + flightEarned);
+        var spd = Math.sqrt(ball.vz * ball.vz + ball.vy * ball.vy) * 3.6;
+        hudSpeed.innerHTML = Math.round(spd) + '<small> km/h</small>';
+        hudAir.innerHTML = airTime.toFixed(2) + '<small> s</small>';
         if (ball.rolling && ball.vz <= 0.01) finishFlight();
       }
 
@@ -651,26 +846,47 @@
           }
         }
 
-        /* ----- catapult (visible near start) ----- */
+        /* ----- catapult (visible near start; skin changes every 5 levels) ----- */
         var drawCatapult = camZ < 8;
         if (drawCatapult && ball.z < 9) {
           var relC = Math.max(0, 7 - camZ);
           var pc = persp(relC);
           var cxp = W / 2, cBase = groundY(relC);
+          var ct = skinTier(save.lv.catapult);
           var postH = 0.95 * pc * yUnit() * 1.9;
-          var postW = Math.max(3, 0.13 * pc * unit());
+          var postW = Math.max(3, 0.13 * pc * unit()) * (ct >= 1 ? 1.35 : 1);
           var spread = 0.52 * pc * unit();
-          ctx.fillStyle = '#000';
+          var postFill = ['#000', '#3d3d3d', '#767676', '#fff', '#000'][ct];
+          var postLine = ct === 3 ? '#000' : '#fff';
+          ctx.fillStyle = postFill;
           // base slab
           ctx.fillRect(cxp - spread - postW, cBase - postW * 0.8, (spread + postW) * 2, postW * 0.8);
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+          ctx.strokeStyle = postLine; ctx.lineWidth = 2;
           ctx.strokeRect(cxp - spread - postW, cBase - postW * 0.8, (spread + postW) * 2, postW * 0.8);
           // posts
           ctx.fillRect(cxp - spread - postW / 2, cBase - postH, postW, postH);
           ctx.fillRect(cxp + spread - postW / 2, cBase - postH, postW, postH);
+          if (ct >= 2) {
+            // cross braces between the posts
+            ctx.strokeStyle = postLine; ctx.lineWidth = Math.max(2, postW * 0.4);
+            ctx.beginPath();
+            ctx.moveTo(cxp - spread, cBase - postH * 0.15);
+            ctx.lineTo(cxp + spread, cBase - postH * 0.85);
+            ctx.moveTo(cxp + spread, cBase - postH * 0.15);
+            ctx.lineTo(cxp - spread, cBase - postH * 0.85);
+            ctx.stroke();
+          }
+          if (ct >= 4) {
+            // wheels on the base
+            ctx.fillStyle = postFill;
+            ctx.strokeStyle = postLine; ctx.lineWidth = 2;
+            var wr = postW * 0.95;
+            ctx.beginPath(); ctx.arc(cxp - spread - postW * 0.4, cBase + wr * 0.3, wr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cxp + spread + postW * 0.4, cBase + wr * 0.3, wr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          }
           // band to the ball rest point
           var restY = cBase - postH - 0.30 * pc * unit() * 0.34;
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, postW * 0.5);
+          ctx.strokeStyle = postLine; ctx.lineWidth = Math.max(2, postW * (ct >= 4 ? 0.8 : 0.5));
           ctx.beginPath();
           ctx.moveTo(cxp - spread, cBase - postH);
           ctx.lineTo(cxp, restY + 4);
@@ -685,7 +901,7 @@
           var gz = 0, gy2 = 0.55, dt = 0.055;
           ctx.fillStyle = '#fff';
           for (var s2 = 0; s2 < 46; s2++) {
-            vy -= GRAV * gravK() * dt;
+            vy -= GRAV * dt;
             gz += vz * dt; gy2 += vy * dt;
             if (gy2 < 0) break;
             var relG = gz + 7 - camZ;
@@ -713,25 +929,51 @@
         ctx.ellipse(bx, bGroundY + ballR * 0.25, ballR * 1.05 * shadowScale, ballR * 0.30 * shadowScale, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        /* ----- ball ----- */
+        /* ----- ball (skin changes every 5 levels) ----- */
         var squash = pull && state === 'aim' ? 1 - pull.r * 0.18 : 1;
+        var btier = skinTier(save.lv.ball);
+        var bFill = ['#ffffff', '#d9d9d9', '#8c8c8c', '#262626', '#ffffff'][btier];
+        var bLine = btier === 3 ? '#ffffff' : '#000000';
         ctx.save();
         ctx.translate(bx, by);
         ctx.scale(1 / squash, squash);
+        if (btier >= 4) {
+          // outer ring on the top skin
+          ctx.beginPath(); ctx.arc(0, 0, ballR * 1.22, 0, Math.PI * 2);
+          ctx.lineWidth = Math.max(1.5, ballR * 0.1); ctx.strokeStyle = bLine; ctx.stroke();
+        }
         ctx.beginPath(); ctx.arc(0, 0, ballR, 0, Math.PI * 2);
-        ctx.fillStyle = '#fff'; ctx.fill();
-        ctx.lineWidth = Math.max(2, ballR * 0.14); ctx.strokeStyle = '#000'; ctx.stroke();
+        ctx.fillStyle = bFill; ctx.fill();
+        ctx.lineWidth = Math.max(2, ballR * 0.14); ctx.strokeStyle = bLine; ctx.stroke();
         // rotating seam
         ctx.save();
         ctx.rotate(ball.spin % (Math.PI * 2));
         ctx.beginPath(); ctx.arc(0, 0, ballR * 0.62, 0.3, Math.PI - 0.3);
-        ctx.lineWidth = Math.max(1.5, ballR * 0.13); ctx.strokeStyle = '#000'; ctx.stroke();
+        ctx.lineWidth = Math.max(1.5, ballR * 0.13); ctx.strokeStyle = bLine; ctx.stroke();
         ctx.beginPath(); ctx.arc(0, 0, ballR * 0.62, Math.PI + 0.3, Math.PI * 2 - 0.3);
         ctx.stroke();
+        if (btier >= 2) {
+          // vertical seam across the middle
+          ctx.beginPath();
+          ctx.moveTo(0, -ballR * 0.86); ctx.lineTo(0, ballR * 0.86);
+          ctx.stroke();
+        }
         ctx.restore();
+        if (btier >= 1) {
+          // inner ring
+          ctx.beginPath(); ctx.arc(0, 0, ballR * 0.82, 0, Math.PI * 2);
+          ctx.lineWidth = Math.max(1, ballR * 0.07); ctx.strokeStyle = bLine; ctx.stroke();
+        }
+        if (btier >= 3) {
+          // three studs
+          ctx.fillStyle = bLine;
+          ctx.beginPath(); ctx.arc(0, -ballR * 0.3, ballR * 0.11, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(-ballR * 0.32, ballR * 0.26, ballR * 0.11, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(ballR * 0.32, ballR * 0.26, ballR * 0.11, 0, Math.PI * 2); ctx.fill();
+        }
         // highlight dot
         ctx.beginPath(); ctx.arc(-ballR * 0.34, -ballR * 0.38, ballR * 0.16, 0, Math.PI * 2);
-        ctx.fillStyle = '#000'; ctx.fill();
+        ctx.fillStyle = bLine; ctx.fill();
         ctx.restore();
 
         // horizon hairline (keeps far road readable against black)
@@ -744,7 +986,8 @@
         if (!lastTs) lastTs = ts;
         var dt = Math.min(0.05, (ts - lastTs) / 1000);
         lastTs = ts;
-        stepPhysics(dt);
+        // long-press during flight runs the simulation at 2x
+        stepPhysics(dt * (ff && state === 'fly' ? 2 : 1));
         // in select/aim the camera relaxes home
         if (state === 'select' || state === 'aim') { camZ = 0; camY = 0; }
         if (state === 'fly' || dirty) { drawScene(); dirty = false; }
@@ -765,7 +1008,12 @@
           card.querySelector('.lv').textContent = 'Lv.' + save.lv[d.kind];
           card.querySelector('.fx').textContent = d.fx();
           if (d.kind === 'ball') {
-            card.querySelector('.fxsub').textContent = '跳ね・転がり・滞空 ×' + trimNum(1 / gravK());
+            card.querySelector('.fxsub').textContent = '跳ね・転がり';
+          }
+          if (d.kind === 'income') {
+            card.querySelector('.fxsub').textContent = save.sk.income > 0
+              ? 'コイン倍率（スキル込み ×' + trimNum(totalIncomeMult()) + '）'
+              : 'コイン倍率';
           }
           var c = cost(d.kind);
           card.querySelector('.cost').textContent = fmt(c);
@@ -778,6 +1026,72 @@
           for (var j = 0; j < 5; j++) pips.children[j].className = j < on ? 'on' : '';
         });
       }
+
+      /* ================= skills UI ================= */
+      function refreshSkills() {
+        skillRows.innerHTML = '';
+        SKILLS.forEach(function (s) {
+          var lv = save.sk[s.id];
+          var unlocked = save.best >= s.unlock;
+          var row = document.createElement('div');
+          row.className = 'skrow' + (unlocked ? '' : ' locked');
+          var top = document.createElement('div');
+          top.className = 'top';
+          var nm = document.createElement('span');
+          nm.className = 'nm'; nm.textContent = s.name;
+          var slv = document.createElement('span');
+          slv.className = 'slv'; slv.textContent = lv > 0 ? 'Lv.' + lv : 'Lv.0';
+          top.appendChild(nm); top.appendChild(slv);
+          row.appendChild(top);
+          var ds = document.createElement('div');
+          ds.className = 'ds';
+          ds.textContent = lv > 0 ? s.fx(lv) : 'まだ効果なし';
+          if (unlocked && lv < s.max) ds.textContent += ' → 次：' + s.fx(lv + 1);
+          row.appendChild(ds);
+          if (!unlocked) {
+            var lock = document.createElement('div');
+            lock.className = 'lock';
+            lock.textContent = '未開放：ベスト ' + fmt(s.unlock) + 'm で開放（現在 ' + fmt(save.best) + 'm）';
+            row.appendChild(lock);
+          } else if (lv >= s.max) {
+            var mx = document.createElement('div');
+            mx.className = 'max'; mx.textContent = 'MAX';
+            row.appendChild(mx);
+          } else {
+            var c = skillCost(s);
+            var buy = document.createElement('button');
+            buy.type = 'button';
+            buy.className = 'buy';
+            buy.innerHTML = '<span class="coin-ic">C</span><span class="num">' + fmt(c) + '</span>';
+            buy.disabled = save.coins < c;
+            buy.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              var cc = skillCost(s);
+              if (save.coins < cc || save.sk[s.id] >= s.max) return;
+              save.coins -= cc;
+              save.sk[s.id] += 1;
+              persist();
+              refreshUI();
+              refreshSkills();
+            });
+            row.appendChild(buy);
+          }
+          skillRows.appendChild(row);
+        });
+      }
+      skillBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (state !== 'select') return;
+        refreshSkills();
+        skillsEl.style.display = 'flex';
+      });
+      document.getElementById('skillClose').addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        skillsEl.style.display = 'none';
+      });
+      skillsEl.addEventListener('click', function (ev) {
+        if (ev.target === skillsEl) skillsEl.style.display = 'none';
+      });
 
       /* ================= input ================= */
       cardDefs.forEach(function (d) {
@@ -804,15 +1118,26 @@
         if (state === 'aim') toSelect();
       });
       document.getElementById('okBtn').addEventListener('click', function () { toSelect(); });
-      boostBtn.addEventListener('click', function (ev) {
+      // BOOST is hold-to-burn: press and hold to keep thrusting while the
+      // gauge lasts; release stops both thrust and drain. Holding anywhere
+      // else on the stage is the 2x fast-forward, never the boost.
+      boostBtn.addEventListener('pointerdown', function (ev) {
         ev.stopPropagation();
-        if (state !== 'fly' || boostUsed) return;
-        boostUsed = true;
-        boostBtn.classList.add('used');
-        ball.vz *= 1.32;
-        if (ball.rolling) { ball.rolling = false; ball.vy = 8.5; }
-        else ball.vy = Math.max(ball.vy, 0) + 6.5;
+        if (state !== 'fly' || boostGauge <= 0) return;
+        boosting = true;
+        boostBtn.classList.add('on');
+        try { boostBtn.setPointerCapture(ev.pointerId); } catch (e) {}
+        ev.preventDefault();
       });
+      function endBoost() {
+        if (!boosting) return;
+        boosting = false;
+        boostBtn.classList.remove('on');
+      }
+      boostBtn.addEventListener('pointerup', endBoost);
+      boostBtn.addEventListener('pointercancel', endBoost);
+      boostBtn.addEventListener('lostpointercapture', endBoost);
+      boostBtn.addEventListener('click', function (ev) { ev.stopPropagation(); });
       var resetArmed = false;
       resetBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -822,16 +1147,25 @@
           setTimeout(function () { resetArmed = false; resetBtn.textContent = 'データ初期化'; }, 2600);
           return;
         }
-        save = { coins: 0, lv: { catapult: 1, ball: 1, income: 1 }, best: 0 };
+        save = { coins: 0, lv: { catapult: 1, ball: 1, income: 1 }, best: 0, sk: { bounce: 0, income: 0, jet: 0 } };
         persist();
         resetArmed = false;
         resetBtn.textContent = 'データ初期化';
         refreshUI();
+        refreshSkills();
       });
 
       // tap (select -> aim) + pull (aim)
       var tapTrack = null;
       stage.addEventListener('pointerdown', function (e) {
+        if (skillsEl.style.display === 'flex') return; // skill panel open: no tap-through
+        if (state === 'fly') {
+          // hold anywhere except the BOOST button = 2x fast-forward
+          if (e.target.closest('button')) return;
+          ff = true;
+          ffTag.style.display = 'inline-block';
+          return;
+        }
         if (e.target.closest('button') || e.target.closest('.card') || e.target.closest('#topbar')) return;
         if (state === 'select') {
           tapTrack = { x: e.clientX, y: e.clientY, t: performance.now() };
@@ -859,6 +1193,7 @@
         }
       });
       function endPointer(e) {
+        if (ff) { ff = false; ffTag.style.display = 'none'; }
         if (state === 'select' && tapTrack) {
           var moved = Math.hypot(e.clientX - tapTrack.x, e.clientY - tapTrack.y);
           if (moved < 14 && performance.now() - tapTrack.t < 600) toAim();
@@ -874,6 +1209,7 @@
       stage.addEventListener('pointerup', endPointer);
       stage.addEventListener('pointercancel', function () {
         tapTrack = null;
+        ff = false; ffTag.style.display = 'none';
         if (state === 'aim') { pull = null; gauge.style.display = 'none'; dirty = true; }
       });
       // block context menu / scroll gestures on the stage
