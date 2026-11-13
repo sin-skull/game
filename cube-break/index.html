@@ -7,7 +7,7 @@
 <link rel="icon" href="data:,"/>
 <title>キューブ破壊インクリメンタル</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 :root{--bg:#000;--panel:#111;--panel2:#1c1c1c;--line:#333;--white:#fff;--gray:#aaa;--mid:#666}
 html,body{height:100%;margin:0;background:#050505;color:#fff;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;font-weight:700;overflow:hidden;touch-action:manipulation}
 button{font-family:inherit;font-weight:800;color:#fff;background:#222;border:2px solid #444;border-radius:0;min-height:44px;cursor:pointer}
@@ -801,20 +801,36 @@ document.getElementById('rotL').addEventListener('click',function(){ applyYaw(-1
 document.getElementById('rotR').addEventListener('click',function(){ applyYaw(1); draw(); save(); });
 document.getElementById('rotU').addEventListener('click',function(){ applyPitch(-1); draw(); save(); });
 document.getElementById('rotD').addEventListener('click',function(){ applyPitch(1); draw(); save(); });
-// ---------- zoom / copy prevention ----------
-// Long-press callout and text selection are disabled in CSS (user-select:
-// none + -webkit-touch-callout: none on everything). JS side: block the
-// context menu anywhere in the game, iOS gesture/pinch zoom, and double-tap
-// zoom (iOS Safari ignores user-scalable=no, so a rapid second touchend on
-// the canvas is preventDefaulted — digging is pointer-based, so blocking
-// the compat events never interferes with taps or the hold pickaxe).
+// ---------- zoom / copy prevention (zoom is banned everywhere) ----------
+// Root cause of the double-tap zoom on the upgrade buttons: they live
+// inside .skilllist, an overflow-y:auto scroll container. A browser only
+// intersects the touch-action of the touched element and its ancestors up
+// to that scroll container, so #game's touch-action:none never reached
+// them, and the buttons themselves kept the default touch-action:auto —
+// double-tap zoom stayed enabled exactly on the upgrade buttons. The CSS
+// now sets touch-action:manipulation on *every* element (panning is kept,
+// so the panel still scrolls; double-tap zoom is not part of
+// 'manipulation'), while #game / canvas keep the stricter none.
+// JS side (iOS Safari ignores user-scalable=no): block the context menu
+// and dblclick anywhere, block iOS gesture zoom and any multi-touch
+// gesture at document level, block Ctrl+wheel / Ctrl+key page zoom on
+// desktop, and preventDefault a rapid second touchend anywhere in the
+// game. Buttons are exempt from that last guard so rapid repeat buys
+// still register every click (their zoom is already off via the CSS),
+// and canvas digging is pointer-based, so swallowing compat touchends
+// never interferes with taps or the hold pickaxe.
 cv.addEventListener('contextmenu',function(e){e.preventDefault();});
-document.getElementById('game').addEventListener('contextmenu',function(e){e.preventDefault();});
-document.getElementById('game').addEventListener('dblclick',function(e){e.preventDefault();});
+var gameEl=document.getElementById('game');
+gameEl.addEventListener('contextmenu',function(e){e.preventDefault();});
+document.addEventListener('dblclick',function(e){e.preventDefault();});
 document.addEventListener('gesturestart',function(e){e.preventDefault();});
-document.getElementById('game').addEventListener('touchstart',function(e){ if(e.touches&&e.touches.length>1) e.preventDefault(); },{passive:false});
+document.addEventListener('gesturechange',function(e){e.preventDefault();});
+document.addEventListener('touchstart',function(e){ if(e.touches&&e.touches.length>1) e.preventDefault(); },{passive:false});
+document.addEventListener('touchmove',function(e){ if(e.touches&&e.touches.length>1) e.preventDefault(); },{passive:false});
+document.addEventListener('wheel',function(e){ if(e.ctrlKey) e.preventDefault(); },{passive:false});
+document.addEventListener('keydown',function(e){ if((e.ctrlKey||e.metaKey)&&/^[+\-=0]$/.test(e.key)) e.preventDefault(); });
 var lastTapEnd=0;
-cv.addEventListener('touchend',function(e){ var now=Date.now(); if(now-lastTapEnd<350) e.preventDefault(); lastTapEnd=now; },{passive:false});
+gameEl.addEventListener('touchend',function(e){ if(e.target&&e.target.closest&&e.target.closest('button')){ lastTapEnd=Date.now(); return; } var now=Date.now(); if(now-lastTapEnd<350) e.preventDefault(); lastTapEnd=now; },{passive:false});
 // ---------- drill ----------
 // Tick interval is driven by the drill speed level (drillInterval()); each
 // drill hit also feeds the combo, so an idle drill keeps the combo (and
