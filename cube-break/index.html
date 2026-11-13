@@ -66,6 +66,10 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 .ptbox{text-align:center;font-size:20px;line-height:1}
 .ptbox small{font-size:11px;color:var(--gray);display:block;letter-spacing:.12em}
 .secTitle{font-size:13px;letter-spacing:.14em;color:#ddd;border-bottom:1px solid #333;padding-bottom:4px;margin-top:6px}
+.buymode{display:flex;gap:6px;padding:8px 10px 2px;align-items:center}
+.buymode span{font-size:12px;color:#aaa;white-space:nowrap}
+.buymode button{flex:1;padding:6px 4px;font-size:14px}
+.buymode button.on{background:#fff;color:#000;border-color:#fff}
 #baseList,#skillList,#permList{display:flex;flex-direction:column;gap:8px}
 @media (max-height:600px){.coin{font-size:21px}}
 </style>
@@ -76,7 +80,7 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
   <div class="coinrow">
     <div class="coin"><small>COIN</small><span id="coin">0</span></div>
     <div class="ptbox"><small>累計破壊</small><span id="totalBroken">0</span></div>
-    <div class="stagebox">STAGE <b id="stageNum">1</b><br><span id="cubeSize" style="color:#aaa;font-size:11px">3×3×3</span></div>
+    <div class="stagebox">STAGE <b id="stageNum">1</b><br><span id="cubeSize" style="color:#aaa;font-size:11px">外形3・ランダム形状</span></div>
   </div>
   <div class="progresswrap">
     <div class="progressmeta"><span>残り <b id="remain">27</b> ブロック</span><span>掘削率 <b id="pct">0%</b></span></div>
@@ -100,6 +104,7 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
   <header><h2>強化・スキル</h2><button id="skillClose" style="padding:6px 14px">閉じる ✕</button></header>
   <div class="smallnote">スキルは累計破壊数で解放され、Lv1は無料で手に入る。Lv2以降の強化と基礎体力はコインで買う。スキル強化費は「解放される頃のステージを全破壊した収入の約1/4」をLv2の基準にし、レベルが上がるごとの上昇率（×1.5）はステージ収入自体の伸びと同じにしてある。</div>
   <div class="smallnote" id="unlockNote" style="color:#fff"></div>
+  <div class="buymode"><span>購入単位</span><button data-mode="1">+1</button><button data-mode="10">+10</button><button data-mode="MAX">MAX</button></div>
   <div class="skilllist">
     <div class="secTitle">基礎体力（強化）</div>
     <div id="baseList"></div>
@@ -170,23 +175,131 @@ function faceDir3(face,du,dv){ var fr=FR[face]; var d=[0,0,0]; d[fr.u[0]]+=du*fr
 function faceDirUV(face,d){ var fr=FR[face]; return [d[fr.u[0]]*fr.u[1], d[fr.v[0]]*fr.v[1]]; }
 // ---------- state ----------
 var S=null;
-function sizeForStage(st){ return st<=1?3: st===2?4: st===3?5: st===4?6:7; }
+function sizeForStage(st){ return Math.min(15, 2+st); }
 function stageMult(st){ return Math.pow(1.5, st-1); }
 function depthStats(d){
   var t=[[3,2],[10,6],[25,18],[60,45],[120,95],[220,180]];
   return t[Math.min(d,t.length-1)];
 }
-function newCube(st){
-  var N=sizeForStage(st), blocks=[],total=N*N*N;
-  var cx=Math.floor(N/2),cy=Math.floor(N/2),cz=Math.floor(N/2);
-  for(var y=0;y<N;y++)for(var z=0;z<N;z++)for(var x=0;x<N;x++){
-    var depth=Math.min(x,N-1-x,y,N-1-y,z,N-1-z);
-    var isCore=(x===cx&&y===cy&&z===cz);
-    var base=isCore?[50,150]:depthStats(depth);
-    var hp=Math.round(base[0]*stageMult(st));
-    blocks.push({x:x,y:y,z:z,depth:depth,core:isCore,alive:true,maxHp:hp,hp:hp,coin:base[1]*stageMult(st)});
+// ---------- random polycube shapes ----------
+// Each stage is ONE connected blob (a polycube), generated deterministically
+// from the stage number alone, so a save / reload always rebuilds the exact
+// same shape. The bounding box grows 3 -> 15 with the stage and the blob
+// fills a seeded fraction of it (thousands of blocks at the top end).
+// "Depth" is now the graph distance from the surface (BFS over the shape:
+// exposed blocks are depth 0). Depth drives ONLY the coin value and the
+// auto-target priority — never HP.
+var ARCH_NAMES=['塊状','タワー','十字','平板','枝分かれ'];
+var ARCH_FILL=[0.62,0.38,0.34,0.48,0.50];
+function genShapeCells(st,N,rng){
+  var arch=Math.floor(rng()*ARCH_NAMES.length);
+  var fill=ARCH_FILL[arch]*(0.9+rng()*0.2);
+  var volume=N*N*N;
+  var target=Math.round(volume*fill);
+  var minTarget=Math.min(volume,Math.max(16,Math.round(volume*0.45)));
+  if(target<minTarget) target=minTarget;
+  if(target>volume) target=volume;
+  var cx=(N-1)/2, cy=(N-1)/2, cz=(N-1)/2;
+  var inShape={}, cells=[], frontier=[], inFrontier={};
+  function key(x,y,z){ return x+','+y+','+z; }
+  var DIRS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  function addFrontier(x,y,z){
+    if(x<0||y<0||z<0||x>=N||y>=N||z>=N) return;
+    var k=key(x,y,z); if(inShape[k]||inFrontier[k]) return;
+    inFrontier[k]=1; frontier.push([x,y,z]);
   }
-  return {N:N,blocks:blocks,total:total};
+  function addCell(x,y,z){
+    var k=key(x,y,z); if(inShape[k]) return false;
+    inShape[k]=1; cells.push([x,y,z]);
+    if(inFrontier[k]){ inFrontier[k]=0; var fi=frontier.findIndex(function(f){return f[0]===x&&f[1]===y&&f[2]===z;}); if(fi>=0){ frontier[fi]=frontier[frontier.length-1]; frontier.pop(); } }
+    for(var i=0;i<6;i++) addFrontier(x+DIRS[i][0],y+DIRS[i][1],z+DIRS[i][2]);
+    return true;
+  }
+  addCell(Math.floor(cx),Math.floor(cy),Math.floor(cz));
+  if(arch===2){ // cross: seed the six arms so the silhouette reads as a cross
+    var arm=Math.max(1,Math.floor(N/2)- (N%2?0:1));
+    for(var a=1;a<=arm;a++) for(var d=0;d<6;d++) addCell(Math.floor(cx)+DIRS[d][0]*a, Math.floor(cy)+DIRS[d][1]*a, Math.floor(cz)+DIRS[d][2]*a);
+  }
+  function score(x,y,z){
+    var dx=x-cx, dy=y-cy, dz=z-cz;
+    if(arch===1) return -Math.abs(dx)-Math.abs(dz)+rng()*0.8;             // tower: hug the central column
+    if(arch===2) return ((dx===0?1:0)+(dy===0?1:0)+(dz===0?1:0))*2+rng()*0.5; // cross: stay on the axis planes
+    if(arch===3) return -Math.abs(dy)*2+rng()*0.6;                        // slab: stay near the middle layer
+    if(arch===4) return Math.sqrt(dx*dx+dz*dz)*0.7+rng()*0.6;             // branches: reach outward
+    return rng()*0.3;                                                     // blob: near-uniform
+  }
+  while(cells.length<target&&frontier.length){
+    var pickIdx;
+    if(arch===0){ pickIdx=Math.floor(rng()*frontier.length); }
+    else {
+      pickIdx=-1; var best=-1e9;
+      var tries=Math.min(6,frontier.length);
+      for(var t=0;t<tries;t++){ var ci=Math.floor(rng()*frontier.length); var c=frontier[ci]; var sc=score(c[0],c[1],c[2]); if(sc>best){ best=sc; pickIdx=ci; } }
+      if(pickIdx<0) pickIdx=0;
+    }
+    var cell=frontier[pickIdx];
+    frontier[pickIdx]=frontier[frontier.length-1]; frontier.pop(); inFrontier[key(cell[0],cell[1],cell[2])]=0;
+    addCell(cell[0],cell[1],cell[2]);
+  }
+  return {cells:cells, arch:arch};
+}
+function newCube(st){
+  var N=sizeForStage(st);
+  var rng=mulberry(hashN(st*101+17, 733, 389, 57));
+  var shape=genShapeCells(st,N,rng);
+  var cells=shape.cells;
+  var DIRS=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  function key(x,y,z){ return x+','+y+','+z; }
+  var inShape={};
+  cells.forEach(function(c){ inShape[key(c[0],c[1],c[2])]=1; });
+  // depth = BFS graph distance from the surface (exposed = depth 0)
+  var depthOf={}, queue=[];
+  cells.forEach(function(c){
+    for(var i=0;i<6;i++){ if(!inShape[key(c[0]+DIRS[i][0],c[1]+DIRS[i][1],c[2]+DIRS[i][2])]){ depthOf[key(c[0],c[1],c[2])]=0; queue.push(c); break; } }
+  });
+  for(var qi=0;qi<queue.length;qi++){
+    var c=queue[qi], d=depthOf[key(c[0],c[1],c[2])];
+    for(var j=0;j<6;j++){ var nk=key(c[0]+DIRS[j][0],c[1]+DIRS[j][1],c[2]+DIRS[j][2]); if(inShape[nk]&&depthOf[nk]==null){ depthOf[nk]=d+1; queue.push([c[0]+DIRS[j][0],c[1]+DIRS[j][1],c[2]+DIRS[j][2]]); } }
+  }
+  // core = deepest block (max surface distance); ties (and thin shapes
+  // whose max depth is 0) go to the block closest to the shape centroid.
+  var gx=0,gy=0,gz=0; cells.forEach(function(c){ gx+=c[0]; gy+=c[1]; gz+=c[2]; });
+  gx/=cells.length; gy/=cells.length; gz/=cells.length;
+  var maxDepth=0; cells.forEach(function(c){ var d=depthOf[key(c[0],c[1],c[2])]||0; if(d>maxDepth) maxDepth=d; });
+  var coreKey=null, coreDist=1e18;
+  cells.forEach(function(c){
+    if((depthOf[key(c[0],c[1],c[2])]||0)!==maxDepth) return;
+    var dd=(c[0]-gx)*(c[0]-gx)+(c[1]-gy)*(c[1]-gy)+(c[2]-gz)*(c[2]-gz);
+    if(dd<coreDist){ coreDist=dd; coreKey=key(c[0],c[1],c[2]); }
+  });
+  // HP is UNIFORM for every normal block in the stage — the incremental
+  // pressure comes from how many blocks there are, not from inner blocks
+  // being harder. Only the core keeps its own large HP.
+  // HP does NOT scale per stage: it steps once per 10-stage tier
+  // (stages 1-10 share one HP, 11-20 the next, ...), so each new tier is
+  // a wall that asks for upgrades, while inside a tier progress is all
+  // about block count, shape and speed. Tier step x3: tripling HP asks
+  // for roughly triple the damage output, and one tier's worth of stage
+  // income (block counts and per-block coins both grow within the tier)
+  // buys well more than the handful of pickaxe/drill levels that takes.
+  // Coins keep their own per-stage scaling, independent of the HP tier.
+  var hpTier=Math.floor((st-1)/10);
+  var hpTierMult=Math.pow(3,hpTier);
+  var normalHp=Math.max(1,Math.round(3*hpTierMult));
+  var coreHp=Math.round(50*hpTierMult);
+  var sorted=cells.slice().sort(function(a,b){ return (a[1]-b[1])||(a[2]-b[2])||(a[0]-b[0]); });
+  var blocks=[], lookup={};
+  sorted.forEach(function(c){
+    var k=key(c[0],c[1],c[2]);
+    var isCore=(k===coreKey);
+    var depth=depthOf[k]||0;
+    var b={x:c[0],y:c[1],z:c[2],depth:depth,core:isCore,alive:true,
+      maxHp:isCore?coreHp:normalHp, hp:isCore?coreHp:normalHp,
+      coin:(isCore?150:depthStats(depth)[1])*stageMult(st)};
+    b.hp=b.maxHp;
+    blocks.push(b); lookup[k]=b;
+  });
+  return {N:N,blocks:blocks,total:blocks.length,shapeName:ARCH_NAMES[shape.arch],lookup:lookup};
 }
 function defaultState(){
   var st=1,c=newCube(st);
@@ -240,37 +353,38 @@ function load(){
 }
 S=load()||defaultState();
 // ---------- costs ----------
-function pickCost(){ return Math.round(15*Math.pow(1.15,S.pickLv-1)); }
-function drillCost(){ return Math.round(50*Math.pow(1.15,S.drillLv)); }
-function incomeCost(){ return Math.round(30*Math.pow(1.12,S.incomeLv-1)); }
+function pickCostAt(lv){ return Math.round(15*Math.pow(1.15,lv-1)); }
+function pickCost(){ return pickCostAt(S.pickLv); }
+function drillCostAt(lv){ return Math.round(50*Math.pow(1.15,lv)); }
+function drillCost(){ return drillCostAt(S.drillLv); }
+function incomeCostAt(lv){ return Math.round(30*Math.pow(1.12,lv-1)); }
+function incomeCost(){ return incomeCostAt(S.incomeLv); }
 function incomeMult(){ return 1+(S.incomeLv-1)*0.5; }
-function drillSpdCost(){ return Math.round(40*Math.pow(1.15,S.drillSpdLv)); }
+function drillSpdCostAt(lv){ return Math.round(40*Math.pow(1.15,lv)); }
+function drillSpdCost(){ return drillSpdCostAt(S.drillSpdLv); }
 function drillInterval(){ return Math.max(120,Math.round(1000*Math.pow(0.9,S.drillSpdLv))); }
 var SKILLS=[
- {key:'skArea', name:'範囲破壊', unlock:100, base:600, desc:function(lv){return '開放条件：累計100個破壊でLv1を無料解放（解放目安：ステージ3）。ツルハシで壊した時、その時のツルハシダメージの '+(50+Math.max(0,lv-1)*10)+'% を隣の露出ブロックにも与える（ツルハシ強化に連動して上昇・連鎖なし）。第2層より奥のブロックには効かない。';}},
- {key:'skCrit', name:'クリティカル', unlock:300, base:1500, desc:function(lv){return '開放条件：累計300個破壊（解放目安：ステージ4）。タップ時 '+(lv===0?'10':(10+(lv-1)*5))+'% でダメージ×5。';}},
- {key:'skDrillPlus', name:'ドリル増設', unlock:800, base:5500, desc:function(lv){return '開放条件：累計800個破壊（解放目安：ステージ6）。ドリルの同時攻撃数が 1→'+(1+lv)+' になる。';}},
- {key:'skHold', name:'長押しツルハシ', unlock:1500, base:13500, desc:function(lv){return '開放条件：累計1,500個破壊（解放目安：ステージ8）。長押し中、自動で掘り続ける。間隔 Lv1:0.25秒 → Lv5:0.10秒。対象が壊れたら、外側に近い順（深さ→残HP割合→直前の破壊位置からの近さ）で次の対象を自動選択して継続。';}}
+ {key:'skArea', name:'範囲破壊', unlock:100, base:600, desc:function(lv){return '開放条件：累計100個破壊でLv1を無料解放。ツルハシで壊した時、その時のツルハシダメージの '+(50+Math.max(0,lv-1)*10)+'% を隣の露出ブロックにも与える（ツルハシ強化に連動して上昇・連鎖なし）。どの深さで壊しても発生し、どの深さの隣にも届く。';}},
+ {key:'skCrit', name:'クリティカル', unlock:300, base:1500, desc:function(lv){return '開放条件：累計300個破壊。タップ時 '+(lv===0?'10':(10+(lv-1)*5))+'% でダメージ×5。';}},
+ {key:'skDrillPlus', name:'ドリル増設', unlock:800, base:5500, desc:function(lv){return '開放条件：累計800個破壊。ドリルの同時攻撃数が 1→'+(1+lv)+' になる。';}},
+ {key:'skHold', name:'長押しツルハシ', unlock:1500, base:13500, desc:function(lv){return '開放条件：累計1,500個破壊。長押し中、自動で掘り続ける。間隔 Lv1:0.25秒 → Lv5:0.10秒。対象が壊れたら、外側に近い順（深さ→残HP割合→直前の破壊位置からの近さ）で次の対象を自動選択して継続。';}}
 ];
 // Skill economy: Lv1 is granted free once the lifetime destroyed count
 // reaches the skill's unlock threshold (achievement). Lv2-5 are bought
 // with coins, exactly like the base upgrade cards.
-// BALANCE (stage-income based): because the core is sealed until every
-// block is destroyed, cumulative block counts at stage boundaries are
-// fixed (27/91/216/432/775/1118/1461/1804), so each skill unlocks in a
-// known stage, and one full clear of that stage pays (block coins +
-// clear bonus, before income multiplier):
-//   area      unlocks in stage 3, clear income ≈ 2,368  -> Lv2 = 600
-//   crit      unlocks in stage 4, clear income ≈ 5,900  -> Lv2 = 1,500
-//   drillPlus unlocks in stage 6, clear income ≈ 22,235 -> Lv2 = 5,500
-//   hold      unlocks in stage 8, clear income ≈ 53,445 -> Lv2 = 13,500
+// BALANCE (stage-income based): the Lv2 prices below were anchored to
+// roughly 1/4 of one full clear's income around each skill's unlock
+// era (area 600 / crit 1,500 / drillPlus 5,500 / hold 13,500). Stage
+// shapes are random now, so exact unlock stages vary per run, but the
+// prices and the x1.5 growth (matching stage income growth) are kept.
 // Each Lv2 price is ~1/4 of one clear at its unlock stage. Prices then
 // grow x1.5 per level — the same rate stage income itself grows
 // (stageMult x1.5/stage) — so maxing a skill (Lv2-5) costs about two
 // clears' worth of income spread over the richer stages that follow,
 // instead of the old flat guesses (hold was 30,000 for Lv2 alone,
 // ~56% of a whole stage-8 clear, 243,750 to max ≈ 4.6 clears).
-function skillCost(sk){ var lv=S[sk.key]; if(lv<1) return 0; return Math.round(sk.base*Math.pow(1.5,lv-1)); }
+function skillCostAt(sk,lv){ return Math.round(sk.base*Math.pow(1.5,lv-1)); }
+function skillCost(sk){ var lv=S[sk.key]; if(lv<1) return 0; return skillCostAt(sk,lv); }
 // On achievement-unlock, the player is also granted coins equal to the
 // Lv1->Lv2 upgrade cost, i.e. exactly enough for one immediate level-up.
 var unlockMsgs=[];
@@ -310,7 +424,7 @@ function addCombo(bumpIt){
 }
 function registerTap(){ addCombo(true); }
 // ---------- cube logic ----------
-function blockAt(x,y,z){ var c=S.cube; if(x<0||y<0||z<0||x>=c.N||y>=c.N||z>=c.N) return null; return c.blocks[y*c.N*c.N+z*c.N+x]; }
+function blockAt(x,y,z){ var c=S.cube; if(x<0||y<0||z<0||x>=c.N||y>=c.N||z>=c.N) return null; if(c.lookup) return c.lookup[x+','+y+','+z]||null; for(var i=0;i<c.blocks.length;i++){ var b=c.blocks[i]; if(b.x===x&&b.y===y&&b.z===z) return b; } return null; }
 function isExposed(b){ if(!b.alive) return false; var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
   for(var i=0;i<6;i++){ var n=blockAt(b.x+dirs[i][0],b.y+dirs[i][1],b.z+dirs[i][2]); if(!n||!n.alive) return true; } return false; }
 // ---------- auto target selection ----------
@@ -354,7 +468,7 @@ function destroyBlock(b,byTap,hitDmg,src){
   if(S.skArea>0 && src==='tap'){
     var ratio=(50+(S.skArea-1)*10)/100; var dmg=(hitDmg!=null?hitDmg:S.pickLv)*ratio;
     var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&n.depth===0&&isExposed(n)){ damageBlock(n,dmg,false,false,null,'splash'); } });
+    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&isExposed(n)){ damageBlock(n,dmg,false,false,null,'splash'); } });
   }
   if(b.core && !stageCleared){ stageCleared=true; setTimeout(afterClear,450); }
   // HUD refresh + save are left to the top-level caller (tapDamage / drill
@@ -671,13 +785,17 @@ function draw(){
   coreLocked=remaining()>1;
   // Compute the projected bounds with the origin at 0, then offset to centre.
   view.ox=0; view.oy=0;
+  // Only surface-exposed blocks can ever be visible: a fully enclosed
+  // block has every face covered by a neighbour. Drawing just the exposed
+  // set keeps huge late-game shapes (thousands of blocks) light.
+  var exposedBlocks=S.cube.blocks.filter(function(b){ return b.alive&&isExposed(b); });
   var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
-  S.cube.blocks.forEach(function(b){ if(!b.alive)return; var p=projBlock(b); var hw=tw/2,hh=view.th;
+  exposedBlocks.forEach(function(b){ var p=projBlock(b); var hw=tw/2,hh=view.th;
     minX=Math.min(minX,p.sx-hw); maxX=Math.max(maxX,p.sx+hw); minY=Math.min(minY,p.sy-hh); maxY=Math.max(maxY,p.sy+hh); });
   if(minX>maxX){ view.ox=W/2; view.oy=H/2; }
   else { view.ox=W/2-(minX+maxX)/2; view.oy=H/2-(minY+maxY)/2 - 6; }
   var pat=patternIdx(), invert=(pat===4);
-  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var vc=viewCoords(b); return {b:b,s:vc[0]+vc[1],c:vc[2]}; });
+  var sorted=exposedBlocks.map(function(b){ var vc=viewCoords(b); return {b:b,s:vc[0]+vc[1],c:vc[2]}; });
   sorted.sort(function(a,b2){ if(a.s!==b2.s) return a.s-b2.s; return a.c-b2.c; });
   sorted.forEach(function(it){ drawBlock(it.b,invert,pat); });
   // particles
@@ -726,7 +844,7 @@ function drawBlock(b,invert,pat){
 // hit test: iterate frontmost first; returns block + which view face was hit
 // and the exact position on that face (the crack network grows from there)
 function pickBlock(px,py){
-  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var vc=viewCoords(b); return {b:b,s:vc[0]+vc[1],c:vc[2]}; });
+  var sorted=S.cube.blocks.filter(function(b){return b.alive&&isExposed(b);}).map(function(b){ var vc=viewCoords(b); return {b:b,s:vc[0]+vc[1],c:vc[2]}; });
   sorted.sort(function(a,b2){ if(a.s!==b2.s) return b2.s-a.s; return b2.c-a.c; });
   for(var i=0;i<sorted.length;i++){ var b=sorted[i].b; var p=projBlock(b); var tw=view.tw,th=view.th; var sx=p.sx,sy=p.sy;
     var defs=[ ['top', sx, sy-th, tw/2, th/2, -tw/2, th/2], ['left', sx-tw/2, sy-th/2, tw/2, th/2, 0, th], ['right', sx, sy, tw/2, -th/2, 0, th] ];
@@ -871,7 +989,7 @@ function remaining(){ var n=0; for(var i=0;i<S.cube.blocks.length;i++) if(S.cube
 function updateHUD(){
   document.getElementById('coin').textContent=fmt(S.coins);
   document.getElementById('stageNum').textContent=S.stage;
-  document.getElementById('cubeSize').textContent=S.cube.N+'×'+S.cube.N+'×'+S.cube.N+'　/ 横 '+((S.yaw*90))+'°・縦 '+((S.pitch*90))+'°';
+  document.getElementById('cubeSize').textContent='外形'+S.cube.N+'・'+(S.cube.shapeName||'')+' '+S.cube.total+'個・ティア'+(Math.floor((S.stage-1)/10)+1)+'　/ 横 '+((S.yaw*90))+'°・縦 '+((S.pitch*90))+'°';
   var rem=remaining(); document.getElementById('remain').textContent=rem;
   var pct=S.cube.total?Math.round((S.cube.total-rem)/S.cube.total*100):100;
   document.getElementById('pct').textContent=pct+'%'; document.getElementById('barFill').style.width=pct+'%';
@@ -883,27 +1001,62 @@ function updateHUD(){
 }
 // ---------- upgrades ----------
 function buy(cost,fn){ if(S.coins<cost) return; S.coins-=cost; fn(); beep(980,0.07); updateHUD(); draw(); save(); }
+// Buy amount mode for every coin purchase in the panel: +1 / +10 / MAX.
+// (Skill Lv1 achievement unlocks are free and stay outside this system.)
+// In-memory only, defaults to +1 on load.
+var buyMode=1;
+// Plan a bulk buy: costAt(lv) is the price of going from lv to lv+1.
+// +1/+10 buy that many levels (clamped at the level cap) and report the
+// summed cost even when unaffordable, so the button can show the total
+// and disable itself. MAX buys as many levels as the coins on hand
+// cover (still capped), reporting n=0 when not even one level is
+// affordable.
+function bulkPlan(costAt,curLv,maxLv){
+  var remain=maxLv>0?maxLv-curLv:Infinity;
+  if(remain<=0) return {n:0,cost:0};
+  if(buyMode==='MAX'){
+    var n=0,total=0;
+    while(n<remain){ var c=costAt(curLv+n); if(total+c>S.coins) break; total+=c; n++; }
+    return {n:n,cost:total,nextCost:costAt(curLv)};
+  }
+  var want=Math.min(buyMode,remain), t=0;
+  for(var i=0;i<want;i++) t+=costAt(curLv+i);
+  return {n:want,cost:t,nextCost:costAt(curLv)};
+}
+function bulkBtnLabel(plan){
+  if(plan.n<=0) return '強化 '+fmt(plan.nextCost)+' コイン';
+  if(plan.n===1) return '強化 '+fmt(plan.cost)+' コイン';
+  return '強化 +'+plan.n+'Lv '+fmt(plan.cost)+' コイン';
+}
+function syncBuyMode(){
+  document.querySelectorAll('.buymode button').forEach(function(b){
+    var m=b.dataset.mode==='MAX'?'MAX':parseInt(b.dataset.mode,10);
+    b.classList.toggle('on',m===buyMode);
+  });
+}
 // ---------- base upgrades (former bottom cards, now inside the panel) ----------
 var BASE=[
- {key:'pick', name:'⛏ ツルハシ', lv:function(){return S.pickLv;}, max:0, cost:function(){return pickCost();}, desc:function(){return '1タップ '+S.pickLv+' ダメージ';}, apply:function(){S.pickLv++;}},
- {key:'drill', name:'▚ 自動ドリル｜ダメージ', lv:function(){return S.drillLv;}, max:0, cost:function(){return drillCost();}, desc:function(){return '自動で外側に近いブロックを攻撃。1ヒット '+S.drillLv+' ダメージ。ドリルのヒットもコンボに加算され、コンボのコインボーナスが乗る。対象は外側に近い順に自動選択。';}, apply:function(){S.drillLv++;}},
- {key:'drillSpd', name:'▚ 自動ドリル｜速度', lv:function(){return S.drillSpdLv;}, max:20, cost:function(){return drillSpdCost();}, desc:function(){return 'ドリルの攻撃間隔が短くなる。現在 '+(drillInterval()/1000).toFixed(2)+' 秒に1ヒット（'+(1000/drillInterval()).toFixed(1)+' ヒット/秒）。';}, apply:function(){S.drillSpdLv++;}},
- {key:'income', name:'◈ 収入', lv:function(){return S.incomeLv;}, max:0, cost:function(){return incomeCost();}, desc:function(){return 'コイン倍率 ×'+incomeMult().toFixed(1);}, apply:function(){S.incomeLv++;}}
+ {key:'pick', name:'⛏ ツルハシ', lv:function(){return S.pickLv;}, max:0, costAt:function(lv){return pickCostAt(lv);}, desc:function(){return '1タップ '+S.pickLv+' ダメージ';}, add:function(n){S.pickLv+=n;}},
+ {key:'drill', name:'▚ 自動ドリル｜ダメージ', lv:function(){return S.drillLv;}, max:0, costAt:function(lv){return drillCostAt(lv);}, desc:function(){return '自動で外側に近いブロックを攻撃。1ヒット '+S.drillLv+' ダメージ。ドリルのヒットもコンボに加算され、コンボのコインボーナスが乗る。対象は外側に近い順に自動選択。';}, add:function(n){S.drillLv+=n;}},
+ {key:'drillSpd', name:'▚ 自動ドリル｜速度', lv:function(){return S.drillSpdLv;}, max:20, costAt:function(lv){return drillSpdCostAt(lv);}, desc:function(){return 'ドリルの攻撃間隔が短くなる。現在 '+(drillInterval()/1000).toFixed(2)+' 秒に1ヒット（'+(1000/drillInterval()).toFixed(1)+' ヒット/秒）。';}, add:function(n){S.drillSpdLv+=n;}},
+ {key:'income', name:'◈ 収入', lv:function(){return S.incomeLv;}, max:0, costAt:function(lv){return incomeCostAt(lv);}, desc:function(){return 'コイン倍率 ×'+incomeMult().toFixed(1);}, add:function(n){S.incomeLv+=n;}}
 ];
 function renderBase(){
   var bl=document.getElementById('baseList'); if(!bl) return;
   bl.innerHTML='';
-  BASE.forEach(function(u,idx){
+  BASE.forEach(function(u){
     var lv=u.lv(); var maxed=u.max>0&&lv>=u.max;
     var div=document.createElement('div'); div.className='skill';
-    var btnHtml=maxed?'<button disabled>MAX</button>':'<button data-base="'+idx+'">強化 '+fmt(u.cost())+' コイン</button>';
+    var btnHtml, plan=null;
+    if(maxed) btnHtml='<button disabled>MAX</button>';
+    else { plan=bulkPlan(u.costAt,lv,u.max); btnHtml='<button>'+bulkBtnLabel(plan)+'</button>'; }
     div.innerHTML='<h3>'+u.name+'</h3><p>'+u.desc()+'</p><div class="row"><span class="lvDots">Lv'+lv+'</span>'+btnHtml+'</div>';
     bl.appendChild(div);
-  });
-  bl.querySelectorAll('button[data-base]').forEach(function(btn){
-    var u=BASE[parseInt(btn.dataset.base,10)];
-    btn.disabled=S.coins<u.cost();
-    btn.addEventListener('click',function(){ buy(u.cost(),function(){ u.apply(); }); renderSkills(); });
+    if(plan){
+      var btn=div.querySelector('button');
+      btn.disabled=plan.n<=0||S.coins<plan.cost;
+      (function(u2,plan2){ btn.addEventListener('click',function(){ buy(plan2.cost,function(){ u2.add(plan2.n); }); renderSkills(); }); })(u,plan);
+    }
   });
 }
 // ---------- skills UI ----------
@@ -920,6 +1073,7 @@ function renderPerm(){
   if(tg) tg.addEventListener('click',function(){ S.permAuto=!S.permAuto; beep(S.permAuto?980:520,0.06); save(); renderSkills(); });
 }
 function renderSkills(){
+  syncBuyMode();
   renderBase();
   renderPerm();
   var un=document.getElementById('unlockNote');
@@ -930,19 +1084,26 @@ function renderSkills(){
     var lv=S[sk.key]; var unlocked=S.totalBroken>=sk.unlock; var maxed=lv>=5;
     var div=document.createElement('div'); div.className='skill'+(unlocked?'':' locked');
     var dots=''; for(var i=0;i<5;i++) dots+=(i<lv?'●':'○');
-    var btnHtml;
+    var btnHtml, plan=null;
     if(!unlocked) btnHtml='<button disabled>🔒 '+fmt(S.totalBroken)+' / '+fmt(sk.unlock)+'</button>';
     else if(maxed) btnHtml='<button disabled>MAX</button>';
-    else if(lv===0) btnHtml='<button data-sk="'+sk.key+'">取得（無料）</button>';
-    else btnHtml='<button data-sk="'+sk.key+'">強化 '+fmt(skillCost(sk))+' コイン</button>';
+    else if(lv===0) btnHtml='<button>取得（無料）</button>';
+    else { plan=bulkPlan(function(l){return skillCostAt(sk,l);},lv,5); btnHtml='<button>'+bulkBtnLabel(plan)+'</button>'; }
     div.innerHTML='<h3>'+(unlocked?'':'🔒 ')+sk.name+'</h3><p>'+sk.desc(lv)+'</p><div class="row"><span class="lvDots">'+dots+' Lv'+lv+'</span>'+btnHtml+'</div>';
     list.appendChild(div);
-  });
-  list.querySelectorAll('button[data-sk]').forEach(function(btn){
-    btn.disabled=S.coins<skillCost(SKILLS.find(function(s){return s.key===btn.dataset.sk;}));
-    btn.addEventListener('click',function(){ var sk=SKILLS.find(function(s){return s.key===btn.dataset.sk;}); buy(skillCost(sk),function(){ S[sk.key]++; }); renderSkills(); });
+    var btn=div.querySelector('button');
+    if(!unlocked||maxed) return;
+    if(lv===0){ // Lv1 achievement unlock: free, outside the buy-mode system
+      btn.addEventListener('click',function(){ buy(0,function(){ S[sk.key]++; }); renderSkills(); });
+    } else if(plan){
+      btn.disabled=plan.n<=0||S.coins<plan.cost;
+      (function(sk2,plan2){ btn.addEventListener('click',function(){ buy(plan2.cost,function(){ S[sk2.key]+=plan2.n; }); renderSkills(); }); })(sk,plan);
+    }
   });
 }
+document.querySelectorAll('.buymode button').forEach(function(b){
+  b.addEventListener('click',function(){ buyMode=b.dataset.mode==='MAX'?'MAX':parseInt(b.dataset.mode,10); beep(700,0.04); renderSkills(); });
+});
 document.getElementById('skillBtn').addEventListener('click',function(){ renderSkills(); document.getElementById('skillPanel').classList.add('open'); });
 document.getElementById('skillClose').addEventListener('click',function(){ document.getElementById('skillPanel').classList.remove('open'); });
 // ---------- result ----------
@@ -970,7 +1131,7 @@ function showResult(){
   document.getElementById('rTime').textContent=mm+':'+ss;
   document.getElementById('rBroken').textContent=S.stageBroken+' 個';
   document.getElementById('rBonus').textContent='+'+fmt(bonus)+' コイン';
-  document.getElementById('rNext').textContent='STAGE '+(S.stage+1)+'（'+sizeForStage(S.stage+1)+'×'+sizeForStage(S.stage+1)+'×'+sizeForStage(S.stage+1)+'）';
+  document.getElementById('rNext').textContent='STAGE '+(S.stage+1)+'（外形 '+sizeForStage(S.stage+1)+' のランダム形状）';
   document.getElementById('resultPanel').classList.add('open'); updateHUD(); save();
 }
 document.getElementById('resultOk').addEventListener('click',function(){
