@@ -197,10 +197,20 @@ function defaultState(){
     skArea:0,skCrit:0,skDrillPlus:0,skHold:0,totalBroken:0,
     rot:0,yaw:0,pitch:0,ori:[[0,1],[2,1],[1,1]],cube:c,stageStart:Date.now(),stageBroken:0};
 }
-function save(){ try{ var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.yaw,yaw:S.yaw,pitch:S.pitch,ori:[S.ori[0][0],S.ori[0][1],S.ori[1][0],S.ori[1][1],S.ori[2][0],S.ori[2][1]],stageStart:S.stageStart,stageBroken:S.stageBroken,
-  dead:S.cube.blocks.map(function(b){return b.alive?0:1;}), hps:S.cube.blocks.map(function(b){return b.hp;}),
-  imp:S.cube.blocks.map(function(b){ if(!b.net) return ''; var parts=[]; for(var fk in b.net.centers){ var cc=b.net.centers[fk]; parts.push(FACES.indexOf(fk)+':'+Math.round(cc[0]*999)+','+Math.round(cc[1]*999)); } return parts.join('|'); })};
+function save(){ try{ var dead=[],hps=[],imps=[]; for(var bi=0;bi<S.cube.blocks.length;bi++){ var b=S.cube.blocks[bi]; dead.push(b.alive?0:1); hps.push(b.hp);
+    if(!b.net){ imps.push(''); } else { var parts=[]; for(var fk in b.net.centers){ var cc=b.net.centers[fk]; parts.push(FACES.indexOf(fk)+':'+Math.round(cc[0]*999)+','+Math.round(cc[1]*999)); } imps.push(parts.join('|')); } }
+  var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.yaw,yaw:S.yaw,pitch:S.pitch,ori:[S.ori[0][0],S.ori[0][1],S.ori[1][0],S.ori[1][1],S.ori[2][0],S.ori[2][1]],stageStart:S.stageStart,stageBroken:S.stageBroken,
+  dead:dead, hps:hps, imp:imps};
   localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){} }
+// High-frequency paths (every tap / drill tick) must not serialize the whole
+// cube to localStorage each time — that was a major source of jank. They mark
+// the save dirty instead; it is written at most once per 1.2s and flushed
+// when the page is hidden or closed, so no progress is lost.
+var saveTimer=null, saveDirty=false;
+function saveSoon(){ saveDirty=true; if(saveTimer) return; saveTimer=setTimeout(function(){ saveTimer=null; if(saveDirty){ saveDirty=false; save(); } },1200); }
+function flushSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; } if(saveDirty){ saveDirty=false; save(); } }
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') flushSave(); });
+window.addEventListener('pagehide',flushSave);
 function load(){
   try{ var raw=localStorage.getItem(KEY); if(!raw) return null;
     var c=JSON.parse(raw); var st=defaultState(); st.stage=c.stage||1; st.cube=newCube(st.stage);
@@ -303,7 +313,9 @@ function destroyBlock(b,byTap,hitDmg,src){
     dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&isExposed(n)){ damageBlock(n,dmg,false,false,null,'splash'); } });
   }
   if(b.core && !stageCleared){ stageCleared=true; setTimeout(showResult,450); }
-  updateHUD(); save();
+  // HUD refresh + save are left to the top-level caller (tapDamage / drill
+  // tick), which runs them once per action instead of once per broken block
+  // (splash chains included).
 }
 function damageBlock(b,dmg,isTap,isCrit,impact,src){
   if(!b||!b.alive||stageCleared) return false;
@@ -322,7 +334,7 @@ function tapDamage(b,impact){
   var destroyed=damageBlock(b,dmg,true,crit,impact||null,'tap');
   if(crit&&!destroyed) floatText(b,'CRIT ×5',true);
   if(!destroyed) beep(220,0.04);
-  draw(); updateHUD(); save();
+  draw(); updateHUD(); saveSoon();
 }
 // ---------- realistic crack system ----------
 // One crack network per block, generated ONCE (seeded by stage + block coords)
@@ -507,14 +519,28 @@ function canonToScreen(b,face,cu,cv){
   var cvt=canonToView(face,cu,cv); if(!cvt) return null;
   return facePoint(cvt[0],p.sx,p.sy,cvt[1],cvt[2]);
 }
+// The face->screen mapping is affine in (cu,cv), so per block+face it is
+// enough to convert the 3 corners once and then place every crack point
+// with two multiplies — previously each crack vertex ran the full 3D
+// conversion chain (facePoint3 + permutation + facePoint) on every frame.
+function faceBasis(viewFace,sx,sy){
+  var p00=canonPtOnView(viewFace,0,0,sx,sy), p10=canonPtOnView(viewFace,1,0,sx,sy), p01=canonPtOnView(viewFace,0,1,sx,sy);
+  return {x:p00[0],y:p00[1],ux:p10[0]-p00[0],uy:p10[1]-p00[1],vx:p01[0]-p00[0],vy:p01[1]-p00[1]};
+}
+function basisPt(B,cu,cv){ return [B.x+B.ux*cu+B.vx*cv, B.y+B.uy*cu+B.vy*cv]; }
+// Physical face behind a view face is constant while the orientation is —
+// memoize it for the duration of one draw() pass.
+var physMemo=null;
+function physFaceOf(viewFace){ if(physMemo&&physMemo[viewFace]) return physMemo[viewFace]; var f=viewToCanon(viewFace,0,0)[0]; if(physMemo) physMemo[viewFace]=f; return f; }
 function viewImpactOf(pk){ var c=viewToCanon(pk.face,pk.u,pk.v); return {face:c[0],cu:c[1],cv:c[2]}; }
 function fillPolyPts(pts){ ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); for(var i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath(); ctx.fill(); }
 // Peel patch / corner chip / impact specks for one visible face
 function drawFaceFx(b,viewFace,sx,sy,p){
   var net=b.net; if(!net) return;
-  var face=viewToCanon(viewFace,0,0)[0];
+  var face=physFaceOf(viewFace);
   var fx=net.fx[face]; if(!fx) return;
-  function SP(cu,cv){ return canonPtOnView(viewFace,cu,cv,sx,sy); }
+  var FB=faceBasis(viewFace,sx,sy);
+  function SP(cu,cv){ return basisPt(FB,cu,cv); }
   function poly(list){ ctx.beginPath(); list.forEach(function(q,i){ var s=SP(q[0],q[1]); if(i===0) ctx.moveTo(s[0],s[1]); else ctx.lineTo(s[0],s[1]); }); ctx.closePath(); }
   if(p>=0.85&&fx.peel){ poly(fx.peel); ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.30)'; ctx.lineWidth=1; ctx.stroke(); }
   if(p>=0.7&&fx.chipTri){ poly(fx.chipTri); ctx.fillStyle='#000'; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1; ctx.stroke(); }
@@ -530,8 +556,9 @@ function drawFaceFx(b,viewFace,sx,sy,p){
 // line, each segment tapered (thick at the root, thin at the tip).
 function drawFaceCracks(b,viewFace,sx,sy,light){
   var net=b.net; if(!net) return;
-  var face=viewToCanon(viewFace,0,0)[0];
+  var face=physFaceOf(viewFace);
   var segs=net.segs[face]; if(!segs||!segs.length) return;
+  var FB=faceBasis(viewFace,sx,sy);
   var p=1-b.hp/b.maxHp; if(p<=0.02) return;
   var g=Math.pow(p,0.75)*1.04;
   var baseW=Math.max(1.1,Math.min(3,view.tw*0.06))*(p>0.85?1.5:1);
@@ -542,12 +569,12 @@ function drawFaceCracks(b,viewFace,sx,sy,light){
     var seg=segs[si], pts=seg.pts, vis=[];
     for(var i=0;i<pts.length;i++){
       var t=pts[i][2];
-      var sp=canonPtOnView(viewFace,pts[i][0],pts[i][1],sx,sy);
+      var sp=basisPt(FB,pts[i][0],pts[i][1]);
       if(i===0){ if(t<=g) vis.push([sp[0],sp[1],t]); continue; }
       var tp=pts[i-1][2];
       if(g<=tp) break;
       if(g>=t){ vis.push([sp[0],sp[1],t]); }
-      else { var pp=canonPtOnView(viewFace,pts[i-1][0],pts[i-1][1],sx,sy); var fr=(g-tp)/((t-tp)||1e-9); vis.push([pp[0]+(sp[0]-pp[0])*fr, pp[1]+(sp[1]-pp[1])*fr, g]); break; }
+      else { var pp=basisPt(FB,pts[i-1][0],pts[i-1][1]); var fr=(g-tp)/((t-tp)||1e-9); vis.push([pp[0]+(sp[0]-pp[0])*fr, pp[1]+(sp[1]-pp[1])*fr, g]); break; }
     }
     if(vis.length<2) continue;
     for(var pass=0;pass<2;pass++){
@@ -585,19 +612,17 @@ function drawFace(pts,base,pat,isTop){
 }
 function draw(){
   var wrapEl=document.getElementById('stageWrap'); var W=wrapEl.clientWidth,H=wrapEl.clientHeight; if(!W)return;
-  var dpr=window.devicePixelRatio||1;
-  if(cv.width!==W*dpr){ cv.width=W*dpr; cv.height=H*dpr; }
+  // Cap the backing store at 2x: at DPR 3 the canvas costs ~2.25x the pixels
+  // of DPR 2 for no visible gain on these flat-shaded blocks.
+  var dpr=Math.min(2,window.devicePixelRatio||1);
+  if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
   var N=S.cube.N;
   // fit: iso width = N*tw, height approx N*th + N*th
   var tw=Math.min((W*0.92)/N, (H*0.86)/(N*0.5+N)); tw=Math.max(16,tw);
   view.tw=tw; view.th=tw/2; view.W=W; view.H=H;
-  view.ox=W/2; view.oy=H*0.16 + (N-1)*view.th*0 + view.th*2;
-  // Actually center vertically: total height = (N-1)*th (ground diag) + N*th (stack). top of top block:
-  view.oy=H/2 - ((2*N-1)*view.th)/2 + (N-1)*view.th + view.th; // origin for y=0 ground center block adjusted below
-  // Simpler: compute projected bounds
-  var test=[]; S.cube.blocks.forEach(function(b){ if(b.alive) test.push(projBlockRaw(b,tw)); });
-  // Use projBlockRaw approach: first set ox=0,oy=0 compute bounds then offset
+  physMemo={};
+  // Compute the projected bounds with the origin at 0, then offset to centre.
   view.ox=0; view.oy=0;
   var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
   S.cube.blocks.forEach(function(b){ if(!b.alive)return; var p=projBlock(b); var hw=tw/2,hh=view.th;
@@ -612,7 +637,6 @@ function draw(){
   particles=particles.filter(function(p){return p.life>0;});
   particles.forEach(function(p){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=0.045; ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.g; ctx.fillRect(p.x,p.y,p.s,p.s); ctx.globalAlpha=1; });
 }
-function projBlockRaw(b,tw){ return {sx:0,sy:0}; }
 function drawBlock(b,invert,pat){
   var p=projBlock(b); var tw=view.tw,th=view.th;
   var sx=p.sx, sy=p.sy;
@@ -750,19 +774,28 @@ setInterval(function(){
   drillTargets=picked.slice();
   picked.forEach(function(t){ if(t.alive) damageBlock(t,S.drillLv,false,false,null,'drill'); });
   drillTargets=drillTargets.filter(function(t){return t.alive;});
-  draw(); updateHUD(); save();
+  draw(); updateHUD(); saveSoon();
 },1000);
-// particle / highlight anim loop (keeps the auto-target blink + hit sink alive)
+// Particle / highlight anim loop. A full redraw is only needed while
+// particles fly, a hit-sink animation runs, the hold pickaxe is active, or
+// the drill-target blink actually flips phase (~every 350ms) — previously
+// any visible drill target forced a full redraw every 60ms (~16fps of
+// whole-cube rendering even while idling).
+var lastBlink=-1;
 setInterval(function(){
-  var anim=false;
-  if(!particles.length&&!hold.active&&!drillTargets.length){
+  var need=particles.length>0||hold.active;
+  if(!need){
     var now=performance.now();
-    for(var i=0;i<S.cube.blocks.length;i++){ if(S.cube.blocks[i].animT&&now-S.cube.blocks[i].animT<200){ anim=true; break; } }
+    for(var i=0;i<S.cube.blocks.length;i++){ if(S.cube.blocks[i].animT&&now-S.cube.blocks[i].animT<200){ need=true; break; } }
   }
-  if(particles.length||hold.active||drillTargets.length||anim) draw();
+  if(!need&&drillTargets.length){
+    var ph=Math.floor(Date.now()/350)%2;
+    if(ph!==lastBlink) need=true;
+  }
+  if(need){ lastBlink=Math.floor(Date.now()/350)%2; draw(); }
 },60);
 // ---------- HUD ----------
-function remaining(){ return S.cube.blocks.filter(function(b){return b.alive;}).length; }
+function remaining(){ var n=0; for(var i=0;i<S.cube.blocks.length;i++) if(S.cube.blocks[i].alive) n++; return n; }
 function updateHUD(){
   document.getElementById('coin').textContent=fmt(S.coins);
   document.getElementById('stageNum').textContent=S.stage;
@@ -784,7 +817,10 @@ function updateHUD(){
   document.getElementById('cardDrill').className=tier(Math.max(1,S.drillLv));
   document.getElementById('cardIncome').className=tier(Math.max(1,S.incomeLv));
   document.getElementById('pickIcon').textContent=['⛏','⛏','⚒','⚒','⛏'][Math.min(4,Math.floor((S.pickLv-1)/5))]||'⛏';
-  renderSkills();
+  // Rebuilding the whole skill list DOM on every HUD refresh (every tap,
+  // every drill tick) was pure waste while the panel is closed; it is
+  // rendered on open and after skill purchases instead.
+  if(document.getElementById('skillPanel').classList.contains('open')) renderSkills();
 }
 // ---------- upgrades ----------
 function buy(cost,fn){ if(S.coins<cost) return; S.coins-=cost; fn(); beep(980,0.07); updateHUD(); draw(); save(); }
