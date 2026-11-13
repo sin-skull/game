@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>穴ゲーム（オープンワールド）</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;height:100dvh;overflow:hidden;background:#ddd6c2;touch-action:none;overscroll-behavior:none;
+    font-family:"Hiragino Maru Gothic ProN","M PLUS Rounded 1c",system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+  #game{position:fixed;inset:0;display:block;touch-action:none}
+  #hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;display:flex;gap:8px;pointer-events:none;z-index:5;flex-wrap:wrap}
+  .chip{background:rgba(255,255,255,.92);border:2px solid #222;border-radius:999px;padding:6px 12px;font-weight:800;font-size:14px;color:#222;
+    box-shadow:0 3px 0 #222;display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .chip small{font-weight:700;color:#777;font-size:11px}
+  #hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:5;pointer-events:none;
+    background:rgba(34,34,34,.85);color:#fff;font-weight:800;font-size:14px;padding:9px 18px;border-radius:999px;transition:opacity .6s}
+  #resetBtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:6;width:48px;height:48px;border-radius:50%;
+    border:2px solid #222;background:#fff;font-size:20px;box-shadow:0 3px 0 #222;cursor:pointer}
+  #resetBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #222}
+  #overlay{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(20,18,12,.45)}
+  #overlay.show{display:flex}
+  #panel{background:#fff;border:3px solid #222;border-radius:24px;padding:28px 30px;text-align:center;box-shadow:0 6px 0 #222;max-width:84vw}
+  #panel .big{font-size:44px}
+  #panel h2{font-size:24px;font-weight:900;margin:6px 0 4px}
+  #panel p{font-size:14px;font-weight:700;color:#666;margin-bottom:16px;line-height:1.6}
+  #nextBtn{border:2.5px solid #222;background:#ffd93d;color:#222;font-family:inherit;font-weight:900;font-size:18px;
+    padding:12px 34px;border-radius:999px;box-shadow:0 4px 0 #222;cursor:pointer}
+  #nextBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #222}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="chip">🕳️ <span id="genLabel">第1世代</span></div>
+  <div class="chip"><span id="leftLabel">残り 0</span></div>
+  <div class="chip"><small>穴の大きさ</small><span id="sizeLabel">0.5m</span></div>
+  <div class="chip"><small>最大</small><span id="maxLabel">-</span></div>
+</div>
+
+<div id="hint">👆 ドラッグした方向に穴が進むよ</div>
+<button id="resetBtn" title="第1世代から">↺</button>
+
+<div id="overlay">
+  <div id="panel">
+    <div class="big">🎉</div>
+    <h2 id="clearTitle">全部飲み込んだ！</h2>
+    <p id="clearText"></p>
+    <button id="nextBtn">もっと大きな世界へ ▶</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const genLabel  = document.getElementById('genLabel');
+const leftLabel = document.getElementById('leftLabel');
+const sizeLabel = document.getElementById('sizeLabel');
+const maxLabel  = document.getElementById('maxLabel');
+const hint      = document.getElementById('hint');
+const overlay   = document.getElementById('overlay');
+const clearText = document.getElementById('clearText');
+
+let W = 0, H = 0, DPR = 1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ---------- 音 ----------
+let audioCtx = null;
+function beep(freq, dur, type, vol){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol || 0.12, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  }catch(e){}
+}
+const popSound   = () => beep(300 + Math.random()*250, 0.12, 'sine', 0.14);
+const bigSound   = () => { beep(180,0.25,'sine',0.16); setTimeout(()=>beep(520,0.2,'sine',0.12),90); };
+const thudSound  = () => beep(90, 0.10, 'square', 0.06);
+const clearSound = () => { beep(523,0.14,'sine',0.12); setTimeout(()=>beep(659,0.14,'sine',0.12),110); setTimeout(()=>beep(784,0.22,'sine',0.12),220); };
+
+// ---------- ワールド定義：世代ごとに物が大きくなる（無限） ----------
+const WORLD = 2600;                 // ワールドの一辺（ワールド座標px）
+const HOLE_START_R = 30;            // 世代開始時の穴の半径（ワールド座標）
+const OBJECT_COUNT = 34;
+const GEN_POOLS = [
+  ['🍬','📎','🍓','🪙','🔑','🍪','🧩','🍇'],
+  ['🍎','🧀','📱','👟','🧸','📚','🍔','⏰'],
+  ['🪑','📦','🚲','🛹','🎸','🪴','🧳','🛒'],
+  ['🛋️','🚗','🌳','🛵','📺','🦒','⛺','🚙'],
+  ['🚚','🏠','🚜','🐘','🌴','🚌','🚂','🏡'],
+  ['🏢','🏭','🗼','🚢','🏰','🎡','🌉','🏟️'],
+  ['🌋','🐋','🚀','🛸','🪐','🎢','🗿','🌕'],
+];
+function poolFor(gen){
+  if(gen <= GEN_POOLS.length) return GEN_POOLS[gen - 1];
+  // 7世代目以降は最後の2プールを混ぜて使い回す（サイズと数値で無限に伸びる）
+  return GEN_POOLS[GEN_POOLS.length - 1].concat(GEN_POOLS[GEN_POOLS.length - 2]);
+}
+
+// ---------- 状態 ----------
+let gen = +(localStorage.getItem('holeGameGen') || 1);
+let genStartMeters = parseFloat(localStorage.getItem('holeGameMeters') || '0.5');
+let swallowedTotal = +(localStorage.getItem('holeGameTotal') || 0);
+let hole = { x: WORLD/2, y: WORLD/2, r: HOLE_START_R, pulse: 0 };
+let cam = { x: WORLD/2, y: WORLD/2 };
+let zoom = 1;
+let objects = [];
+let particles = [];   // スクリーン座標で描く
+let floaters = [];    // ワールド座標で持つ
+let genSwallowed = 0;
+let largest = null;
+let joy = null;       // {id, ox, oy, x, y}
+let keys = {};
+let bumpCooldown = 0;
+let cleared = false;
+let saveTimer = 0;
+
+function holeMeters(){ return genStartMeters * (hole.r / HOLE_START_R); }
+function remaining(){ return objects.filter(o => o.state !== 'gone').length; }
+function isEdible(o){ return o.r <= hole.r; }
+
+function spawnGeneration(g){
+  const pool = poolFor(g);
+  hole.r = HOLE_START_R; hole.x = WORLD/2; hole.y = WORLD/2;
+  cam.x = hole.x; cam.y = hole.y; zoom = 1;
+  objects = []; genSwallowed = 0; cleared = false; largest = null;
+  // サイズは小→大の階段状（穴の0.3倍〜3.0倍）。小さい順に飲めば最大まで必ず届く
+  const fracs = [];
+  for(let i = 0; i < OBJECT_COUNT; i++){
+    const base = i / (OBJECT_COUNT - 1);
+    const jitter = (Math.random() - 0.5) * (0.8 / (OBJECT_COUNT - 1));
+    fracs.push(Math.max(0, Math.min(1, base + jitter)));
+  }
+  let tries = 0;
+  while(objects.length < OBJECT_COUNT && tries < 3000){
+    tries++;
+    const r = HOLE_START_R * (0.3 + fracs[objects.length] * 2.7);
+    const x = r + 20 + Math.random() * (WORLD - 2*r - 40);
+    const y = r + 20 + Math.random() * (WORLD - 2*r - 40);
+    if(Math.hypot(x - hole.x, y - hole.y) < hole.r + r + 160) continue;
+    let overlap = false;
+    for(const o of objects){ if(Math.hypot(x - o.x, y - o.y) < (r + o.r) * 0.8){ overlap = true; break; } }
+    if(overlap) continue;
+    objects.push({
+      x, y, r,
+      emoji: pool[Math.floor(Math.random() * pool.length)],
+      state: 'idle', suckT: 0, angle: Math.random() * Math.PI * 2, wobble: 0, isLargest: false
+    });
+  }
+  for(const o of objects){ if(!largest || o.r > largest.r) largest = o; }
+  if(largest) largest.isLargest = true;
+  updateHUD();
+}
+
+function updateHUD(){
+  genLabel.textContent = '第' + gen + '世代';
+  leftLabel.textContent = '残り ' + remaining();
+  sizeLabel.textContent = holeMeters().toFixed(1) + 'm';
+  if(largest && largest.state !== 'gone'){
+    maxLabel.textContent = largest.emoji + (isEdible(largest) ? ' 落とせる！' : ' まだ大きい');
+  } else {
+    maxLabel.textContent = '👑 飲んだ！';
+  }
+}
+
+function save(){
+  localStorage.setItem('holeGameGen', gen);
+  localStorage.setItem('holeGameMeters', genStartMeters);
+  localStorage.setItem('holeGameTotal', swallowedTotal);
+}
+
+// ---------- 入力：ドラッグ＝スティック（ドラッグ方向に進む） ----------
+canvas.addEventListener('pointerdown', e => {
+  joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
+  hint.style.opacity = '0';
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => { if(joy && e.pointerId === joy.id){ joy.x = e.clientX; joy.y = e.clientY; } });
+function endJoy(e){ if(joy && e.pointerId === joy.id) joy = null; }
+window.addEventListener('pointerup', endJoy);
+window.addEventListener('pointercancel', endJoy);
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup',   e => keys[e.key] = false);
+document.addEventListener('gesturestart', e => e.preventDefault());
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  if(now - lastTouchEnd <= 300) e.preventDefault();
+  lastTouchEnd = now;
+}, { passive:false });
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.getElementById('resetBtn').addEventListener('click', () => {
+  gen = 1; genStartMeters = 0.5; save(); spawnGeneration(1);
+});
+document.getElementById('nextBtn').addEventListener('click', () => {
+  overlay.classList.remove('show');
+  gen++; save(); spawnGeneration(gen);
+});
+
+// ---------- 更新 ----------
+function project(x, y){ return { x: (x - cam.x) * zoom + W/2, y: (y - cam.y) * zoom + H/2 }; }
+
+let lastTime = performance.now();
+function update(dt){
+  // 移動
+  let vx = 0, vy = 0;
+  if(joy){
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy;
+    const d = Math.hypot(dx, dy);
+    if(d > 8){
+      const power = Math.min(1, d / 70);
+      vx = dx / d * power; vy = dy / d * power;
+    }
+  }
+  if(keys['ArrowLeft'])  vx -= 1;
+  if(keys['ArrowRight']) vx += 1;
+  if(keys['ArrowUp'])    vy -= 1;
+  if(keys['ArrowDown'])  vy += 1;
+  const vl = Math.hypot(vx, vy);
+  if(vl > 0){
+    const speed = 560 * Math.min(1, vl);
+    hole.x += vx / (vl || 1) * speed * dt;
+    hole.y += vy / (vl || 1) * speed * dt;
+  }
+  hole.x = Math.max(hole.r, Math.min(WORLD - hole.r, hole.x));
+  hole.y = Math.max(hole.r, Math.min(WORLD - hole.r, hole.y));
+  hole.pulse = Math.max(0, hole.pulse - dt * 4);
+  bumpCooldown = Math.max(0, bumpCooldown - dt);
+
+  // カメラとズーム（穴が画面の約100pxを超えたらズームアウトして世界が広く見える）
+  const zTarget = Math.min(1, 100 / hole.r);
+  zoom += (zTarget - zoom) * Math.min(1, dt * 3);
+  cam.x += (hole.x - cam.x) * Math.min(1, dt * 6);
+  cam.y += (hole.y - cam.y) * Math.min(1, dt * 6);
+  const halfW = W / (2 * zoom), halfH = H / (2 * zoom);
+  cam.x = halfW >= WORLD/2 ? WORLD/2 : Math.max(halfW, Math.min(WORLD - halfW, cam.x));
+  cam.y = halfH >= WORLD/2 ? WORLD/2 : Math.max(halfH, Math.min(WORLD - halfH, cam.y));
+
+  // 物との判定
+  for(const o of objects){
+    if(o.state === 'gone') continue;
+    const d = Math.hypot(o.x - hole.x, o.y - hole.y);
+    if(o.state === 'sucking'){
+      o.suckT += dt / 0.18;
+      o.x += (hole.x - o.x) * Math.min(1, dt * 14);
+      o.y += (hole.y - o.y) * Math.min(1, dt * 14);
+      if(o.suckT >= 1) consume(o);
+      continue;
+    }
+    if(isEdible(o)){
+      if(d < hole.r + o.r * 0.25){
+        if(d < hole.r * 0.55){ o.state = 'sucking'; o.suckT = 0; }
+        else {
+          o.x += (hole.x - o.x) * Math.min(1, dt * 6);
+          o.y += (hole.y - o.y) * Math.min(1, dt * 6);
+        }
+      }
+    } else if(d < hole.r + o.r * 0.72){
+      const push = (hole.r + o.r * 0.72) - d;
+      const nx = (hole.x - o.x) / (d || 1), ny = (hole.y - o.y) / (d || 1);
+      hole.x += nx * push; hole.y += ny * push;
+      o.wobble = 1;
+      if(bumpCooldown <= 0){
+        bumpCooldown = 0.45; thudSound();
+        floaters.push({ x: o.x, y: o.y - o.r - 10, text: '大きい！', t: 0, color: '#d33' });
+      }
+    }
+    o.wobble = Math.max(0, o.wobble - dt * 5);
+  }
+
+  for(const p of particles){ p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.t += dt; }
+  particles = particles.filter(p => p.t < 0.45);
+  for(const f of floaters){ f.y -= 30 * dt; f.t += dt; }
+  floaters = floaters.filter(f => f.t < 0.8);
+
+  saveTimer += dt;
+  if(saveTimer > 2){ saveTimer = 0; save(); }
+}
+
+function consume(o){
+  o.state = 'gone';
+  genSwallowed++; swallowedTotal++;
+  const wasLargest = o.isLargest;
+  hole.r = Math.sqrt(hole.r*hole.r + o.r*o.r * 0.6);
+  hole.pulse = 1;
+  if(wasLargest){ bigSound(); floaters.push({ x: hole.x, y: hole.y - hole.r - 14, text: '👑 最大を飲んだ！', t: 0, color: '#b8860b' }); }
+  else popSound();
+  const c = project(hole.x, hole.y);
+  for(let i = 0; i < 10; i++){
+    const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 110;
+    particles.push({ x: c.x + Math.cos(a)*hole.r*zoom*0.5, y: c.y + Math.sin(a)*hole.r*zoom*0.5,
+      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 40, t: 0 });
+  }
+  floaters.push({ x: hole.x, y: hole.y - hole.r - 6, text: '+1', t: 0, color: '#222' });
+  updateHUD();
+  if(remaining() === 0 && !cleared){
+    cleared = true;
+    genStartMeters = holeMeters();       // 次世代はこの大きさから（物はさらに大きくなる）
+    save();
+    clearSound();
+    setTimeout(() => {
+      clearText.innerHTML = '穴は ' + genStartMeters.toFixed(1) + 'm まで大きくなった（通算 ' + swallowedTotal + ' 個）。<br>次の世代では、さらに大きな物が世界に現れるよ。';
+      overlay.classList.add('show');
+    }, 450);
+  }
+}
+
+// ---------- 描画 ----------
+function draw(){
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#ddd6c2'; ctx.fillRect(0, 0, W, H);
+  ctx.translate(W/2, H/2); ctx.scale(zoom, zoom); ctx.translate(-cam.x, -cam.y);
+
+  // 地面と世界の境界
+  ctx.fillStyle = '#f3efe4'; ctx.fillRect(0, 0, WORLD, WORLD);
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  for(let x = 60; x < WORLD; x += 120) for(let y = 60; y < WORLD; y += 120){
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 10 / zoom;
+  ctx.strokeRect(0, 0, WORLD, WORLD);
+
+  // 物
+  for(const o of objects){
+    if(o.state === 'gone') continue;
+    const scale = o.state === 'sucking' ? Math.max(0.05, 1 - o.suckT) : 1;
+    const r = o.r * scale;
+    const wob = o.wobble > 0 ? Math.sin(performance.now()/28) * 0.08 * o.wobble : 0;
+    ctx.save();
+    ctx.translate(o.x, o.y);
+    ctx.fillStyle = 'rgba(0,0,0,0.13)';
+    ctx.beginPath(); ctx.ellipse(0, r*0.72, r*0.85, r*0.28, 0, 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = Math.max(2.5, 3 / zoom);
+    if(o.isLargest){ ctx.strokeStyle = '#e6a817'; ctx.setLineDash([10,7]); }
+    else if(isEdible(o)){ ctx.strokeStyle = 'rgba(46,160,80,0.55)'; ctx.setLineDash([]); }
+    else { ctx.strokeStyle = 'rgba(215,50,50,0.75)'; ctx.setLineDash([7,6]); }
+    ctx.beginPath(); ctx.arc(0, 0, r + 6, 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.rotate(o.angle + wob + (o.state === 'sucking' ? o.suckT * 2.2 : 0));
+    ctx.font = (r * 2) + 'px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(o.emoji, 0, 2);
+    ctx.restore();
+    if(o.isLargest){
+      ctx.font = (26 / zoom + 10) + 'px serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('👑', o.x, o.y - r - 20);
+    }
+  }
+
+  // 目標ガイド矢印（画面外の「一番近い落とせる物」／最大が落とせる時は最大へ・金色）
+  const guide = guideTarget();
+  if(guide){
+    const gs = project(guide.x, guide.y);
+    const onScreen = gs.x > -40 && gs.x < W + 40 && gs.y > -40 && gs.y < H + 40;
+    if(!onScreen){
+      const hs = project(hole.x, hole.y);
+      const ang = Math.atan2(guide.y - hole.y, guide.x - hole.x);
+      const gr = hole.r * zoom + 26;
+      const ax = hs.x + Math.cos(ang) * gr, ay = hs.y + Math.sin(ang) * gr;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.save();
+      ctx.translate(ax, ay); ctx.rotate(ang);
+      ctx.fillStyle = guide.isLargest ? '#e6a817' : '#2ea050';
+      ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.translate(W/2, H/2); ctx.scale(zoom, zoom); ctx.translate(-cam.x, -cam.y);
+    }
+  }
+
+  // 穴
+  const pr = hole.r * (1 + hole.pulse * 0.09);
+  ctx.save();
+  ctx.translate(hole.x, hole.y);
+  ctx.strokeStyle = 'rgba(0,0,0,0.14)'; ctx.lineWidth = Math.max(2, 3 / zoom);
+  const ringPhase = (performance.now() % 900) / 900;
+  ctx.beginPath(); ctx.arc(0, 0, pr * (1.12 + ringPhase * 0.22), 0, Math.PI*2);
+  ctx.globalAlpha = 1 - ringPhase; ctx.stroke(); ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(0, pr*0.16, pr*1.04, pr*0.96, 0, 0, Math.PI*2); ctx.fill();
+  const grad = ctx.createRadialGradient(0, 0, pr*0.1, 0, 0, pr);
+  grad.addColorStop(0, '#000'); grad.addColorStop(0.78, '#050505'); grad.addColorStop(1, '#2b2b2b');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = Math.max(2, 2.5 / zoom);
+  ctx.beginPath(); ctx.arc(0, 0, pr - 1.5, Math.PI * 1.05, Math.PI * 1.55); ctx.stroke();
+  ctx.restore();
+
+  // スクリーン座標パス
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = '#222';
+  for(const p of particles){
+    ctx.globalAlpha = 1 - p.t / 0.45;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3.2, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  for(const f of floaters){
+    const s = project(f.x, f.y);
+    ctx.globalAlpha = 1 - f.t / 0.8;
+    ctx.fillStyle = f.color;
+    ctx.font = '900 16px "Hiragino Maru Gothic ProN", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(f.text, s.x, s.y);
+  }
+  ctx.globalAlpha = 1;
+
+  drawMinimap();
+  drawJoystick();
+}
+
+function guideTarget(){
+  if(largest && largest.state !== 'gone' && isEdible(largest)) return largest;
+  let best = null, bestD = Infinity;
+  for(const o of objects){
+    if(o.state === 'gone' || !isEdible(o)) continue;
+    const d = Math.hypot(o.x - hole.x, o.y - hole.y);
+    if(d < bestD){ bestD = d; best = o; }
+  }
+  return best;
+}
+
+function drawMinimap(){
+  const size = 92, x0 = 12, y0 = H - size - 12;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x0, y0, size, size, 10); ctx.fill(); ctx.stroke();
+  ctx.clip();
+  const k = size / WORLD;
+  for(const o of objects){
+    if(o.state === 'gone') continue;
+    ctx.fillStyle = o.isLargest ? '#e6a817' : (isEdible(o) ? '#2ea050' : '#d33');
+    ctx.beginPath(); ctx.arc(x0 + o.x * k, y0 + o.y * k, o.isLargest ? 4 : 2.6, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.arc(x0 + hole.x * k, y0 + hole.y * k, 4.4, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(x0 + hole.x * k, y0 + hole.y * k, 4.4, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+}
+
+function drawJoystick(){
+  if(!joy) return;
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 46, 0, Math.PI*2); ctx.fill();
+  const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy);
+  const cl = Math.min(d, 46);
+  const kx = joy.ox + (d ? dx / d * cl : 0), ky = joy.oy + (d ? dy / d * cl : 0);
+  ctx.globalAlpha = 0.75;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(kx, ky, 20, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function loop(now){
+  const dt = Math.min(0.033, (now - lastTime) / 1000);
+  lastTime = now;
+  if(!cleared) update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+spawnGeneration(gen);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
