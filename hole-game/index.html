@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>穴ゲーム（2.5D）</title>
+<title>穴ゲーム（3D物理・スーパー）</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{width:100%;height:100%;height:100dvh;overflow:hidden;background:#cfc8b2;touch-action:none;overscroll-behavior:none;
+  html,body{width:100%;height:100%;height:100dvh;overflow:hidden;background:#a8c6e0;touch-action:none;overscroll-behavior:none;
     font-family:"Hiragino Maru Gothic ProN","M PLUS Rounded 1c",system-ui,sans-serif;-webkit-user-select:none;user-select:none}
-  #game{position:fixed;inset:0;display:block;touch-action:none}
+  #gl{position:fixed;inset:0;display:block;touch-action:none}
+  #fx{position:fixed;inset:0;pointer-events:none;z-index:4}
   #hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;display:flex;gap:8px;pointer-events:none;z-index:5;flex-wrap:wrap}
   .chip{background:rgba(255,255,255,.92);border:2px solid #222;border-radius:999px;padding:6px 12px;font-weight:800;font-size:14px;color:#222;
     box-shadow:0 3px 0 #222;display:flex;align-items:center;gap:6px;white-space:nowrap}
   .chip small{font-weight:700;color:#777;font-size:11px}
   #comboChip{display:none;background:#ffd93d}
   #hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:5;pointer-events:none;
-    background:rgba(34,34,34,.85);color:#fff;font-weight:800;font-size:14px;padding:9px 18px;border-radius:999px;transition:opacity .6s}
+    background:rgba(34,34,34,.85);color:#fff;font-weight:800;font-size:14px;padding:9px 18px;border-radius:999px;transition:opacity .6s;text-align:center;max-width:92vw}
   #resetBtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:6;width:48px;height:48px;border-radius:50%;
     border:2px solid #222;background:#fff;font-size:20px;box-shadow:0 3px 0 #222;cursor:pointer}
   #resetBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #222}
@@ -29,55 +30,104 @@
     padding:12px 34px;border-radius:999px;box-shadow:0 4px 0 #222;cursor:pointer}
   #nextBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #222}
 </style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+} }
+</script>
 </head>
 <body>
-<canvas id="game"></canvas>
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
 
 <div id="hud">
-  <div class="chip">🕳️ <span id="genLabel">第1世代</span></div>
+  <div class="chip">🛒 <span id="storeLabel">スーパー</span></div>
   <div class="chip"><span id="leftLabel">残り 0</span></div>
-  <div class="chip"><small>穴の大きさ</small><span id="sizeLabel">0.4m</span></div>
+  <div class="chip"><small>穴の大きさ</small><span id="sizeLabel">0.7m</span></div>
   <div class="chip"><small>最大</small><span id="maxLabel">-</span></div>
   <div class="chip" id="comboChip">🔥 <span id="comboLabel">x2</span></div>
 </div>
 
-<div id="hint">👆 ドラッグした方向に進む。物は縁で傾いてから落ちるよ</div>
+<div id="hint">👆 ドラッグで穴を移動。棚にぶつけて倒すと商品がこぼれるよ</div>
 <button id="resetBtn" title="最初から">↺</button>
 
 <div id="overlay">
   <div id="panel">
     <div class="big">🎉</div>
-    <h2>全部飲み込んだ！</h2>
+    <h2>店じまい！全部飲み込んだ</h2>
     <p id="clearText"></p>
-    <button id="nextBtn">さらに大きな物が来る ▶</button>
+    <button id="nextBtn">次の店へ ▶</button>
   </div>
 </div>
 
 <script>
-"use strict";
-const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-const genLabel  = document.getElementById('genLabel');
-const leftLabel = document.getElementById('leftLabel');
-const sizeLabel = document.getElementById('sizeLabel');
-const maxLabel  = document.getElementById('maxLabel');
-const comboChip = document.getElementById('comboChip');
-const comboLabel= document.getElementById('comboLabel');
-const hint      = document.getElementById('hint');
-const overlay   = document.getElementById('overlay');
-const clearText = document.getElementById('clearText');
+  window.__holeBootTimer = setTimeout(() => {
+    if(!window.__hole3dBooted){
+      document.getElementById('hint').textContent = '⚠️ 3Dライブラリの読み込みに失敗したみたい。通信環境を確認して再読み込みしてね';
+    }
+  }, 7000);
+</script>
 
-let W = 0, H = 0, DPR = 1;
-function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-}
-window.addEventListener('resize', resize);
-resize();
+<script type="module">
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+window.__hole3dBooted = true;
+clearTimeout(window.__holeBootTimer);
 
-// ---------- 音 ----------
+// ================= 基本セットアップ =================
+const glCanvas = document.getElementById('gl');
+const fx = document.getElementById('fx');
+const fxCtx = fx.getContext('2d');
+const storeLabel = document.getElementById('storeLabel');
+const leftLabel  = document.getElementById('leftLabel');
+const sizeLabel  = document.getElementById('sizeLabel');
+const maxLabel   = document.getElementById('maxLabel');
+const comboChip  = document.getElementById('comboChip');
+const comboLabel = document.getElementById('comboLabel');
+const hint       = document.getElementById('hint');
+const overlay    = document.getElementById('overlay');
+const clearText  = document.getElementById('clearText');
+
+let VW = window.innerWidth, VH = window.innerHeight;
+const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setSize(VW, VH);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xa8c6e0);
+scene.fog = new THREE.Fog(0xa8c6e0, 60, 190);
+
+const camera = new THREE.PerspectiveCamera(55, VW / VH, 0.1, 500);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8a97a5, 0.95);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
+sun.shadow.camera.top = 20; sun.shadow.camera.bottom = -20;
+sun.shadow.camera.far = 120;
+scene.add(sun); scene.add(sun.target);
+
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.allowSleep = true;
+world.defaultContactMaterial.friction = 0.45;
+world.defaultContactMaterial.restitution = 0.08;
+world.solver.iterations = 12;
+
+window.addEventListener('resize', () => {
+  VW = window.innerWidth; VH = window.innerHeight;
+  renderer.setSize(VW, VH);
+  camera.aspect = VW / VH; camera.updateProjectionMatrix();
+  fx.width = VW; fx.height = VH;
+});
+fx.width = VW; fx.height = VH;
+
+// ================= 音 =================
 let audioCtx = null;
 function beep(freq, dur, type, vol, delay){
   try{
@@ -93,139 +143,321 @@ function beep(freq, dur, type, vol, delay){
   }catch(e){}
 }
 function swallowSound(ratio, combo){
-  // 大きい物ほど低く重く、コンボが上がるほど少し高く
-  const f = Math.max(70, 460 - ratio * 330) + Math.min(combo, 10) * 22;
+  const f = Math.max(65, 430 - ratio * 300) + Math.min(combo, 10) * 20;
   beep(f, 0.16, 'sine', 0.15);
-  if(ratio > 0.55) beep(58, 0.3, 'triangle', 0.22);        // 地響き
+  if(ratio > 0.5) beep(55, 0.32, 'triangle', 0.22);
 }
-const thudSound  = () => beep(90, 0.10, 'square', 0.05);
+const crashSound = () => { beep(140, 0.2, 'sawtooth', 0.05); beep(90, 0.3, 'square', 0.05, 0.03); };
 const clearSound = () => { beep(523,0.14,'sine',0.12); beep(659,0.14,'sine',0.12,0.11); beep(784,0.24,'sine',0.12,0.22); };
 
-// ---------- 世界の定義：縮尺は固定。穴は同じ街の中で本当に巨大化する ----------
-const PX_PER_METER = 90;                 // ワールド90px = 1m（全世代共通・リセットなし）
-const HOLE_START_R = 18;
-const STATIC_COUNT = 44;
-const CATS = [
-  { max:16,  emojis:['🍬','📎','🍓','🪙','🔑','🍪','🧩','🍇'], hF:0.35 },
-  { max:32,  emojis:['🍎','🧀','📱','👟','🧸','📚','🍔','⏰'], hF:0.5 },
-  { max:60,  emojis:['🪑','📦','🚲','🛹','🎸','🪴','🧳','🛒'], hF:0.9 },
-  { max:110, emojis:['🛋️','🚗','🌳','🛵','📺','⛺','🚙','🦒'], hF:0.8 },
-  { max:200, emojis:['🚚','🏠','🚜','🐘','🌴','🚌','🚂','🏡'], hF:1.4 },
-  { max:360, emojis:['🏢','🏭','🏰','🎡','🌉','🚢'],           hF:2.4 },
-  { max:1e9, emojis:['🗼','🏟️','🌋','🛸','🪐','🗿','🐋'],       hF:3.0 },
-];
-function catFor(r){ for(const c of CATS) if(r < c.max) return c; return CATS[CATS.length-1]; }
-function pickEmoji(r){ const c = catFor(r); return c.emojis[Math.floor(Math.random()*c.emojis.length)]; }
-function formatSize(m){ return m < 1000 ? m.toFixed(1)+'m' : (m/1000).toFixed(2)+'km'; }
-
-// ---------- 状態 ----------
-let gen = +(localStorage.getItem('hole25Gen') || 1);
-let swallowedTotal = +(localStorage.getItem('hole25Total') || 0);
-let hole = { x: 1600, y: 1600, r: parseFloat(localStorage.getItem('hole25R') || HOLE_START_R), pulse: 0 };
-let worldSize = 3200;
-let cam = { x: hole.x, y: hole.y };
-let zoom = 1.4;
-let objects = [];   // 静止物（積み重なり含む）
-let movers = [];    // 車と人
-let particles = [];
-let floaters = [];
-let largest = null;
-let joy = null;
-let keys = {};
-let bumpCooldown = 0;
+// ================= 状態 =================
+const STORE_NAMES = ['スーパー', '大型スーパー', '倉庫型スーパー', '巨大モール'];
+let storeNo = +(localStorage.getItem('hole3dStore') || 1);
+let swallowedTotal = +(localStorage.getItem('hole3dTotal') || 0);
+let holeR = parseFloat(localStorage.getItem('hole3dR') || '0.35');
+let items = [];           // {mesh, body, kind, boundR, needR, emoji, captured, capT, gone}
+let statics = [];         // 壁・床ボディ（掃除用）
+let storeW = 56, storeD = 40;
 let cleared = false;
-let shake = 0;
 let combo = 0, lastConsumeAt = -10, nowSec = 0;
-let saveTimer = 0;
-let nextId = 1;
+let shake = 0;
+let floaters = [];
+let camPos = new THREE.Vector3(0, 10, 12);
+let saveTimer = 0, crashCooldown = 0;
 
-function holeMeters(){ return hole.r * 2 / PX_PER_METER; }
-function isEdible(o){ return o.r <= hole.r; }
-function staticsLeft(){ return objects.filter(o => o.state !== 'gone').length; }
-
-function makeObject(x, y, r){
-  const c = catFor(r);
-  return { id: nextId++, x, y, r, emoji: pickEmoji(r), h: r * c.hF,
-    state:'idle', teeter:0, fallT:0, dropT:0, dropFrom:0, baseId:0,
-    angle:(Math.random()-0.5)*0.6, wobble:0, isLargest:false, seed: Math.random()*10 };
+const PALETTE = [0xe74c3c, 0xf39c12, 0x27ae60, 0x2980b9, 0x8e44ad, 0xe67e22, 0x16a085, 0xecf0f1, 0xf1c40f, 0xd35400];
+function randColor(){ return PALETTE[Math.floor(Math.random() * PALETTE.length)]; }
+function formatSize(m){ return m < 1000 ? m.toFixed(1) + 'm' : (m / 1000).toFixed(2) + 'km'; }
+function save(){
+  localStorage.setItem('hole3dStore', storeNo);
+  localStorage.setItem('hole3dR', holeR);
+  localStorage.setItem('hole3dTotal', swallowedTotal);
 }
 
-function spawnWave(g){
-  const holeR0 = hole.r;
-  worldSize = Math.max(3200, holeR0 * 18);
-  hole.x = worldSize/2; hole.y = worldSize/2;
-  cam.x = hole.x; cam.y = hole.y;
-  objects = []; movers = []; largest = null; cleared = false; combo = 0;
-  // 小→大の階段状サイズ（穴の0.3倍〜2.7倍）
+// ================= 穴 =================
+const holeGroup = new THREE.Group();
+const holeDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(1, 40),
+  new THREE.MeshBasicMaterial({ color: 0x000000 })
+);
+holeDisc.rotation.x = -Math.PI / 2; holeDisc.position.y = 0.02;
+const holeInner = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.92, 0.55, 0.5, 40, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide })
+);
+holeInner.position.y = -0.24;
+const holeRim = new THREE.Mesh(
+  new THREE.TorusGeometry(1, 0.045, 10, 44),
+  new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 })
+);
+holeRim.rotation.x = Math.PI / 2; holeRim.position.y = 0.03;
+holeGroup.add(holeDisc, holeInner, holeRim);
+scene.add(holeGroup);
+
+const holeBody = new CANNON.Body({ type: CANNON.Body.KINEMATIC, shape: new CANNON.Sphere(holeR) });
+holeBody.position.set(0, holeR * 0.2, 6);
+world.addBody(holeBody);
+let holeShapeR = holeR;
+function syncHoleShape(){
+  if(Math.abs(holeBody.shapes[0].radius - holeR) > holeR * 0.03){
+    holeBody.shapes = []; holeBody.shapeOffsets = []; holeBody.shapeOrientations = [];
+    holeBody.addShape(new CANNON.Sphere(holeR));
+    holeBody.updateBoundingRadius(); holeBody.aabbNeedsUpdate = true;
+    holeShapeR = holeR;
+  }
+  holeGroup.scale.set(holeR, 1, holeR);
+  holeGroup.position.set(holeBody.position.x, 0, holeBody.position.z);
+}
+
+// ================= 店づくり =================
+function floorTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#e8e4da'; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = '#c9c2b2'; g.lineWidth = 4;
+  g.strokeRect(0, 0, 256, 256);
+  g.fillStyle = 'rgba(0,0,0,0.03)'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+let floorMesh = null, wallMeshes = [];
+
+function clearStore(){
+  for(const it of items){
+    if(it.body) world.removeBody(it.body);
+    scene.remove(it.mesh);
+  }
+  items = [];
+  for(const b of statics) world.removeBody(b);
+  statics = [];
+  if(floorMesh){ scene.remove(floorMesh); floorMesh.geometry.dispose(); floorMesh = null; }
+  for(const m of wallMeshes) scene.remove(m);
+  wallMeshes = [];
+}
+
+function addStaticBox(hx, hy, hz, x, y, z){
+  const b = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
+  b.position.set(x, y, z);
+  world.addBody(b); statics.push(b);
+  return b;
+}
+
+function makeShelf(S, x, z){
+  const L = S * 11, D = S * 2.6, H = S * 6, t = S * 0.22;
+  const group = new THREE.Group();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x8a93a0, roughness: 0.5, metalness: 0.4 });
+  const boardMat = new THREE.MeshStandardMaterial({ color: 0xb9c0c9, roughness: 0.6, metalness: 0.3 });
+  const accentMat = new THREE.MeshStandardMaterial({ color: randColor(), roughness: 0.5 });
+  function part(w, h, d, px, py, pz, mat){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || boardMat);
+    m.position.set(px, py, pz); m.castShadow = true; m.receiveShadow = true;
+    group.add(m); return m;
+  }
+  part(t, H, D, -L/2 + t/2, H/2, 0, frameMat);
+  part(t, H, D,  L/2 - t/2, H/2, 0, frameMat);
+  part(L, H * 0.1, t, 0, H * 0.06, -D/2 + t/2, frameMat);           // 脚部前
+  part(L, H * 0.1, t, 0, H * 0.06,  D/2 - t/2, frameMat);
+  const boardYs = [H * 0.24, H * 0.55, H * 0.86];
+  for(const by of boardYs) part(L, t * 0.6, D, 0, by, 0);
+  part(L * 0.98, H * 0.1, D * 0.9, 0, H * 0.99, 0, accentMat);      // 上部サイン
+  group.position.set(x, 0, z);
+  scene.add(group);
+
+  const body = new CANNON.Body({ mass: 22 * (S / 0.35), allowSleep: true, sleepSpeedLimit: 0.35, sleepTimeLimit: 0.5 });
+  body.addShape(new CANNON.Box(new CANNON.Vec3(t/2, H/2, D/2)), new CANNON.Vec3(-L/2 + t/2, H/2, 0));
+  body.addShape(new CANNON.Box(new CANNON.Vec3(t/2, H/2, D/2)), new CANNON.Vec3( L/2 - t/2, H/2, 0));
+  for(const by of boardYs) body.addShape(new CANNON.Box(new CANNON.Vec3(L/2, t*0.3, D/2)), new CANNON.Vec3(0, by, 0));
+  body.position.set(x, 0, z);
+  world.addBody(body);
+  const item = { mesh: group, body, kind: 'shelf', boundR: L * 0.32, needR: L * 0.42, emoji: '🗄️',
+    captured: false, capT: 0, gone: false, L, D, H, boardYs, S };
+  items.push(item);
+  return item;
+}
+
+function makeProduct(S, shelf, boardY){
+  const ps = S * (0.5 + Math.random() * 0.55);
+  const kindRoll = Math.random();
+  let mesh, shape, boundR, h;
+  const color = randColor();
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.55 });
+  const lx = (Math.random() - 0.5) * (shelf.L - S * 2);
+  const lz = (Math.random() - 0.5) * (shelf.D * 0.45);
+  if(kindRoll < 0.45){          // 箱
+    const w = ps * (0.7 + Math.random() * 0.5), d = ps * (0.7 + Math.random() * 0.4);
+    h = ps * (0.7 + Math.random() * 0.7);
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    shape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2));
+    boundR = Math.hypot(w, d) / 2 * 0.85;
+  } else if(kindRoll < 0.8){    // 缶（物理は箱で近似）
+    const r = ps * 0.34; h = ps * 0.95;
+    mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), mat);
+    shape = new CANNON.Box(new CANNON.Vec3(r, h/2, r));
+    boundR = r * 1.15;
+  } else {                      // 果物（球）
+    const r = ps * 0.42; h = r * 2;
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat);
+    shape = new CANNON.Sphere(r);
+    boundR = r;
+  }
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  const wx = shelf.body.position.x + lx, wz = shelf.body.position.z + lz;
+  const wy = boardY + shelf.S * 0.08 + h / 2 + 0.02;
+  mesh.position.set(wx, wy, wz);
+  scene.add(mesh);
+  const body = new CANNON.Body({ mass: Math.max(0.05, boundR * boundR * 6), shape, allowSleep: true, sleepSpeedLimit: 0.35, sleepTimeLimit: 0.45 });
+  body.position.set(wx, wy, wz);
+  world.addBody(body);
+  const item = { mesh, body, kind: 'product', boundR, emoji: '🥫', captured: false, capT: 0, gone: false };
+  items.push(item);
+  return item;
+}
+
+function makeProp(S, targetR, x, z){
+  // 床置きの大きな物：台車・パレット・冷蔵庫・樽など
+  let mesh = new THREE.Group(), shape, h;
+  const color = randColor();
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
+  const roll = Math.random();
+  let w, d;
+  if(roll < 0.4){               // 冷蔵庫・自販機系（縦長）
+    w = targetR * 1.1; d = targetR * 1.1; h = targetR * 2.6;
+    const m1 = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0xdfe5ea, roughness: 0.35, metalness: 0.3 }));
+    m1.position.y = h / 2; m1.castShadow = true; mesh.add(m1);
+    const m2 = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, h * 0.3, 0.03), new THREE.MeshStandardMaterial({ color: 0x9fc3e8, roughness: 0.2 }));
+    m2.position.set(0, h * 0.72, d / 2 + 0.02); mesh.add(m2);
+  } else if(roll < 0.75){       // パレット＋段ボール山
+    w = targetR * 1.7; d = targetR * 1.7; h = targetR * 1.5;
+    const m1 = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.18, d), new THREE.MeshStandardMaterial({ color: 0xb08954, roughness: 0.9 }));
+    m1.position.y = h * 0.09; m1.castShadow = true; mesh.add(m1);
+    const m2 = new THREE.Mesh(new THREE.BoxGeometry(w * 0.88, h * 0.8, d * 0.88), mat);
+    m2.position.y = h * 0.18 + h * 0.4; m2.castShadow = true; mesh.add(m2);
+  } else {                      // 樽・タンク
+    const r = targetR * 0.8; h = targetR * 1.9;
+    const m1 = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 18), mat);
+    m1.position.y = h / 2; m1.castShadow = true; mesh.add(m1);
+    w = r * 2; d = r * 2;
+  }
+  shape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2));
+  mesh.position.set(x, 0, z);
+  mesh.rotation.y = Math.random() * Math.PI;
+  scene.add(mesh);
+  const body = new CANNON.Body({ mass: Math.max(0.4, targetR * targetR * 22), shape, allowSleep: true, sleepSpeedLimit: 0.35, sleepTimeLimit: 0.5 });
+  body.position.set(x, h / 2, z);
+  body.quaternion.setFromEuler(0, mesh.rotation.y, 0);
+  world.addBody(body);
+  const item = { mesh, body, kind: 'prop', boundR: targetR, emoji: '📦', captured: false, capT: 0, gone: false };
+  items.push(item);
+  return item;
+}
+
+function buildStore(no){
+  clearStore();
+  cleared = false; combo = 0;
+  const S = holeR;   // この店の基準サイズ＝入店時の穴半径
+  storeW = Math.max(56, S * 160);
+  storeD = storeW * 0.72;
+  // 床
+  const tex = floorTexture();
+  tex.repeat.set(storeW / 4, storeD / 4);
+  floorMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(storeW, storeD),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })
+  );
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.receiveShadow = true;
+  scene.add(floorMesh);
+  const floorBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane() });
+  floorBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  world.addBody(floorBody); statics.push(floorBody);
+  // 壁
+  const wallH = S * 7, wallMat = new THREE.MeshStandardMaterial({ color: 0xdfe3e6, roughness: 0.8 });
+  const stripeMat = new THREE.MeshStandardMaterial({ color: 0xe74c3c, roughness: 0.6 });
+  function wall(w, d, x, z){
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, wallH, d), wallMat);
+    m.position.set(x, wallH / 2, z); m.receiveShadow = true; scene.add(m); wallMeshes.push(m);
+    const s = new THREE.Mesh(new THREE.BoxGeometry(w === 1 ? 1.06 : w, wallH * 0.12, d === 1 ? 1.06 : d), stripeMat);
+    s.position.set(x, wallH * 0.75, z); scene.add(s); wallMeshes.push(s);
+    addStaticBox(w / 2, wallH / 2, d / 2, x, wallH / 2, z);
+  }
+  wall(storeW, 1, 0, -storeD / 2); wall(storeW, 1, 0, storeD / 2);
+  wall(1, storeD, -storeW / 2, 0); wall(1, storeD, storeW / 2, 0);
+  // 棚：2列×3台
+  const shelves = [];
+  for(const rz of [-storeD * 0.24, storeD * 0.24]){
+    for(const fx3 of [-0.32, 0, 0.32]){
+      shelves.push(makeShelf(S, storeW * fx3, rz));
+    }
+  }
+  // 棚の商品
+  for(const sh of shelves){
+    for(const by of sh.boardYs){
+      const n = 6 + Math.floor(Math.random() * 3);
+      for(let i = 0; i < n; i++) makeProduct(S, sh, by);
+    }
+  }
+  // 床置きの大物：小→大の階段状
+  const PROP_COUNT = 16;
   const fracs = [];
-  for(let i = 0; i < STATIC_COUNT; i++){
-    const base = i / (STATIC_COUNT - 1);
-    const jitter = (Math.random() - 0.5) * (0.8 / (STATIC_COUNT - 1));
-    fracs.push(Math.max(0, Math.min(1, base + jitter)));
+  for(let i = 0; i < PROP_COUNT; i++){
+    const base = i / (PROP_COUNT - 1);
+    fracs.push(Math.max(0, Math.min(1, base + (Math.random() - 0.5) * 0.05)));
   }
-  let tries = 0;
-  while(objects.length < STATIC_COUNT && tries < 4000){
+  let tries = 0, placed = 0;
+  while(placed < PROP_COUNT && tries < 600){
     tries++;
-    const r = holeR0 * (0.3 + fracs[objects.length] * 2.4);
-    const x = r + 30 + Math.random() * (worldSize - 2*r - 60);
-    const y = r + 30 + Math.random() * (worldSize - 2*r - 60);
-    if(Math.hypot(x - hole.x, y - hole.y) < hole.r + r + holeR0 * 2) continue;
-    let overlap = false;
-    for(const o of objects){ if(Math.hypot(x - o.x, y - o.y) < (r + o.r) * 0.85){ overlap = true; break; } }
-    if(overlap) continue;
-    objects.push(makeObject(x, y, r));
+    const targetR = S * (0.35 + fracs[placed] * 2.3);
+    const x = (Math.random() - 0.5) * (storeW - targetR * 4 - 4);
+    const z = (Math.random() - 0.5) * (storeD - targetR * 4 - 4);
+    if(Math.hypot(x, z - storeD * 0.32) < S * 14) continue;                    // 入口（穴の初期位置）付近は空ける
+    let bad = false;
+    for(const sh of shelves){
+      if(Math.abs(x - sh.body.position.x) < sh.L / 2 + targetR + S * 2 && Math.abs(z - sh.body.position.z) < sh.D / 2 + targetR + S * 2){ bad = true; break; }
+    }
+    if(bad) continue;
+    for(const it of items){
+      if(it.kind === 'prop' && Math.hypot(x - it.body.position.x, z - it.body.position.z) < targetR + it.boundR + S * 1.5){ bad = true; break; }
+    }
+    if(bad) continue;
+    makeProp(S, targetR, x, z);
+    placed++;
   }
-  // 積み重なり：大きめの物の上に小さい物を載せる（下が落ちると上が崩れ落ちる）
-  const bases = objects.filter(o => o.r > holeR0 * 0.55);
-  for(let i = 0; i < Math.min(6, bases.length); i++){
-    const b = bases[Math.floor(Math.random() * bases.length)];
-    if(objects.some(o => o.baseId === b.id)) continue;
-    const top = makeObject(b.x, b.y, b.r * 0.55);
-    top.state = 'stacked'; top.baseId = b.id;
-    objects.push(top);
-  }
-  for(const o of objects){ if(!largest || o.r > largest.r) largest = o; }
-  if(largest) largest.isLargest = true;
-  // 動くもの：車（道路を走る）と人（逃げる）
-  for(let i = 0; i < 6; i++){
-    const horiz = Math.random() < 0.5;
-    const lane = (Math.floor(Math.random() * 7) + 1) * (worldSize / 8);
-    movers.push({ kind:'car', emoji: Math.random()<0.5?'🚕':'🚙', r: holeR0 * 0.45, h: holeR0*0.3,
-      x: Math.random()*worldSize, y: lane, vx: horiz ? (Math.random()<0.5?-1:1)*(120+Math.random()*80) : 0,
-      vy: horiz ? 0 : (Math.random()<0.5?-1:1)*(120+Math.random()*80),
-      state:'move', teeter:0, fallT:0, angle:0, wobble:0, seed: Math.random()*10 });
-    if(!horiz){ movers[movers.length-1].x = lane; movers[movers.length-1].y = Math.random()*worldSize; }
-  }
-  for(let i = 0; i < 8; i++){
-    movers.push({ kind:'person', emoji:'🚶', r: Math.max(8, holeR0 * 0.22), h: holeR0*0.25,
-      x: Math.random()*worldSize, y: Math.random()*worldSize,
-      vx: 0, vy: 0, heading: Math.random()*Math.PI*2, state:'move', teeter:0, fallT:0, angle:0, wobble:0, seed: Math.random()*10 });
-  }
+  // 穴を入口へ
+  holeBody.position.set(0, holeR * 0.2, storeD * 0.32);
+  holeBody.velocity.set(0,0,0);
+  camPos.set(0, 10, storeD * 0.32 + 12);
   updateHUD();
 }
 
+function remainingItems(){ return items.filter(i => !i.gone).length; }
+function largestItem(){
+  let best = null;
+  for(const i of items){ if(!i.gone && !i.captured && (!best || i.boundR > best.boundR)) best = i; }
+  return best;
+}
 function updateHUD(){
-  genLabel.textContent = '第' + gen + '世代';
-  leftLabel.textContent = '残り ' + staticsLeft();
-  sizeLabel.textContent = formatSize(holeMeters());
-  if(largest && largest.state !== 'gone') maxLabel.textContent = largest.emoji + (isEdible(largest) ? ' 落とせる！' : ' まだ大きい');
-  else maxLabel.textContent = '👑 飲んだ！';
+  storeLabel.textContent = STORE_NAMES[Math.min(storeNo - 1, STORE_NAMES.length - 1)] + (storeNo > STORE_NAMES.length ? ' ' + storeNo : '');
+  leftLabel.textContent = '残り ' + remainingItems();
+  sizeLabel.textContent = formatSize(holeR * 2);
+  const lg = largestItem();
+  if(lg){
+    const edible = lg.kind === 'shelf' ? holeR >= lg.needR : lg.boundR <= holeR;
+    maxLabel.textContent = lg.emoji + (edible ? ' 落とせる！' : ' まだ大きい');
+  } else maxLabel.textContent = '👑 制覇！';
   comboChip.style.display = combo >= 2 ? 'flex' : 'none';
   if(combo >= 2) comboLabel.textContent = 'x' + combo + ' コンボ';
 }
-function save(){
-  localStorage.setItem('hole25Gen', gen);
-  localStorage.setItem('hole25R', hole.r);
-  localStorage.setItem('hole25Total', swallowedTotal);
-}
 
-// ---------- 入力 ----------
-canvas.addEventListener('pointerdown', e => {
+// ================= 入力 =================
+let joy = null;
+const keys = {};
+window.addEventListener('pointerdown', e => {
+  if(e.target.closest('button')) return;
   joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
   hint.style.opacity = '0';
-  canvas.setPointerCapture(e.pointerId);
 });
-canvas.addEventListener('pointermove', e => { if(joy && e.pointerId === joy.id){ joy.x = e.clientX; joy.y = e.clientY; } });
+window.addEventListener('pointermove', e => { if(joy && e.pointerId === joy.id){ joy.x = e.clientX; joy.y = e.clientY; } });
 function endJoy(e){ if(joy && e.pointerId === joy.id) joy = null; }
 window.addEventListener('pointerup', endJoy);
 window.addEventListener('pointercancel', endJoy);
@@ -237,376 +469,230 @@ document.addEventListener('touchend', e => {
   const now = Date.now();
   if(now - lastTouchEnd <= 300) e.preventDefault();
   lastTouchEnd = now;
-}, { passive:false });
+}, { passive: false });
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.getElementById('resetBtn').addEventListener('click', () => {
-  gen = 1; hole.r = HOLE_START_R; save(); spawnWave(1);
+  storeNo = 1; holeR = 0.35; save(); buildStore(1);
 });
 document.getElementById('nextBtn').addEventListener('click', () => {
   overlay.classList.remove('show');
-  gen++; save(); spawnWave(gen);
+  storeNo++; save(); buildStore(storeNo);
 });
 
-// ---------- 物理っぽい吸い込み：傾く→滑る→落ちる ----------
-function interact(o, dt, isMover){
-  if(o.state === 'gone') return;
-  if(o.state === 'stacked'){
-    const b = objects.find(t => t.id === o.baseId);
-    if(b){ o.x = b.x; o.y = b.y; }
-    return;
-  }
-  const dx = hole.x - o.x, dy = hole.y - o.y;
-  const d = Math.hypot(dx, dy) || 1;
-  const nx = dx / d, ny = dy / d;
-
-  if(o.state === 'falling'){
-    o.fallT += dt / 0.22;
-    o.x += (hole.x - o.x) * Math.min(1, dt * 16);
-    o.y += (hole.y - o.y) * Math.min(1, dt * 16);
-    if(o.fallT >= 1) consume(o, isMover);
-    return;
-  }
-  if(o.state === 'dropping'){
-    o.dropT += dt / 0.28;
-    if(o.dropT >= 1){ o.state = 'idle'; o.dropT = 0; }
-    return;
-  }
-  if(isEdible(o)){
-    if(d < hole.r + o.r * 0.55){
-      // 縁にかかった：傾きが進む。大きい物ほど時間がかかる
-      o.state = 'teeter';
-      const teeterTime = 0.22 + 1.05 * (o.r / hole.r);
-      o.teeter = Math.min(1, o.teeter + dt / teeterTime);
-      const slide = hole.r * (0.25 + 1.5 * o.teeter) * dt;
-      o.x += nx * slide; o.y += ny * slide;
-      if(o.teeter >= 1){ o.state = 'falling'; o.fallT = 0; }
-    } else if(o.state === 'teeter'){
-      // 穴が離れると傾きが戻る（キープし続ける判断が生まれる）
-      o.teeter -= dt * 2.2;
-      if(o.teeter <= 0){ o.teeter = 0; o.state = isMover ? 'move' : 'idle'; }
-    }
-  } else {
-    if(o.state === 'teeter'){ o.teeter = 0; o.state = isMover ? 'move' : 'idle'; }
-    if(d < hole.r + o.r * 0.5){
-      const push = (hole.r + o.r * 0.5) - d;
-      hole.x += -nx * push; hole.y += -ny * push;
-      o.wobble = 1;
-      if(bumpCooldown <= 0){
-        bumpCooldown = 0.45; thudSound();
-        floaters.push({ x: o.x, y: o.y - o.r - 10, text: '大きい！', t: 0, color: '#d33' });
-      }
-    }
-  }
-  o.wobble = Math.max(0, o.wobble - dt * 5);
+// ================= 捕獲（穴に落ちる） =================
+const UP = new CANNON.Vec3(0, 1, 0);
+function startCapture(it){
+  it.captured = true; it.capT = 0;
+  it.body.collisionResponse = false;
+  it.body.velocity.set(0,0,0);
+  it.body.angularVelocity.set(0,0,0);
 }
-
-function consume(o, isMover){
-  const ratio = o.r / hole.r;
-  o.state = 'gone';
-  hole.r = Math.sqrt(hole.r*hole.r + o.r*o.r * 0.6);
-  hole.pulse = 1;
+function finishCapture(it){
+  it.gone = true;
+  world.removeBody(it.body);
+  scene.remove(it.mesh);
+  const effR = it.kind === 'shelf' ? it.needR : it.boundR;
+  const ratio = effR / holeR;
+  holeR = Math.sqrt(holeR * holeR + effR * effR * (it.kind === 'shelf' ? 0.5 : 0.95));
   swallowedTotal++;
-  combo = (nowSec - lastConsumeAt < 1.2) ? combo + 1 : 1;
+  combo = (nowSec - lastConsumeAt < 1.4) ? combo + 1 : 1;
   lastConsumeAt = nowSec;
-  shake = Math.min(16, 3 + ratio * 15);
+  shake = Math.min(13, 2.5 + ratio * 11);
   swallowSound(ratio, combo);
-  // 積み重なりの上段を崩す
-  for(const t of objects){ if(t.baseId === o.id && t.state === 'stacked'){ t.state = 'dropping'; t.dropT = 0; t.dropFrom = o.h; t.x = o.x; t.y = o.y; } }
-  const c = project(hole.x, hole.y);
-  const n = 8 + Math.floor(ratio * 14);
-  for(let i = 0; i < n; i++){
-    const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 130;
-    particles.push({ x: c.x + Math.cos(a)*hole.r*zoom*0.5, y: c.y + Math.sin(a)*hole.r*zoom*0.4,
-      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 50, t: 0 });
-  }
-  floaters.push({ x: hole.x, y: hole.y - hole.r - 6, text: '+1', t: 0, color: '#222' });
-  if(combo >= 3) floaters.push({ x: hole.x, y: hole.y - hole.r - 30, text: '🔥x' + combo, t: 0, color: '#e67e00' });
-  if(o.isLargest) floaters.push({ x: hole.x, y: hole.y - hole.r - 54, text: '👑 最大を飲んだ！', t: 0, color: '#b8860b' });
+  floaters.push({ x: holeBody.position.x, z: holeBody.position.z, text: '+1', t: 0, color: '#222' });
+  if(combo >= 3) floaters.push({ x: holeBody.position.x, z: holeBody.position.z - holeR, text: '🔥x' + combo, t: 0, color: '#e67e00' });
+  if(it.kind === 'shelf') floaters.push({ x: holeBody.position.x, z: holeBody.position.z - holeR * 1.6, text: '棚ごと飲んだ！', t: 0, color: '#8e44ad' });
   updateHUD();
-  if(!isMover && staticsLeft() === 0 && !cleared){
+  if(remainingItems() === 0 && !cleared){
     cleared = true; save();
     clearSound();
     setTimeout(() => {
-      clearText.innerHTML = '穴は ' + formatSize(holeMeters()) + ' まで大きくなった（通算 ' + swallowedTotal + ' 個）。<br>同じ街に、さらに大きな物が運び込まれてくるよ。';
+      clearText.innerHTML = '穴は ' + formatSize(holeR * 2) + ' まで大きくなった（通算 ' + swallowedTotal + ' 個）。<br>次の店はもっと大きくて、商品も棚も巨大だよ。';
       overlay.classList.add('show');
-    }, 500);
+    }, 600);
+  }
+}
+function checkCaptures(dt){
+  const hx = holeBody.position.x, hz = holeBody.position.z;
+  for(const it of items){
+    if(it.gone) continue;
+    const p = it.body.position;
+    if(it.captured){
+      it.capT += dt / 0.38;
+      const k = Math.min(1, dt * 10);
+      it.body.position.x += (hx - p.x) * k;
+      it.body.position.z += (hz - p.z) * k;
+      it.body.position.y -= dt * (1.2 + holeR * 1.5);
+      it.body.quaternion = it.body.quaternion.mult(new CANNON.Quaternion(0.03, 0.05, 0.02, 1).normalize());
+      const s = Math.max(0.03, 1 - it.capT);
+      it.mesh.scale.set(s, s, s);
+      if(it.capT >= 1) finishCapture(it);
+      continue;
+    }
+    const dx = p.x - hx, dz = p.z - hz;
+    const dist = Math.hypot(dx, dz);
+    if(it.kind === 'shelf'){
+      const up = it.body.quaternion.vmult(UP);
+      const tipped = up.y < 0.55;
+      if(holeR >= it.needR && dist < holeR * 0.9 && (tipped || dist < holeR * 0.45)) startCapture(it);
+      continue;
+    }
+    // 商品・大物：床近くにあって、穴より小さければ飲める
+    if(it.boundR <= holeR && p.y < it.boundR + holeR * 0.55 && dist < holeR * 0.92){
+      startCapture(it);
+      continue;
+    }
+    // 縁に吸い寄せ（床にある物だけ）
+    if(it.boundR <= holeR && p.y < it.boundR * 1.7 && dist < holeR + it.boundR + 0.5 && dist > 0.001){
+      it.body.wakeUp();
+      const f = it.body.mass * 16;
+      it.body.applyForce(new CANNON.Vec3(-dx / dist * f, 0, -dz / dist * f));
+    }
   }
 }
 
-// ---------- 更新 ----------
-function project(x, y){ return { x: (x - cam.x) * zoom + W/2, y: (y - cam.y) * zoom + H/2 }; }
-let lastTime = performance.now();
-function update(dt){
+// ================= メインループ =================
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, clock.getDelta());
   nowSec += dt;
-  if(nowSec - lastConsumeAt > 1.2 && combo !== 0){ combo = 0; updateHUD(); }
-  // 移動
-  let vx = 0, vy = 0;
+  if(nowSec - lastConsumeAt > 1.4 && combo !== 0){ combo = 0; updateHUD(); }
+  crashCooldown = Math.max(0, crashCooldown - dt);
+
+  // 穴の移動（キネマティック：速度を与えることで棚を押し倒せる）
+  let ix = 0, iz = 0;
   if(joy){
     const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy);
-    if(d > 8){ const p = Math.min(1, d / 70); vx = dx / d * p; vy = dy / d * p; }
+    if(d > 8){ const p = Math.min(1, d / 70); ix = dx / d * p; iz = dy / d * p; }
   }
-  if(keys['ArrowLeft'])  vx -= 1;
-  if(keys['ArrowRight']) vx += 1;
-  if(keys['ArrowUp'])    vy -= 1;
-  if(keys['ArrowDown'])  vy += 1;
-  const vl = Math.hypot(vx, vy);
-  if(vl > 0){
-    const speed = Math.max(300, hole.r * 3.2) * Math.min(1, vl);
-    hole.x += vx / (vl || 1) * speed * dt;
-    hole.y += vy / (vl || 1) * speed * dt;
+  if(keys['ArrowLeft'])  ix -= 1;
+  if(keys['ArrowRight']) ix += 1;
+  if(keys['ArrowUp'])    iz -= 1;
+  if(keys['ArrowDown'])  iz += 1;
+  const il = Math.hypot(ix, iz) || 1;
+  const speed = Math.max(3.4, holeR * 5.2);
+  holeBody.velocity.x = ix / il * speed * Math.min(1, il);
+  holeBody.velocity.z = iz / il * speed * Math.min(1, il);
+  holeBody.velocity.y = 0;
+  holeBody.position.y = holeR * 0.2;
+  holeBody.position.x = Math.max(-storeW/2 + holeR * 0.5, Math.min(storeW/2 - holeR * 0.5, holeBody.position.x));
+  holeBody.position.z = Math.max(-storeD/2 + holeR * 0.5, Math.min(storeD/2 - holeR * 0.5, holeBody.position.z));
+
+  if(!cleared){
+    world.step(1/60, dt, 3);
+    checkCaptures(dt);
   }
-  hole.x = Math.max(hole.r, Math.min(worldSize - hole.r, hole.x));
-  hole.y = Math.max(hole.r, Math.min(worldSize - hole.r, hole.y));
-  hole.pulse = Math.max(0, hole.pulse - dt * 4);
-  bumpCooldown = Math.max(0, bumpCooldown - dt);
-  shake = Math.max(0, shake - dt * 30);
+  syncHoleShape();
 
-  const zTarget = Math.max(0.02, Math.min(1.5, 110 / Math.max(hole.r, 55)));
-  zoom += (zTarget - zoom) * Math.min(1, dt * 3);
-  cam.x += (hole.x - cam.x) * Math.min(1, dt * 6);
-  cam.y += (hole.y - cam.y) * Math.min(1, dt * 6);
-  const halfW = W / (2 * zoom), halfH = H / (2 * zoom);
-  cam.x = halfW >= worldSize/2 ? worldSize/2 : Math.max(halfW, Math.min(worldSize - halfW, cam.x));
-  cam.y = halfH >= worldSize/2 ? worldSize/2 : Math.max(halfH, Math.min(worldSize - halfH, cam.y));
-
-  // 動くもの
-  for(const m of movers){
-    if(m.state === 'gone' || m.state === 'falling' || m.state === 'teeter'){ interact(m, dt, true); continue; }
-    if(m.kind === 'car'){
-      m.x += m.vx * dt; m.y += m.vy * dt;
-      if(m.x < m.r) { m.x = m.r; m.vx = Math.abs(m.vx); }
-      if(m.x > worldSize - m.r) { m.x = worldSize - m.r; m.vx = -Math.abs(m.vx); }
-      if(m.y < m.r) { m.y = m.r; m.vy = Math.abs(m.vy); }
-      if(m.y > worldSize - m.r) { m.y = worldSize - m.r; m.vy = -Math.abs(m.vy); }
-      m.angle = Math.atan2(m.vy, m.vx);
-    } else {
-      const dHole = Math.hypot(m.x - hole.x, m.y - hole.y);
-      let sp = 55;
-      if(dHole < hole.r + 300){  // 穴が近いと逃げる
-        m.heading = Math.atan2(m.y - hole.y, m.x - hole.x);
-        sp = 210;
-      } else if(Math.random() < dt * 0.7){
-        m.heading += (Math.random() - 0.5) * 1.6;
-      }
-      m.x += Math.cos(m.heading) * sp * dt;
-      m.y += Math.sin(m.heading) * sp * dt;
-      m.x = Math.max(m.r, Math.min(worldSize - m.r, m.x));
-      m.y = Math.max(m.r, Math.min(worldSize - m.r, m.y));
-      m.angle = m.heading;
+  // メッシュ同期＋棚の転倒検知（音）
+  for(const it of items){
+    if(it.gone || it.captured) { if(it.captured){ it.mesh.position.copy(it.body.position); it.mesh.quaternion.copy(it.body.quaternion); } continue; }
+    it.mesh.position.copy(it.body.position);
+    it.mesh.quaternion.copy(it.body.quaternion);
+    if(it.kind === 'shelf' && crashCooldown <= 0){
+      const up = it.body.quaternion.vmult(UP);
+      if(up.y < 0.75 && up.y > 0.2){ crashCooldown = 0.8; crashSound(); shake = Math.max(shake, 5); }
     }
-    interact(m, dt, true);
   }
-  for(const o of objects) interact(o, dt, false);
 
-  for(const p of particles){ p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.t += dt; }
-  particles = particles.filter(p => p.t < 0.45);
-  for(const f of floaters){ f.y -= 30 * dt; f.t += dt; }
-  floaters = floaters.filter(f => f.t < 0.85);
+  // カメラ
+  const dist = Math.max(9, Math.min(95, holeR * 10));
+  const shx = shake ? (Math.random() - 0.5) * shake * 0.14 : 0;
+  const shy = shake ? (Math.random() - 0.5) * shake * 0.1 : 0;
+  shake = Math.max(0, shake - dt * 26);
+  const target = new THREE.Vector3(
+    holeBody.position.x + shx, 0, holeBody.position.z + shy
+  );
+  const desired = new THREE.Vector3(target.x, dist * 0.92, target.z + dist * 0.82);
+  camPos.lerp(desired, Math.min(1, dt * 4));
+  camera.position.copy(camPos);
+  camera.lookAt(target.x, 0, target.z - dist * 0.12);
+  sun.position.set(target.x + dist * 0.7, dist * 1.5, target.z + dist * 0.4);
+  sun.target.position.set(target.x, 0, target.z);
+  const sc = dist * 1.25;
+  Object.assign(sun.shadow.camera, { left: -sc, right: sc, top: sc, bottom: -sc });
+  sun.shadow.camera.updateProjectionMatrix();
+
+  for(const f of floaters){ f.t += dt; }
+  floaters = floaters.filter(f => f.t < 0.9);
+
   saveTimer += dt;
-  if(saveTimer > 2){ saveTimer = 0; save(); }
+  if(saveTimer > 2.5){ saveTimer = 0; save(); }
+
+  renderer.render(scene, camera);
+  drawFx();
 }
 
-// ---------- 描画（2.5D：影・高さ・傾きで立体感を出す） ----------
-function drawObject(o){
-  if(o.state === 'gone') return;
-  const g = project(o.x, o.y);
-  if(g.x < -260 || g.x > W + 260 || g.y < -260 || g.y > H + 260) return;
-  const sR = o.r * zoom;
-  let lift = o.h * zoom * 0.55;
-  if(o.state === 'stacked'){
-    const b = objects.find(t => t.id === o.baseId);
-    if(b) lift += b.h * zoom * 0.55;
-  }
-  if(o.state === 'dropping') lift += o.dropFrom * zoom * 0.55 * (1 - o.dropT) * (1 - o.dropT);
-  // 落下中は穴の中心へ寄りながら沈む
-  let bx = g.x, by = g.y - lift, scale = 1, rot = o.angle, sink = 0;
-  const hs = project(hole.x, hole.y);
-  if(o.state === 'teeter' || o.state === 'falling'){
-    const dirx = hs.x - g.x, diry = hs.y - g.y, dl = Math.hypot(dirx, diry) || 1;
-    const lean = o.state === 'falling' ? 1 : o.teeter;
-    bx += dirx / dl * sR * 0.38 * lean;
-    by += diry / dl * sR * 0.2 * lean;
-    rot += lean * 0.85 * (dirx >= 0 ? 1 : -1);
-    if(o.state === 'falling'){
-      bx = bx + (hs.x - bx) * o.fallT * 0.8;
-      by = by + (hs.y - by) * o.fallT * 0.8;
-      rot += o.fallT * 6 * (dirx >= 0 ? 1 : -1);
-      scale = Math.max(0.05, 1 - o.fallT * 0.9);
-      sink = o.fallT * sR * 0.5;
-    }
-  }
-  if(o.wobble > 0) rot += Math.sin(performance.now()/26 + o.seed) * 0.1 * o.wobble;
-  by += sink;
-  ctx.save();
-  // 影（地面）
-  ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  ctx.beginPath(); ctx.ellipse(g.x, g.y, sR*0.92, sR*0.34, 0, 0, Math.PI*2); ctx.fill();
-  // 高さの側面（背が高い物ほど柱が見える）
-  if(lift > 3 && o.state !== 'falling'){
-    ctx.fillStyle = 'rgba(60,50,30,0.28)';
-    ctx.beginPath();
-    ctx.moveTo(g.x - sR*0.8, g.y);
-    ctx.lineTo(g.x + sR*0.8, g.y);
-    ctx.lineTo(bx + sR*0.8, by + lift*0.4);
-    ctx.lineTo(bx - sR*0.8, by + lift*0.4);
-    ctx.closePath(); ctx.fill();
-  }
-  // 状態リング（地面）
-  ctx.lineWidth = 3;
-  if(o.isLargest){ ctx.strokeStyle = '#e6a817'; ctx.setLineDash([10,7]); }
-  else if(isEdible(o) && o.state !== 'stacked'){ ctx.strokeStyle = 'rgba(46,160,80,0.5)'; ctx.setLineDash([]); }
-  else if(o.state === 'stacked'){ ctx.strokeStyle = 'rgba(120,120,120,0.4)'; ctx.setLineDash([3,6]); }
-  else { ctx.strokeStyle = 'rgba(215,50,50,0.7)'; ctx.setLineDash([7,6]); }
-  ctx.beginPath(); ctx.ellipse(g.x, g.y, sR + 5, (sR + 5) * 0.42, 0, 0, Math.PI*2); ctx.stroke();
-  ctx.setLineDash([]);
-  // 本体
-  ctx.translate(bx, by); ctx.rotate(rot);
-  ctx.font = Math.min(640, sR * 2 * scale) + 'px serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(o.emoji, 0, 0);
-  ctx.restore();
-  if(o.isLargest && o.state !== 'falling'){
-    ctx.font = '24px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('👑', bx, by - sR - 12);
-  }
+// ================= 2Dオーバーレイ（ミニマップ・矢印・フローター） =================
+function worldToScreen(x, z){
+  const v = new THREE.Vector3(x, 0, z).project(camera);
+  return { x: (v.x * 0.5 + 0.5) * VW, y: (-v.y * 0.5 + 0.5) * VH, behind: v.z > 1 };
 }
-
-function draw(){
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.fillStyle = '#cfc8b2'; ctx.fillRect(0, 0, W, H);
-  const shx = shake ? (Math.random()-0.5) * 2 * shake : 0;
-  const shy = shake ? (Math.random()-0.5) * 2 * shake : 0;
-  ctx.save(); ctx.translate(shx, shy);
-  // 街（区画と道路）
-  const tl = project(0, 0), br = project(worldSize, worldSize);
-  ctx.fillStyle = '#ece5cf'; ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
-  const street = worldSize / 8, roadW = street * 0.24;
-  ctx.fillStyle = '#b7b09c';
-  for(let i = 0; i <= 8; i++){
-    const p = project(i * street, i * street);
-    ctx.fillRect(p.x - roadW*zoom/2, tl.y, roadW * zoom, br.y - tl.y);
-    ctx.fillRect(tl.x, p.y - roadW*zoom/2, br.x - tl.x, roadW * zoom);
-  }
-  ctx.strokeStyle = '#222'; ctx.lineWidth = 4;
-  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
-
-  // 描画順：北（上）の物から
-  const all = objects.concat(movers).filter(o => o.state !== 'gone').sort((a, b) => a.y - b.y);
-  let holeDrawn = false;
-  for(const o of all){
-    if(!holeDrawn && o.y > hole.y){ drawHole(); holeDrawn = true; }
-    drawObject(o);
-  }
-  if(!holeDrawn) drawHole();
-
-  // ガイド矢印
-  const guide = guideTarget();
-  if(guide){
-    const gs = project(guide.x, guide.y);
-    if(gs.x < -30 || gs.x > W + 30 || gs.y < -30 || gs.y > H + 30){
-      const hs = project(hole.x, hole.y);
-      const ang = Math.atan2(guide.y - hole.y, guide.x - hole.x);
-      const gr = hole.r * zoom + 30;
-      ctx.save();
-      ctx.translate(hs.x + Math.cos(ang) * gr, hs.y + Math.sin(ang) * gr * 0.85); ctx.rotate(ang);
-      ctx.fillStyle = guide.isLargest ? '#e6a817' : '#2ea050';
-      ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill();
-      ctx.restore();
-    }
-  }
-  ctx.restore();
-
-  // スクリーン座標：粒子とフローター
-  ctx.fillStyle = '#222';
-  for(const p of particles){
-    ctx.globalAlpha = 1 - p.t / 0.45;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 3.2, 0, Math.PI*2); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
+function drawFx(){
+  fxCtx.clearRect(0, 0, VW, VH);
+  // フローター
   for(const f of floaters){
-    const s = project(f.x, f.y);
-    ctx.globalAlpha = 1 - f.t / 0.85;
-    ctx.fillStyle = f.color;
-    ctx.font = '900 16px "Hiragino Maru Gothic ProN", system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(f.text, s.x, s.y);
+    const s = worldToScreen(f.x, f.z);
+    if(s.behind) continue;
+    fxCtx.globalAlpha = 1 - f.t / 0.9;
+    fxCtx.fillStyle = f.color;
+    fxCtx.font = '900 17px "Hiragino Maru Gothic ProN", system-ui, sans-serif';
+    fxCtx.textAlign = 'center';
+    fxCtx.fillText(f.text, s.x, s.y - 30 - f.t * 26);
   }
-  ctx.globalAlpha = 1;
-  drawMinimap();
-  drawJoystick();
-}
-
-function drawHole(){
-  const hs = project(hole.x, hole.y);
-  const pr = hole.r * (1 + hole.pulse * 0.09) * zoom;
-  ctx.save(); ctx.translate(hs.x, hs.y);
-  ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 3;
-  const ph = (performance.now() % 900) / 900;
-  ctx.globalAlpha = 1 - ph;
-  ctx.beginPath(); ctx.ellipse(0, 0, pr * (1.1 + ph * 0.22), pr * (1.1 + ph * 0.22) * 0.82, 0, 0, Math.PI*2); ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  ctx.beginPath(); ctx.ellipse(0, pr*0.14, pr*1.05, pr*0.9, 0, 0, Math.PI*2); ctx.fill();
-  const grad = ctx.createRadialGradient(0, 0, pr*0.1, 0, 0, pr);
-  grad.addColorStop(0, '#000'); grad.addColorStop(0.78, '#050505'); grad.addColorStop(1, '#2b2b2b');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(0, 0, pr, pr * 0.82, 0, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.ellipse(0, 0, pr - 1.5, (pr - 1.5) * 0.82, 0, Math.PI * 1.05, Math.PI * 1.5); ctx.stroke();
-  ctx.restore();
-}
-
-function guideTarget(){
-  if(largest && largest.state !== 'gone' && largest.state !== 'stacked' && isEdible(largest)) return largest;
-  let best = null, bestD = Infinity;
-  for(const o of objects){
-    if(o.state === 'gone' || o.state === 'stacked' || !isEdible(o)) continue;
-    const d = Math.hypot(o.x - hole.x, o.y - hole.y);
-    if(d < bestD){ bestD = d; best = o; }
+  fxCtx.globalAlpha = 1;
+  // ガイド矢印（一番大きい物が画面外なら指す）
+  const lg = largestItem();
+  if(lg && !cleared){
+    const s = worldToScreen(lg.body.position.x, lg.body.position.z);
+    if(s.behind || s.x < -20 || s.x > VW + 20 || s.y < -20 || s.y > VH + 20){
+      const hs = worldToScreen(holeBody.position.x, holeBody.position.z);
+      const ang = Math.atan2(s.y - hs.y, s.x - hs.x);
+      const gr = holeR * (camera.position.y) * 1.1 + 44;
+      fxCtx.save();
+      fxCtx.translate(hs.x + Math.cos(ang) * 60, hs.y + Math.sin(ang) * 60);
+      fxCtx.rotate(ang);
+      fxCtx.fillStyle = '#e6a817';
+      fxCtx.beginPath(); fxCtx.moveTo(14, 0); fxCtx.lineTo(-9, -9); fxCtx.lineTo(-9, 9); fxCtx.closePath(); fxCtx.fill();
+      fxCtx.restore();
+    }
   }
-  return best;
-}
-
-function drawMinimap(){
-  const size = 92, x0 = 12, y0 = H - size - 12, k = size / worldSize;
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
-  ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(x0, y0, size, size, 10); ctx.fill(); ctx.stroke();
-  ctx.clip();
-  for(const o of objects){
-    if(o.state === 'gone') continue;
-    ctx.fillStyle = o.isLargest ? '#e6a817' : (isEdible(o) ? '#2ea050' : '#d33');
-    ctx.beginPath(); ctx.arc(x0 + o.x * k, y0 + o.y * k, o.isLargest ? 4 : 2.6, 0, Math.PI*2); ctx.fill();
+  // ミニマップ
+  const size = 92, x0 = 12, y0 = VH - size - 12, kx = size / storeW, kz = size / storeD;
+  fxCtx.save();
+  fxCtx.fillStyle = 'rgba(255,255,255,0.88)';
+  fxCtx.strokeStyle = '#222'; fxCtx.lineWidth = 2;
+  fxCtx.beginPath(); fxCtx.roundRect(x0, y0, size, size * storeD / storeW, 10); fxCtx.fill(); fxCtx.stroke();
+  fxCtx.clip();
+  for(const it of items){
+    if(it.gone) continue;
+    const edible = it.kind === 'shelf' ? holeR >= it.needR : it.boundR <= holeR;
+    fxCtx.fillStyle = it === lg ? '#e6a817' : (edible ? '#2ea050' : '#d33');
+    fxCtx.beginPath();
+    fxCtx.arc(x0 + (it.body.position.x + storeW/2) * kx, y0 + (it.body.position.z + storeD/2) * kz, it === lg ? 4 : 2.4, 0, Math.PI * 2);
+    fxCtx.fill();
   }
-  ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.arc(x0 + hole.x * k, y0 + hole.y * k, 4.4, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.arc(x0 + hole.x * k, y0 + hole.y * k, 4.4, 0, Math.PI*2); ctx.stroke();
-  ctx.restore();
+  fxCtx.fillStyle = '#000';
+  fxCtx.beginPath(); fxCtx.arc(x0 + (holeBody.position.x + storeW/2) * kx, y0 + (holeBody.position.z + storeD/2) * kz, 4.4, 0, Math.PI * 2); fxCtx.fill();
+  fxCtx.strokeStyle = '#fff'; fxCtx.lineWidth = 1.6;
+  fxCtx.beginPath(); fxCtx.arc(x0 + (holeBody.position.x + storeW/2) * kx, y0 + (holeBody.position.z + storeD/2) * kz, 4.4, 0, Math.PI * 2); fxCtx.stroke();
+  fxCtx.restore();
+  // スティック
+  if(joy){
+    fxCtx.save();
+    fxCtx.globalAlpha = 0.35; fxCtx.fillStyle = '#222';
+    fxCtx.beginPath(); fxCtx.arc(joy.ox, joy.oy, 46, 0, Math.PI * 2); fxCtx.fill();
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), cl = Math.min(d, 46);
+    fxCtx.globalAlpha = 0.8; fxCtx.fillStyle = '#fff';
+    fxCtx.beginPath(); fxCtx.arc(joy.ox + (d ? dx / d * cl : 0), joy.oy + (d ? dy / d * cl : 0), 20, 0, Math.PI * 2); fxCtx.fill();
+    fxCtx.restore();
+  }
 }
 
-function drawJoystick(){
-  if(!joy) return;
-  ctx.save();
-  ctx.globalAlpha = 0.35; ctx.fillStyle = '#222';
-  ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 46, 0, Math.PI*2); ctx.fill();
-  const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), cl = Math.min(d, 46);
-  ctx.globalAlpha = 0.75; ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(joy.ox + (d ? dx / d * cl : 0), joy.oy + (d ? dy / d * cl : 0), 20, 0, Math.PI*2); ctx.fill();
-  ctx.restore();
-}
-
-function loop(now){
-  const dt = Math.min(0.033, (now - lastTime) / 1000);
-  lastTime = now;
-  if(!cleared) update(dt);
-  draw();
-  requestAnimationFrame(loop);
-}
-
-spawnWave(gen);
-requestAnimationFrame(loop);
+buildStore(storeNo);
+syncHoleShape();
+animate();
 </script>
 </body>
 </html>
