@@ -194,7 +194,7 @@ holeRim.rotation.x = Math.PI / 2; holeRim.position.y = 0.03;
 holeGroup.add(holeDisc, holeInner, holeRim);
 scene.add(holeGroup);
 
-const holeBody = new CANNON.Body({ type: CANNON.Body.KINEMATIC, shape: new CANNON.Sphere(holeR) });
+const holeBody = new CANNON.Body({ type: CANNON.Body.KINEMATIC, allowSleep: false, shape: new CANNON.Sphere(holeR) });
 holeBody.position.set(0, holeR * 0.2, 6);
 world.addBody(holeBody);
 let holeShapeR = holeR;
