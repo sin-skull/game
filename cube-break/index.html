@@ -2,19 +2,19 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
 <meta name="color-scheme" content="dark"/>
 <link rel="icon" href="data:,"/>
 <title>キューブ破壊インクリメンタル</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 :root{--bg:#000;--panel:#111;--panel2:#1c1c1c;--line:#333;--white:#fff;--gray:#aaa;--mid:#666}
-html,body{height:100%;margin:0;background:#050505;color:#fff;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;font-weight:700;overflow:hidden}
+html,body{height:100%;margin:0;background:#050505;color:#fff;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;font-weight:700;overflow:hidden;touch-action:manipulation}
 button{font-family:inherit;font-weight:800;color:#fff;background:#222;border:2px solid #444;border-radius:0;min-height:44px;cursor:pointer}
 button:active{transform:translateY(2px)}
 button:disabled{opacity:.38;cursor:not-allowed}
 #wrap{height:100dvh;display:flex;align-items:center;justify-content:center;background:#000}
-#game{width:min(100vw,56.25dvh);height:min(177.78vw,100dvh);aspect-ratio:9/16;display:flex;flex-direction:column;background:#000;border-left:1px solid #222;border-right:1px solid #222;position:relative;overflow:hidden}
+#game{width:min(100vw,56.25dvh);height:min(177.78vw,100dvh);aspect-ratio:9/16;display:flex;flex-direction:column;background:#000;border-left:1px solid #222;border-right:1px solid #222;position:relative;overflow:hidden;touch-action:none}
 header{padding:8px 10px 6px;border-bottom:2px solid #fff}
 .coinrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .coin{font-size:26px;letter-spacing:.02em;line-height:1}
@@ -27,14 +27,13 @@ header{padding:8px 10px 6px;border-bottom:2px solid #fff}
 .bar i{display:block;height:100%;background:#fff;width:0%}
 .topbtns{display:flex;gap:6px;padding:7px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .topbtns button{flex:1;padding:6px 4px;font-size:12px;white-space:nowrap}
-.topbtns .test{background:#fff;color:#000;border-color:#fff}
 #comboArea{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#0a0a0a;border-bottom:1px solid #222;font-size:13px}
 #combo{font-size:18px}
 #combo.bump{animation:bump .15s}
 @keyframes bump{50%{transform:scale(1.18)}}
 #stageWrap{flex:1;position:relative;min-height:0;background:#000;overflow:hidden}
 canvas{width:100%;height:100%;display:block;touch-action:none}
-.hint{position:absolute;left:8px;bottom:10px;font-size:11px;color:#888;pointer-events:none;font-weight:600;max-width:calc(100% - 118px);line-height:1.4}
+.hint{position:absolute;left:8px;bottom:10px;font-size:11px;color:#888;pointer-events:none;font-weight:600;max-width:calc(100% - 214px);line-height:1.4}
 .rotbtns{position:absolute;right:8px;bottom:6px;display:flex;gap:6px}
 .rotbtns button{min-height:40px;width:44px;font-size:20px;background:#111}
 #floatLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
@@ -92,15 +91,14 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 </header>
 <div class="topbtns">
   <button id="skillBtn">◆ スキル</button>
-  <button class="test" id="testBtn">+100000</button>
   <button id="resetBtn">初期化</button>
 </div>
 <div id="comboArea"><span>COMBO <span id="combo">0</span></span><span id="comboBonus" style="color:#aaa">コイン +0%</span><span id="holdState" style="color:#fff"></span></div>
 <div id="stageWrap">
   <canvas id="cv"></canvas>
   <div id="floatLayer"></div>
-  <div class="hint">タップ：掘る ／ スワイプ：回転</div>
-  <div class="rotbtns"><button id="rotL" aria-label="左回転">◀</button><button id="rotR" aria-label="右回転">▶</button></div>
+  <div class="hint">タップ：掘る ／ スワイプ：上下左右に回転</div>
+  <div class="rotbtns"><button id="rotL" aria-label="左回転">◀</button><button id="rotR" aria-label="右回転">▶</button><button id="rotU" aria-label="上回転">▲</button><button id="rotD" aria-label="下回転">▼</button></div>
 </div>
 <div id="cards">
   <button class="card" id="cardPick"><span class="icon" id="pickIcon">⛏</span><span class="name">ツルハシ Lv<span id="pickLv">1</span></span><span class="desc">1タップ <b id="pickDmg">1</b> ダメージ</span><span class="cost" id="pickCost">15</span></button>
@@ -150,27 +148,29 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 // ---------- deterministic RNG (crack networks) ----------
 function hashN(a,b,c,d){ var h=2166136261>>>0; var arr=[a,b,c,d]; for(var i=0;i<4;i++){ h^=((arr[i]|0)+0x9e3779b9); h=Math.imul(h,16777619); h^=h>>>13; } return h>>>0; }
 function mulberry(seed){ var t=seed>>>0; return function(){ t=(t+0x6D2B79F5)>>>0; var r=Math.imul(t^(t>>>15),1|t); r^=(r+Math.imul(r^(r>>>7),61|r))>>>0; return ((r^(r>>>14))>>>0)/4294967296; }; }
-// Physical cube faces cracks live on: top + 4 sides (bottom is never visible)
-var FACES=['top','xp','xm','zp','zm'];
-// Affine maps taking a point that exits one face onto the neighbouring face.
-// side keys: r = cu>1, l = cu<0, t = cv<0 (cv>1 is the bottom face -> crack ends)
-var AFF={
- 'top:r':['xp',function(u,v){return [v,u-1];}],
- 'top:l':['xm',function(u,v){return [v,-u];}],
- 'top:t':['zm',function(u,v){return [u,-v];}],
- 'xp:r':['zp',function(u,v){return [2-u,v];}],
- 'xp:l':['zm',function(u,v){return [1+u,v];}],
- 'xp:t':['top',function(u,v){return [1+v,u];}],
- 'xm:r':['zp',function(u,v){return [u-1,v];}],
- 'xm:l':['zm',function(u,v){return [-u,v];}],
- 'xm:t':['top',function(u,v){return [-v,u];}],
- 'zp:r':['xp',function(u,v){return [2-u,v];}],
- 'zp:l':['xm',function(u,v){return [1+u,v];}],
- 'zp:t':['top',function(u,v){return [u,1+v];}],
- 'zm:r':['xp',function(u,v){return [u-1,v];}],
- 'zm:l':['xm',function(u,v){return [-u,v];}],
- 'zm:t':['top',function(u,v){return [u,-v];}]
+// Physical cube faces cracks live on: all 6 faces (the bottom 'ym' becomes
+// visible once the cube can pitch up/down, so it carries cracks too).
+// 'ym' is appended last so its FACES index (5) keeps old saves compatible.
+var FACES=['top','xp','xm','zp','zm','ym'];
+// Face frames: n = outward normal [axis,sign], u/v = [axis,sign] for
+// increasing cu/cv. Axes: 0=x, 1=y, 2=z. A point on a face is expressed as
+// block-local fractions (fx,fy,fz); facePoint3/faceUV convert both ways, so a
+// crack branch crossing an edge continues onto the neighbouring face through
+// 3D space (this replaces the old hand-written AFF table, incl. bottom edges).
+var FR={
+ 'top':{n:[1,1], u:[0,1], v:[2,1]},
+ 'ym':{n:[1,-1], u:[0,1], v:[2,1]},
+ 'xp':{n:[0,1], u:[2,1], v:[1,-1]},
+ 'xm':{n:[0,-1], u:[2,1], v:[1,-1]},
+ 'zp':{n:[2,1], u:[0,1], v:[1,-1]},
+ 'zm':{n:[2,-1], u:[0,1], v:[1,-1]}
 };
+var FACE_BY_NORMAL={};
+for(var _fk in FR){ FACE_BY_NORMAL[FR[_fk].n[0]+':'+FR[_fk].n[1]]=_fk; }
+function facePoint3(face,cu,cv){ var fr=FR[face]; var p=[0,0,0]; p[fr.n[0]]=fr.n[1]>0?1:0; p[fr.u[0]]=fr.u[1]>0?cu:1-cu; p[fr.v[0]]=fr.v[1]>0?cv:1-cv; return p; }
+function faceUV(face,p){ var fr=FR[face]; return [fr.u[1]>0?p[fr.u[0]]:1-p[fr.u[0]], fr.v[1]>0?p[fr.v[0]]:1-p[fr.v[0]]]; }
+function faceDir3(face,du,dv){ var fr=FR[face]; var d=[0,0,0]; d[fr.u[0]]+=du*fr.u[1]; d[fr.v[0]]+=dv*fr.v[1]; return d; }
+function faceDirUV(face,d){ var fr=FR[face]; return [d[fr.u[0]]*fr.u[1], d[fr.v[0]]*fr.v[1]]; }
 // ---------- state ----------
 var S=null;
 function sizeForStage(st){ return st<=1?3: st===2?4: st===3?5: st===4?6:7; }
@@ -195,9 +195,9 @@ function defaultState(){
   var st=1,c=newCube(st);
   return {coins:0,stage:st,pickLv:1,drillLv:0,incomeLv:1,
     skArea:0,skCrit:0,skDrillPlus:0,skHold:0,totalBroken:0,
-    rot:0,cube:c,stageStart:Date.now(),stageBroken:0};
+    rot:0,yaw:0,pitch:0,ori:[[0,1],[2,1],[1,1]],cube:c,stageStart:Date.now(),stageBroken:0};
 }
-function save(){ try{ var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.rot,stageStart:S.stageStart,stageBroken:S.stageBroken,
+function save(){ try{ var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.yaw,yaw:S.yaw,pitch:S.pitch,ori:[S.ori[0][0],S.ori[0][1],S.ori[1][0],S.ori[1][1],S.ori[2][0],S.ori[2][1]],stageStart:S.stageStart,stageBroken:S.stageBroken,
   dead:S.cube.blocks.map(function(b){return b.alive?0:1;}), hps:S.cube.blocks.map(function(b){return b.hp;}),
   imp:S.cube.blocks.map(function(b){ if(!b.net) return ''; var parts=[]; for(var fk in b.net.centers){ var cc=b.net.centers[fk]; parts.push(FACES.indexOf(fk)+':'+Math.round(cc[0]*999)+','+Math.round(cc[1]*999)); } return parts.join('|'); })};
   localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){} }
@@ -206,7 +206,12 @@ function load(){
     var c=JSON.parse(raw); var st=defaultState(); st.stage=c.stage||1; st.cube=newCube(st.stage);
     st.coins=c.coins||0; st.pickLv=c.pickLv||1; st.drillLv=c.drillLv||0; st.incomeLv=c.incomeLv||1;
     st.skArea=c.skArea||0; st.skCrit=c.skCrit||0; st.skDrillPlus=c.skDrillPlus||0; st.skHold=c.skHold||0;
-    st.totalBroken=c.totalBroken||0; st.rot=c.rot||0; st.stageStart=c.stageStart||Date.now(); st.stageBroken=c.stageBroken||0;
+    st.totalBroken=c.totalBroken||0; st.stageStart=c.stageStart||Date.now(); st.stageBroken=c.stageBroken||0;
+    // Orientation: new saves carry the full 3-axis orientation matrix; old
+    // saves only had yaw (rot), so rebuild the matrix from it.
+    if(c.ori&&c.ori.length===6){ var po=[[c.ori[0],c.ori[1]],[c.ori[2],c.ori[3]],[c.ori[4],c.ori[5]]]; if(validOri(po)){ st.ori=po; st.yaw=c.yaw||0; st.pitch=c.pitch||0; } }
+    else { st.ori=oriFromYaw(c.rot||0); st.yaw=c.rot||0; st.pitch=0; }
+    st.rot=st.yaw;
     if(c.dead&&c.dead.length===st.cube.blocks.length){ st.cube.blocks.forEach(function(b,i){ if(c.dead[i]){b.alive=false;b.hp=0;} else if(c.hps) b.hp=c.hps[i]; }); }
     if(c.imp&&c.imp.length===st.cube.blocks.length){ st.cube.blocks.forEach(function(b,i){ var s=c.imp[i]; if(!s) return; var net=ensureNet(b); s.split('|').forEach(function(en){ var kv=en.split(':'); var fi=parseInt(kv[0],10); var xy=(kv[1]||'').split(','); if(FACES[fi]&&xy.length===2) net.centers[FACES[fi]]=[parseInt(xy[0],10)/999,parseInt(xy[1],10)/999]; }); }); }
     // Regenerate the crack networks for every restored face: genFaceNet is
@@ -231,7 +236,7 @@ function drillCost(){ return Math.round(50*Math.pow(1.15,S.drillLv)); }
 function incomeCost(){ return Math.round(30*Math.pow(1.12,S.incomeLv-1)); }
 function incomeMult(){ return 1+(S.incomeLv-1)*0.5; }
 var SKILLS=[
- {key:'skArea', name:'範囲破壊', unlock:100, base:500, desc:function(lv){return '開放条件：累計100個破壊。壊したブロックの隣の露出ブロックにも '+(50+Math.max(0,lv-1)*10)+'% ダメージ（Lvで上昇）。';}},
+ {key:'skArea', name:'範囲破壊', unlock:100, base:500, desc:function(lv){return '開放条件：累計100個破壊。ツルハシで壊した時、その時のツルハシダメージの '+(50+Math.max(0,lv-1)*10)+'% を隣の露出ブロックにも与える（ツルハシ強化に連動して上昇・連鎖なし）。';}},
  {key:'skCrit', name:'クリティカル', unlock:300, base:1200, desc:function(lv){return '開放条件：累計300個破壊。タップ時 '+(lv===0?'10':(10+(lv-1)*5))+'% でダメージ×5。';}},
  {key:'skDrillPlus', name:'ドリル増設', unlock:800, base:5000, desc:function(lv){return '開放条件：累計800個破壊。ドリルの同時攻撃数が 1→'+(1+lv)+' になる。';}},
  {key:'skHold', name:'長押しツルハシ', unlock:1500, base:30000, desc:function(lv){return '開放条件：累計1,500個破壊。長押し中、自動で掘り続ける。間隔 Lv1:0.25秒 → Lv5:0.10秒。対象が壊れたら、外側に近い順（深さ→残HP割合→直前の破壊位置からの近さ）で次の対象を自動選択して継続。';}}
@@ -280,37 +285,41 @@ var particles=[];
 function spawnParticles(b){ var p=projBlock(b); if(!p) return; for(var i=0;i<10;i++){ particles.push({x:p.cx,y:p.cy,vx:(Math.random()-0.5)*3.2,vy:-Math.random()*3-1,life:1,s:4+Math.random()*6,g:i%2?'#fff':'#999'}); } }
 function floatText(b,text,crit){ var p=projBlock(b); if(!p) return; var layer=document.getElementById('floatLayer'); var d=document.createElement('div'); d.className='float'+(crit?' crit':''); d.textContent=text; d.style.left=(p.cx-14)+'px'; d.style.top=(p.cy-26)+'px'; layer.appendChild(d); setTimeout(function(){d.remove();},850); }
 var stageCleared=false;
-function destroyBlock(b,byTap){
+function destroyBlock(b,byTap,hitDmg,src){
   b.alive=false; b.hp=0; S.totalBroken++; S.stageBroken++;
   lastBrokenPos={x:b.x,y:b.y,z:b.z};
   var gain=b.coin*incomeMult()*(1+comboBonusPct()/100);
   gain=Math.round(gain); S.coins+=gain;
   spawnParticles(b); spawnShards(b); if(byTap) floatText(b,'+'+fmt(gain),false);
   beep(b.core?520:880,0.08);
-  // area splash
-  if(S.skArea>0){
-    var ratio=(50+(S.skArea-1)*10)/100; var dmg=Math.max(1,Math.round(S.pickLv*ratio));
+  // area splash: fires only when a pickaxe hit (tap / hold, both go through
+  // tapDamage) breaks the block. Damage = the actual pickaxe damage of the
+  // breaking hit (pickaxe Lv, crit included) x splash ratio, read live at
+  // break time, so upgrading the pickaxe scales splash proportionally.
+  // Splash kills (src 'splash') and drill kills never re-trigger it: no chains.
+  if(S.skArea>0 && src==='tap'){
+    var ratio=(50+(S.skArea-1)*10)/100; var dmg=(hitDmg!=null?hitDmg:S.pickLv)*ratio;
     var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&isExposed(n)){ damageBlock(n,dmg,false,false); } });
+    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&isExposed(n)){ damageBlock(n,dmg,false,false,null,'splash'); } });
   }
   if(b.core && !stageCleared){ stageCleared=true; setTimeout(showResult,450); }
   updateHUD(); save();
 }
-function damageBlock(b,dmg,isTap,isCrit,impact){
+function damageBlock(b,dmg,isTap,isCrit,impact,src){
   if(!b||!b.alive||stageCleared) return false;
   var imp=impact||autoImpact(b);
   setHit(b,imp);
   b.animT=performance.now();
   spawnDust(b,imp);
   b.hp-=dmg;
-  if(b.hp<=0){ destroyBlock(b,isTap); return true; }
+  if(b.hp<=0){ destroyBlock(b,isTap,dmg,src); return true; }
   return false;
 }
 function tapDamage(b,impact){
   registerTap();
   var crit=S.skCrit>0 && Math.random()<critChance();
   var dmg=S.pickLv*(crit?5:1);
-  var destroyed=damageBlock(b,dmg,true,crit,impact||null);
+  var destroyed=damageBlock(b,dmg,true,crit,impact||null,'tap');
   if(crit&&!destroyed) floatText(b,'CRIT ×5',true);
   if(!destroyed) beep(220,0.04);
   draw(); updateHUD(); save();
@@ -319,10 +328,11 @@ function tapDamage(b,impact){
 // One crack network per block, generated ONCE (seeded by stage + block coords)
 // the first time a face is hit, then only *revealed* further as HP drops.
 // The network lives on physical cube faces; view rotation picks which faces show.
-function ensureNet(b){ if(b.net) return b.net; b.net={segs:{top:[],xp:[],xm:[],zp:[],zm:[]},gen:{},centers:{},fx:{}}; return b.net; }
+function ensureNet(b){ if(b.net) return b.net; b.net={segs:{top:[],xp:[],xm:[],zp:[],zm:[],ym:[]},gen:{},centers:{},fx:{}}; return b.net; }
 function recordPt(map,f,u,v,t,br){ if(!map[f]) map[f]=[]; map[f].push({u:u,v:v,t:t,br:br}); }
 // Walk one jagged branch in face-local coords, continuing across edges onto
-// neighbouring faces (positions matched through the shared edge via AFF).
+// neighbouring faces. The crossing is resolved in 3D through the face frames
+// (FR), so branches now continue onto every neighbour, including the bottom.
 function walkBranch(b,f0,u0,v0,ang,totalLen,t0,wScale,brId,allPts,rng){
   var net=b.net;
   var f=f0, cu=u0, cv=v0;
@@ -344,20 +354,27 @@ function walkBranch(b,f0,u0,v0,ang,totalLen,t0,wScale,brId,allPts,rng){
     var alive=true, guard=0;
     while((nu<0||nu>1||nv<0||nv>1)&&guard<5){
       guard++;
-      if(nv>1){ alive=false; break; } // bottom face: crack ends
-      var side=nu>1?'r':(nu<0?'l':'t');
-      var A=AFF[f+':'+side]; if(!A){ alive=false; break; }
-      var s=1;
-      if(side==='r') s=(1-cu)/((nu-cu)||1e-9); else if(side==='l') s=(0-cu)/((nu-cu)||1e-9); else s=(0-cv)/((nv-cv)||1e-9);
+      var side, s;
+      if(nu>1){ side='r'; s=(1-cu)/((nu-cu)||1e-9); }
+      else if(nu<0){ side='l'; s=(0-cu)/((nu-cu)||1e-9); }
+      else if(nv<0){ side='t'; s=(0-cv)/((nv-cv)||1e-9); }
+      else { side='b'; s=(1-cv)/((nv-cv)||1e-9); }
       s=Math.max(0,Math.min(1,s));
       var eu=cu+(nu-cu)*s, ev=cv+(nv-cv)*s;
+      if(side==='r') eu=1; else if(side==='l') eu=0; else if(side==='t') ev=0; else ev=1;
       var et=t0+((dist-stepLen+stepLen*s)/totalLen)*(1-t0); if(et>1)et=1;
       curSeg.pts.push([eu,ev,et]); recordPt(allPts,f,eu,ev,et,brId);
-      var ep=A[1](eu,ev), np2=A[1](nu,nv);
-      var dp=A[1](cu+du,cv+dv), cp0=A[1](cu,cv);
-      du=dp[0]-cp0[0]; dv=dp[1]-cp0[1];
-      var dl=Math.hypot(du,dv)||1; du/=dl; dv/=dl;
-      f=A[0]; cu=ep[0]; cv=ep[1]; nu=np2[0]; nv=np2[1];
+      var fr=FR[f], cax, csign;
+      if(side==='r'){ cax=fr.u[0]; csign=fr.u[1]; }
+      else if(side==='l'){ cax=fr.u[0]; csign=-fr.u[1]; }
+      else if(side==='t'){ cax=fr.v[0]; csign=-fr.v[1]; }
+      else { cax=fr.v[0]; csign=fr.v[1]; }
+      var g=FACE_BY_NORMAL[cax+':'+csign];
+      if(!g){ alive=false; break; }
+      var pExit=facePoint3(f,eu,ev), pNext=facePoint3(f,nu,nv), d3=faceDir3(f,du,dv);
+      var euv=faceUV(g,pExit), nuv=faceUV(g,pNext), duv=faceDirUV(g,d3);
+      var dl=Math.hypot(duv[0],duv[1])||1; du=duv[0]/dl; dv=duv[1]/dl;
+      f=g; cu=euv[0]; cv=euv[1]; nu=nuv[0]; nv=nuv[1];
       curSeg={pts:[[cu,cv,et]], w:wScale};
       net.segs[f].push(curSeg);
     }
@@ -420,7 +437,7 @@ function setHit(b,imp){
 function autoImpact(b){
   b.hits=(b.hits||0)+1;
   var rng=mulberry(hashN(S.stage*13+5, b.x+3, b.y+7, b.z+11+b.hits*101));
-  var face=FACES[Math.floor(rng()*5)];
+  var face=FACES[Math.floor(rng()*FACES.length)];
   return {face:face, cu:0.5+(rng()-0.5)*0.34, cv:0.5+(rng()-0.5)*0.34};
 }
 function spawnDust(b,imp){
@@ -435,22 +452,43 @@ function spawnShards(b){ // larger chunks when the block breaks along its cracks
   var cols=['#fff','#ccc','#999','#666'];
   for(var i=0;i<6;i++) particles.push({x:p.cx,y:p.cy,vx:(Math.random()-0.5)*4.4,vy:-Math.random()*3.6-0.6,life:1.15,s:8+Math.random()*7,g:cols[i%4]});
 }
+// ----- orientation (yaw + pitch) -----
+// S.ori is a signed permutation: for each view axis [A(down-right),
+// B(down-left), C(up)] it stores [localAxis, sign] (local axes 0=x,1=y,2=z).
+// View coords of a block: v[i] = sign>0 ? l[axis] : (N-1)-l[axis].
+// All rotations are exact 90-degree steps on this table, so rendering,
+// picking and crack faces always agree, and 4 same-direction turns restore
+// the original orientation. Generated by yaw (around C) + pitch (around A).
+function oriFlip(o){ return [o[0],-o[1]]; }
+function validOri(o){ if(!o||o.length!==3) return false; var seen={}; for(var i=0;i<3;i++){ if(!o[i]||o[i].length!==2) return false; if(o[i][0]<0||o[i][0]>2||seen[o[i][0]]) return false; if(o[i][1]!==1&&o[i][1]!==-1) return false; seen[o[i][0]]=1; } return true; }
+function oriFromYaw(r){ var O=[[0,1],[2,1],[1,1]]; for(var i=0;i<(r&3);i++) O=[O[1],oriFlip(O[0]),O[2]]; return O; }
+function applyYaw(dir){ var O=S.ori; if(dir>0) S.ori=[O[1],oriFlip(O[0]),O[2]]; else S.ori=[oriFlip(O[1]),O[0],O[2]]; S.yaw=(S.yaw+(dir>0?1:3))&3; S.rot=S.yaw; }
+function applyPitch(dir){ var O=S.ori; if(dir>0) S.ori=[O[0],O[2],oriFlip(O[1])]; else S.ori=[O[0],oriFlip(O[2]),O[1]]; S.pitch=(S.pitch+(dir>0?1:3))&3; }
+function viewCoords(b){ var l=[b.x,b.y,b.z], N=S.cube.N, v=[0,0,0]; for(var i=0;i<3;i++){ var o=S.ori[i]; v[i]=o[1]>0?l[o[0]]:(N-1)-l[o[0]]; } return v; }
 // ----- face coordinate conversion (view faces <-> physical canonical faces) -----
-function leftCanon(){ return ['zp','xm','zm','xp'][S.rot&3]; }
-function rightCanon(){ return ['xp','zp','xm','zm'][S.rot&3]; }
-function sideFlip(viewFace){ var r=S.rot&3; if(viewFace==='left') return (r===2||r===3); return (r===1||r===2); }
-function topToCanon(u,v){ switch(S.rot&3){ case 0:return [u,v]; case 1:return [1-v,u]; case 2:return [1-u,1-v]; default:return [v,1-u]; } }
-function topFromCanon(cu,cv){ switch(S.rot&3){ case 0:return [cu,cv]; case 1:return [cv,1-cu]; case 2:return [1-cu,1-cv]; default:return [1-cv,cu]; } }
+// Visible view faces are the max sides of the view axes: 'right'=A+,
+// 'left'=B+, 'top'=C+. Conversion goes view fractions -> block-local
+// fractions -> the physical face's (cu,cv) via its frame, and back.
+var VIEW_AXIS={right:0,left:1,top:2};
+function viewFacePhys(viewFace){ var o=S.ori[VIEW_AXIS[viewFace]]; return FACE_BY_NORMAL[o[0]+':'+o[1]]; }
+function viewFracs(viewFace,u,v){ if(viewFace==='top') return [u,v,1]; if(viewFace==='left') return [u,1,1-v]; return [1,u,1-v]; }
+function fracsToUV(viewFace,fr){ if(viewFace==='top') return [fr[0],fr[1]]; if(viewFace==='left') return [fr[0],1-fr[2]]; return [fr[1],1-fr[2]]; }
+function viewToLocalFracs(vf){ var lf=[0,0,0]; for(var i=0;i<3;i++){ var o=S.ori[i]; lf[o[0]]=o[1]>0?vf[i]:1-vf[i]; } return lf; }
+function localToViewFracs(lf){ var vf=[0,0,0]; for(var i=0;i<3;i++){ var o=S.ori[i]; vf[i]=o[1]>0?lf[o[0]]:1-lf[o[0]]; } return vf; }
 function viewToCanon(viewFace,u,v){
-  if(viewFace==='top'){ var c=topToCanon(u,v); return ['top',c[0],c[1]]; }
-  var flip=sideFlip(viewFace);
-  return [viewFace==='left'?leftCanon():rightCanon(), flip?1-u:u, v];
+  var phys=viewFacePhys(viewFace);
+  var lf=viewToLocalFracs(viewFracs(viewFace,u,v));
+  var uv=faceUV(phys,lf);
+  return [phys,uv[0],uv[1]];
 }
 function canonToView(face,cu,cv){
-  if(face==='top'){ var uv=topFromCanon(cu,cv); return ['top',uv[0],uv[1]]; }
-  var vf=null; if(face===leftCanon()) vf='left'; else if(face===rightCanon()) vf='right';
-  if(!vf) return null;
-  var flip=sideFlip(vf); return [vf, flip?1-cu:cu, cv];
+  var fr=FR[face], idx=-1;
+  for(var i=0;i<3;i++){ if(S.ori[i][0]===fr.n[0]) idx=i; }
+  if(idx<0||S.ori[idx][1]!==fr.n[1]) return null; // face is on a hidden side
+  var vf=localToViewFracs(facePoint3(face,cu,cv));
+  var viewFace=idx===0?'right':(idx===1?'left':'top');
+  var uv=fracsToUV(viewFace,vf);
+  return [viewFace,uv[0],uv[1]];
 }
 function facePoint(viewFace,sx,sy,u,v){
   var tw=view.tw, th=view.th;
@@ -459,10 +497,10 @@ function facePoint(viewFace,sx,sy,u,v){
   return [sx+u*tw/2, sy-u*th/2+v*th];
 }
 function canonPtOnView(viewFace,cu,cv,sx,sy){
-  var u,v;
-  if(viewFace==='top'){ var uv=topFromCanon(cu,cv); u=uv[0]; v=uv[1]; }
-  else { var flip=sideFlip(viewFace); u=flip?1-cu:cu; v=cv; }
-  return facePoint(viewFace,sx,sy,u,v);
+  var phys=viewFacePhys(viewFace);
+  var vf=localToViewFracs(facePoint3(phys,cu,cv));
+  var uv=fracsToUV(viewFace,vf);
+  return facePoint(viewFace,sx,sy,uv[0],uv[1]);
 }
 function canonToScreen(b,face,cu,cv){
   var p=projBlock(b); if(!p) return null;
@@ -526,10 +564,9 @@ function drawFaceCracks(b,viewFace,sx,sy,light){
 // ---------- projection / drawing ----------
 var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 var view={tw:40,th:20,ox:0,oy:0,W:0,H:0};
-function rotateXZ(x,z){ var N=S.cube.N; switch(S.rot&3){ case 0:return[x,z]; case 1:return[z,N-1-x]; case 2:return[N-1-x,N-1-z]; default:return[N-1-z,x]; } }
-function projBlock(b){ var r=rotateXZ(b.x,b.z); var rx=r[0],rz=r[1];
-  var sx=view.ox+(rx-rz)*view.tw/2; var sy=view.oy+(rx+rz)*view.th/2 - b.y*view.th;
-  return {sx:sx,sy:sy,cx:sx,cy:sy-view.th*0.1,rx:rx,rz:rz}; }
+function projBlock(b){ var vc=viewCoords(b);
+  var sx=view.ox+(vc[0]-vc[1])*view.tw/2; var sy=view.oy+(vc[0]+vc[1])*view.th/2 - vc[2]*view.th;
+  return {sx:sx,sy:sy,cx:sx,cy:sy-view.th*0.1,vc:vc}; }
 function patternIdx(){ return Math.floor((S.stage-1)/5)%5; }
 function drawFace(pts,base,pat,isTop){
   ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
@@ -568,8 +605,8 @@ function draw(){
   if(minX>maxX){ view.ox=W/2; view.oy=H/2; }
   else { view.ox=W/2-(minX+maxX)/2; view.oy=H/2-(minY+maxY)/2 - 6; }
   var pat=patternIdx(), invert=(pat===4);
-  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var r=rotateXZ(b.x,b.z); return {b:b,s:r[0]+r[1]}; });
-  sorted.sort(function(a,b2){ if(a.s!==b2.s) return a.s-b2.s; return a.b.y-b2.b.y; });
+  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var vc=viewCoords(b); return {b:b,s:vc[0]+vc[1],c:vc[2]}; });
+  sorted.sort(function(a,b2){ if(a.s!==b2.s) return a.s-b2.s; return a.c-b2.c; });
   sorted.forEach(function(it){ drawBlock(it.b,invert,pat); });
   // particles
   particles=particles.filter(function(p){return p.life>0;});
@@ -614,8 +651,8 @@ function drawBlock(b,invert,pat){
 // hit test: iterate frontmost first; returns block + which view face was hit
 // and the exact position on that face (the crack network grows from there)
 function pickBlock(px,py){
-  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var r=rotateXZ(b.x,b.z); return {b:b,s:r[0]+r[1]}; });
-  sorted.sort(function(a,b2){ if(a.s!==b2.s) return b2.s-a.s; return b2.b.y-a.b.y; });
+  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var vc=viewCoords(b); return {b:b,s:vc[0]+vc[1],c:vc[2]}; });
+  sorted.sort(function(a,b2){ if(a.s!==b2.s) return b2.s-a.s; return b2.c-a.c; });
   for(var i=0;i<sorted.length;i++){ var b=sorted[i].b; var p=projBlock(b); var tw=view.tw,th=view.th; var sx=p.sx,sy=p.sy;
     var defs=[ ['top', sx, sy-th, tw/2, th/2, -tw/2, th/2], ['left', sx-tw/2, sy-th/2, tw/2, th/2, 0, th], ['right', sx, sy, tw/2, -th/2, 0, th] ];
     for(var f=0;f<3;f++){ var fd=defs[f];
@@ -675,18 +712,34 @@ function endPointer(e,cancelled){
   var wasHold=ptr.holdStarted; if(hold.active) stopHold();
   if(cancelled) return;
   var dist=Math.hypot(ptr.x-ptr.sx,ptr.y-ptr.sy);
-  if(dist>=40){ // swipe = rotate
-    var dx=ptr.x-ptr.sx; S.rot=(S.rot+(dx>0?1:3))&3; beep(330,0.05,'triangle'); draw(); save(); return;
+  if(dist>=40){ // swipe = rotate: dominant axis wins (horizontal = yaw, vertical = pitch)
+    var dx=ptr.x-ptr.sx, dy=ptr.y-ptr.sy;
+    if(Math.abs(dx)>=Math.abs(dy)) applyYaw(dx>0?1:-1); else applyPitch(dy>0?1:-1);
+    beep(330,0.05,'triangle'); draw(); save(); return;
   }
   if(dist<10 && !wasHold){ var pk=pickBlock(ptr.sx,ptr.sy); if(pk){ var b=pk.b; if(isExposed(b)){ tapDamage(b,viewImpactOf(pk)); } else { floatText(b,'内側は掘れない',false); beep(140,0.05); } } }
   // 10-39px: invalid, nothing
 }
 cv.addEventListener('pointerup',function(e){ endPointer(e,false); });
 cv.addEventListener('pointercancel',function(e){ endPointer(e,true); });
-document.getElementById('rotL').addEventListener('click',function(){ S.rot=(S.rot+3)&3; draw(); save(); });
-document.getElementById('rotR').addEventListener('click',function(){ S.rot=(S.rot+1)&3; draw(); save(); });
-// prevent context menu long press
+document.getElementById('rotL').addEventListener('click',function(){ applyYaw(-1); draw(); save(); });
+document.getElementById('rotR').addEventListener('click',function(){ applyYaw(1); draw(); save(); });
+document.getElementById('rotU').addEventListener('click',function(){ applyPitch(-1); draw(); save(); });
+document.getElementById('rotD').addEventListener('click',function(){ applyPitch(1); draw(); save(); });
+// ---------- zoom / copy prevention ----------
+// Long-press callout and text selection are disabled in CSS (user-select:
+// none + -webkit-touch-callout: none on everything). JS side: block the
+// context menu anywhere in the game, iOS gesture/pinch zoom, and double-tap
+// zoom (iOS Safari ignores user-scalable=no, so a rapid second touchend on
+// the canvas is preventDefaulted — digging is pointer-based, so blocking
+// the compat events never interferes with taps or the hold pickaxe).
 cv.addEventListener('contextmenu',function(e){e.preventDefault();});
+document.getElementById('game').addEventListener('contextmenu',function(e){e.preventDefault();});
+document.getElementById('game').addEventListener('dblclick',function(e){e.preventDefault();});
+document.addEventListener('gesturestart',function(e){e.preventDefault();});
+document.getElementById('game').addEventListener('touchstart',function(e){ if(e.touches&&e.touches.length>1) e.preventDefault(); },{passive:false});
+var lastTapEnd=0;
+cv.addEventListener('touchend',function(e){ var now=Date.now(); if(now-lastTapEnd<350) e.preventDefault(); lastTapEnd=now; },{passive:false});
 // ---------- drill ----------
 setInterval(function(){
   if(S.drillLv<=0||stageCleared){ drillTargets=[]; return; }
@@ -695,7 +748,7 @@ setInterval(function(){
   var picked=autoTargets(1+S.skDrillPlus,lastBrokenPos);
   if(!picked.length){ drillTargets=[]; return; }
   drillTargets=picked.slice();
-  picked.forEach(function(t){ if(t.alive) damageBlock(t,S.drillLv,false,false); });
+  picked.forEach(function(t){ if(t.alive) damageBlock(t,S.drillLv,false,false,null,'drill'); });
   drillTargets=drillTargets.filter(function(t){return t.alive;});
   draw(); updateHUD(); save();
 },1000);
@@ -713,7 +766,7 @@ function remaining(){ return S.cube.blocks.filter(function(b){return b.alive;}).
 function updateHUD(){
   document.getElementById('coin').textContent=fmt(S.coins);
   document.getElementById('stageNum').textContent=S.stage;
-  document.getElementById('cubeSize').textContent=S.cube.N+'×'+S.cube.N+'×'+S.cube.N+'　/ 回転 '+((S.rot*90))+'°';
+  document.getElementById('cubeSize').textContent=S.cube.N+'×'+S.cube.N+'×'+S.cube.N+'　/ 横 '+((S.yaw*90))+'°・縦 '+((S.pitch*90))+'°';
   var rem=remaining(); document.getElementById('remain').textContent=rem;
   var pct=S.cube.total?Math.round((S.cube.total-rem)/S.cube.total*100):100;
   document.getElementById('pct').textContent=pct+'%'; document.getElementById('barFill').style.width=pct+'%';
@@ -738,7 +791,6 @@ function buy(cost,fn){ if(S.coins<cost) return; S.coins-=cost; fn(); beep(980,0.
 document.getElementById('cardPick').addEventListener('click',function(){ buy(pickCost(),function(){S.pickLv++;}); });
 document.getElementById('cardDrill').addEventListener('click',function(){ buy(drillCost(),function(){S.drillLv++;}); });
 document.getElementById('cardIncome').addEventListener('click',function(){ buy(incomeCost(),function(){S.incomeLv++;}); });
-document.getElementById('testBtn').addEventListener('click',function(){ S.coins+=100000; updateHUD(); save(); beep(1200,0.06); });
 // ---------- skills UI ----------
 function renderSkills(){
   var list=document.getElementById('skillList'); if(!list) return;
@@ -775,7 +827,7 @@ function showResult(){
 }
 document.getElementById('resultOk').addEventListener('click',function(){
   document.getElementById('resultPanel').classList.remove('open');
-  S.stage++; S.cube=newCube(S.stage); S.stageStart=Date.now(); S.stageBroken=0; S.rot=0; stageCleared=false; combo=0; drillTargets=[]; lastBrokenPos=null;
+  S.stage++; S.cube=newCube(S.stage); S.stageStart=Date.now(); S.stageBroken=0; S.ori=[[0,1],[2,1],[1,1]]; S.yaw=0; S.pitch=0; S.rot=0; stageCleared=false; combo=0; drillTargets=[]; lastBrokenPos=null;
   document.getElementById('combo').textContent='0';
   updateHUD(); draw(); save(); beep(660,0.1);
 });
