@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>穴ゲーム（オープンワールド）</title>
+<title>穴ゲーム（2.5D）</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{width:100%;height:100%;height:100dvh;overflow:hidden;background:#ddd6c2;touch-action:none;overscroll-behavior:none;
+  html,body{width:100%;height:100%;height:100dvh;overflow:hidden;background:#cfc8b2;touch-action:none;overscroll-behavior:none;
     font-family:"Hiragino Maru Gothic ProN","M PLUS Rounded 1c",system-ui,sans-serif;-webkit-user-select:none;user-select:none}
   #game{position:fixed;inset:0;display:block;touch-action:none}
   #hud{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;right:10px;display:flex;gap:8px;pointer-events:none;z-index:5;flex-wrap:wrap}
   .chip{background:rgba(255,255,255,.92);border:2px solid #222;border-radius:999px;padding:6px 12px;font-weight:800;font-size:14px;color:#222;
     box-shadow:0 3px 0 #222;display:flex;align-items:center;gap:6px;white-space:nowrap}
   .chip small{font-weight:700;color:#777;font-size:11px}
+  #comboChip{display:none;background:#ffd93d}
   #hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);z-index:5;pointer-events:none;
     background:rgba(34,34,34,.85);color:#fff;font-weight:800;font-size:14px;padding:9px 18px;border-radius:999px;transition:opacity .6s}
   #resetBtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:6;width:48px;height:48px;border-radius:50%;
@@ -35,19 +36,20 @@
 <div id="hud">
   <div class="chip">🕳️ <span id="genLabel">第1世代</span></div>
   <div class="chip"><span id="leftLabel">残り 0</span></div>
-  <div class="chip"><small>穴の大きさ</small><span id="sizeLabel">0.5m</span></div>
+  <div class="chip"><small>穴の大きさ</small><span id="sizeLabel">0.4m</span></div>
   <div class="chip"><small>最大</small><span id="maxLabel">-</span></div>
+  <div class="chip" id="comboChip">🔥 <span id="comboLabel">x2</span></div>
 </div>
 
-<div id="hint">👆 ドラッグした方向に穴が進むよ</div>
-<button id="resetBtn" title="第1世代から">↺</button>
+<div id="hint">👆 ドラッグした方向に進む。物は縁で傾いてから落ちるよ</div>
+<button id="resetBtn" title="最初から">↺</button>
 
 <div id="overlay">
   <div id="panel">
     <div class="big">🎉</div>
-    <h2 id="clearTitle">全部飲み込んだ！</h2>
+    <h2>全部飲み込んだ！</h2>
     <p id="clearText"></p>
-    <button id="nextBtn">もっと大きな世界へ ▶</button>
+    <button id="nextBtn">さらに大きな物が来る ▶</button>
   </div>
 </div>
 
@@ -59,6 +61,8 @@ const genLabel  = document.getElementById('genLabel');
 const leftLabel = document.getElementById('leftLabel');
 const sizeLabel = document.getElementById('sizeLabel');
 const maxLabel  = document.getElementById('maxLabel');
+const comboChip = document.getElementById('comboChip');
+const comboLabel= document.getElementById('comboLabel');
 const hint      = document.getElementById('hint');
 const overlay   = document.getElementById('overlay');
 const clearText = document.getElementById('clearText');
@@ -75,115 +79,147 @@ resize();
 
 // ---------- 音 ----------
 let audioCtx = null;
-function beep(freq, dur, type, vol){
+function beep(freq, dur, type, vol, delay){
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime + (delay || 0);
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = type || 'sine'; o.frequency.value = freq;
-    g.gain.setValueAtTime(vol || 0.12, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    g.gain.setValueAtTime(vol || 0.12, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
     o.connect(g); g.connect(audioCtx.destination);
-    o.start(); o.stop(audioCtx.currentTime + dur);
+    o.start(t0); o.stop(t0 + dur);
   }catch(e){}
 }
-const popSound   = () => beep(300 + Math.random()*250, 0.12, 'sine', 0.14);
-const bigSound   = () => { beep(180,0.25,'sine',0.16); setTimeout(()=>beep(520,0.2,'sine',0.12),90); };
-const thudSound  = () => beep(90, 0.10, 'square', 0.06);
-const clearSound = () => { beep(523,0.14,'sine',0.12); setTimeout(()=>beep(659,0.14,'sine',0.12),110); setTimeout(()=>beep(784,0.22,'sine',0.12),220); };
-
-// ---------- ワールド定義：世代ごとに物が大きくなる（無限） ----------
-const WORLD = 2600;                 // ワールドの一辺（ワールド座標px）
-const HOLE_START_R = 30;            // 世代開始時の穴の半径（ワールド座標）
-const OBJECT_COUNT = 34;
-const GEN_POOLS = [
-  ['🍬','📎','🍓','🪙','🔑','🍪','🧩','🍇'],
-  ['🍎','🧀','📱','👟','🧸','📚','🍔','⏰'],
-  ['🪑','📦','🚲','🛹','🎸','🪴','🧳','🛒'],
-  ['🛋️','🚗','🌳','🛵','📺','🦒','⛺','🚙'],
-  ['🚚','🏠','🚜','🐘','🌴','🚌','🚂','🏡'],
-  ['🏢','🏭','🗼','🚢','🏰','🎡','🌉','🏟️'],
-  ['🌋','🐋','🚀','🛸','🪐','🎢','🗿','🌕'],
-];
-function poolFor(gen){
-  if(gen <= GEN_POOLS.length) return GEN_POOLS[gen - 1];
-  // 7世代目以降は最後の2プールを混ぜて使い回す（サイズと数値で無限に伸びる）
-  return GEN_POOLS[GEN_POOLS.length - 1].concat(GEN_POOLS[GEN_POOLS.length - 2]);
+function swallowSound(ratio, combo){
+  // 大きい物ほど低く重く、コンボが上がるほど少し高く
+  const f = Math.max(70, 460 - ratio * 330) + Math.min(combo, 10) * 22;
+  beep(f, 0.16, 'sine', 0.15);
+  if(ratio > 0.55) beep(58, 0.3, 'triangle', 0.22);        // 地響き
 }
+const thudSound  = () => beep(90, 0.10, 'square', 0.05);
+const clearSound = () => { beep(523,0.14,'sine',0.12); beep(659,0.14,'sine',0.12,0.11); beep(784,0.24,'sine',0.12,0.22); };
+
+// ---------- 世界の定義：縮尺は固定。穴は同じ街の中で本当に巨大化する ----------
+const PX_PER_METER = 90;                 // ワールド90px = 1m（全世代共通・リセットなし）
+const HOLE_START_R = 18;
+const STATIC_COUNT = 44;
+const CATS = [
+  { max:16,  emojis:['🍬','📎','🍓','🪙','🔑','🍪','🧩','🍇'], hF:0.35 },
+  { max:32,  emojis:['🍎','🧀','📱','👟','🧸','📚','🍔','⏰'], hF:0.5 },
+  { max:60,  emojis:['🪑','📦','🚲','🛹','🎸','🪴','🧳','🛒'], hF:0.9 },
+  { max:110, emojis:['🛋️','🚗','🌳','🛵','📺','⛺','🚙','🦒'], hF:0.8 },
+  { max:200, emojis:['🚚','🏠','🚜','🐘','🌴','🚌','🚂','🏡'], hF:1.4 },
+  { max:360, emojis:['🏢','🏭','🏰','🎡','🌉','🚢'],           hF:2.4 },
+  { max:1e9, emojis:['🗼','🏟️','🌋','🛸','🪐','🗿','🐋'],       hF:3.0 },
+];
+function catFor(r){ for(const c of CATS) if(r < c.max) return c; return CATS[CATS.length-1]; }
+function pickEmoji(r){ const c = catFor(r); return c.emojis[Math.floor(Math.random()*c.emojis.length)]; }
+function formatSize(m){ return m < 1000 ? m.toFixed(1)+'m' : (m/1000).toFixed(2)+'km'; }
 
 // ---------- 状態 ----------
-let gen = +(localStorage.getItem('holeGameGen') || 1);
-let genStartMeters = parseFloat(localStorage.getItem('holeGameMeters') || '0.5');
-let swallowedTotal = +(localStorage.getItem('holeGameTotal') || 0);
-let hole = { x: WORLD/2, y: WORLD/2, r: HOLE_START_R, pulse: 0 };
-let cam = { x: WORLD/2, y: WORLD/2 };
-let zoom = 1;
-let objects = [];
-let particles = [];   // スクリーン座標で描く
-let floaters = [];    // ワールド座標で持つ
-let genSwallowed = 0;
+let gen = +(localStorage.getItem('hole25Gen') || 1);
+let swallowedTotal = +(localStorage.getItem('hole25Total') || 0);
+let hole = { x: 1600, y: 1600, r: parseFloat(localStorage.getItem('hole25R') || HOLE_START_R), pulse: 0 };
+let worldSize = 3200;
+let cam = { x: hole.x, y: hole.y };
+let zoom = 1.4;
+let objects = [];   // 静止物（積み重なり含む）
+let movers = [];    // 車と人
+let particles = [];
+let floaters = [];
 let largest = null;
-let joy = null;       // {id, ox, oy, x, y}
+let joy = null;
 let keys = {};
 let bumpCooldown = 0;
 let cleared = false;
+let shake = 0;
+let combo = 0, lastConsumeAt = -10, nowSec = 0;
 let saveTimer = 0;
+let nextId = 1;
 
-function holeMeters(){ return genStartMeters * (hole.r / HOLE_START_R); }
-function remaining(){ return objects.filter(o => o.state !== 'gone').length; }
+function holeMeters(){ return hole.r * 2 / PX_PER_METER; }
 function isEdible(o){ return o.r <= hole.r; }
+function staticsLeft(){ return objects.filter(o => o.state !== 'gone').length; }
 
-function spawnGeneration(g){
-  const pool = poolFor(g);
-  hole.r = HOLE_START_R; hole.x = WORLD/2; hole.y = WORLD/2;
-  cam.x = hole.x; cam.y = hole.y; zoom = 1;
-  objects = []; genSwallowed = 0; cleared = false; largest = null;
-  // サイズは小→大の階段状（穴の0.3倍〜3.0倍）。小さい順に飲めば最大まで必ず届く
+function makeObject(x, y, r){
+  const c = catFor(r);
+  return { id: nextId++, x, y, r, emoji: pickEmoji(r), h: r * c.hF,
+    state:'idle', teeter:0, fallT:0, dropT:0, dropFrom:0, baseId:0,
+    angle:(Math.random()-0.5)*0.6, wobble:0, isLargest:false, seed: Math.random()*10 };
+}
+
+function spawnWave(g){
+  const holeR0 = hole.r;
+  worldSize = Math.max(3200, holeR0 * 18);
+  hole.x = worldSize/2; hole.y = worldSize/2;
+  cam.x = hole.x; cam.y = hole.y;
+  objects = []; movers = []; largest = null; cleared = false; combo = 0;
+  // 小→大の階段状サイズ（穴の0.3倍〜2.7倍）
   const fracs = [];
-  for(let i = 0; i < OBJECT_COUNT; i++){
-    const base = i / (OBJECT_COUNT - 1);
-    const jitter = (Math.random() - 0.5) * (0.8 / (OBJECT_COUNT - 1));
+  for(let i = 0; i < STATIC_COUNT; i++){
+    const base = i / (STATIC_COUNT - 1);
+    const jitter = (Math.random() - 0.5) * (0.8 / (STATIC_COUNT - 1));
     fracs.push(Math.max(0, Math.min(1, base + jitter)));
   }
   let tries = 0;
-  while(objects.length < OBJECT_COUNT && tries < 3000){
+  while(objects.length < STATIC_COUNT && tries < 4000){
     tries++;
-    const r = HOLE_START_R * (0.3 + fracs[objects.length] * 2.7);
-    const x = r + 20 + Math.random() * (WORLD - 2*r - 40);
-    const y = r + 20 + Math.random() * (WORLD - 2*r - 40);
-    if(Math.hypot(x - hole.x, y - hole.y) < hole.r + r + 160) continue;
+    const r = holeR0 * (0.3 + fracs[objects.length] * 2.4);
+    const x = r + 30 + Math.random() * (worldSize - 2*r - 60);
+    const y = r + 30 + Math.random() * (worldSize - 2*r - 60);
+    if(Math.hypot(x - hole.x, y - hole.y) < hole.r + r + holeR0 * 2) continue;
     let overlap = false;
-    for(const o of objects){ if(Math.hypot(x - o.x, y - o.y) < (r + o.r) * 0.8){ overlap = true; break; } }
+    for(const o of objects){ if(Math.hypot(x - o.x, y - o.y) < (r + o.r) * 0.85){ overlap = true; break; } }
     if(overlap) continue;
-    objects.push({
-      x, y, r,
-      emoji: pool[Math.floor(Math.random() * pool.length)],
-      state: 'idle', suckT: 0, angle: Math.random() * Math.PI * 2, wobble: 0, isLargest: false
-    });
+    objects.push(makeObject(x, y, r));
+  }
+  // 積み重なり：大きめの物の上に小さい物を載せる（下が落ちると上が崩れ落ちる）
+  const bases = objects.filter(o => o.r > holeR0 * 0.55);
+  for(let i = 0; i < Math.min(6, bases.length); i++){
+    const b = bases[Math.floor(Math.random() * bases.length)];
+    if(objects.some(o => o.baseId === b.id)) continue;
+    const top = makeObject(b.x, b.y, b.r * 0.55);
+    top.state = 'stacked'; top.baseId = b.id;
+    objects.push(top);
   }
   for(const o of objects){ if(!largest || o.r > largest.r) largest = o; }
   if(largest) largest.isLargest = true;
+  // 動くもの：車（道路を走る）と人（逃げる）
+  for(let i = 0; i < 6; i++){
+    const horiz = Math.random() < 0.5;
+    const lane = (Math.floor(Math.random() * 7) + 1) * (worldSize / 8);
+    movers.push({ kind:'car', emoji: Math.random()<0.5?'🚕':'🚙', r: holeR0 * 0.45, h: holeR0*0.3,
+      x: Math.random()*worldSize, y: lane, vx: horiz ? (Math.random()<0.5?-1:1)*(120+Math.random()*80) : 0,
+      vy: horiz ? 0 : (Math.random()<0.5?-1:1)*(120+Math.random()*80),
+      state:'move', teeter:0, fallT:0, angle:0, wobble:0, seed: Math.random()*10 });
+    if(!horiz){ movers[movers.length-1].x = lane; movers[movers.length-1].y = Math.random()*worldSize; }
+  }
+  for(let i = 0; i < 8; i++){
+    movers.push({ kind:'person', emoji:'🚶', r: Math.max(8, holeR0 * 0.22), h: holeR0*0.25,
+      x: Math.random()*worldSize, y: Math.random()*worldSize,
+      vx: 0, vy: 0, heading: Math.random()*Math.PI*2, state:'move', teeter:0, fallT:0, angle:0, wobble:0, seed: Math.random()*10 });
+  }
   updateHUD();
 }
 
 function updateHUD(){
   genLabel.textContent = '第' + gen + '世代';
-  leftLabel.textContent = '残り ' + remaining();
-  sizeLabel.textContent = holeMeters().toFixed(1) + 'm';
-  if(largest && largest.state !== 'gone'){
-    maxLabel.textContent = largest.emoji + (isEdible(largest) ? ' 落とせる！' : ' まだ大きい');
-  } else {
-    maxLabel.textContent = '👑 飲んだ！';
-  }
+  leftLabel.textContent = '残り ' + staticsLeft();
+  sizeLabel.textContent = formatSize(holeMeters());
+  if(largest && largest.state !== 'gone') maxLabel.textContent = largest.emoji + (isEdible(largest) ? ' 落とせる！' : ' まだ大きい');
+  else maxLabel.textContent = '👑 飲んだ！';
+  comboChip.style.display = combo >= 2 ? 'flex' : 'none';
+  if(combo >= 2) comboLabel.textContent = 'x' + combo + ' コンボ';
 }
-
 function save(){
-  localStorage.setItem('holeGameGen', gen);
-  localStorage.setItem('holeGameMeters', genStartMeters);
-  localStorage.setItem('holeGameTotal', swallowedTotal);
+  localStorage.setItem('hole25Gen', gen);
+  localStorage.setItem('hole25R', hole.r);
+  localStorage.setItem('hole25Total', swallowedTotal);
 }
 
-// ---------- 入力：ドラッグ＝スティック（ドラッグ方向に進む） ----------
+// ---------- 入力 ----------
 canvas.addEventListener('pointerdown', e => {
   joy = { id: e.pointerId, ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
   hint.style.opacity = '0';
@@ -204,27 +240,110 @@ document.addEventListener('touchend', e => {
 }, { passive:false });
 document.addEventListener('contextmenu', e => e.preventDefault());
 document.getElementById('resetBtn').addEventListener('click', () => {
-  gen = 1; genStartMeters = 0.5; save(); spawnGeneration(1);
+  gen = 1; hole.r = HOLE_START_R; save(); spawnWave(1);
 });
 document.getElementById('nextBtn').addEventListener('click', () => {
   overlay.classList.remove('show');
-  gen++; save(); spawnGeneration(gen);
+  gen++; save(); spawnWave(gen);
 });
+
+// ---------- 物理っぽい吸い込み：傾く→滑る→落ちる ----------
+function interact(o, dt, isMover){
+  if(o.state === 'gone') return;
+  if(o.state === 'stacked'){
+    const b = objects.find(t => t.id === o.baseId);
+    if(b){ o.x = b.x; o.y = b.y; }
+    return;
+  }
+  const dx = hole.x - o.x, dy = hole.y - o.y;
+  const d = Math.hypot(dx, dy) || 1;
+  const nx = dx / d, ny = dy / d;
+
+  if(o.state === 'falling'){
+    o.fallT += dt / 0.22;
+    o.x += (hole.x - o.x) * Math.min(1, dt * 16);
+    o.y += (hole.y - o.y) * Math.min(1, dt * 16);
+    if(o.fallT >= 1) consume(o, isMover);
+    return;
+  }
+  if(o.state === 'dropping'){
+    o.dropT += dt / 0.28;
+    if(o.dropT >= 1){ o.state = 'idle'; o.dropT = 0; }
+    return;
+  }
+  if(isEdible(o)){
+    if(d < hole.r + o.r * 0.55){
+      // 縁にかかった：傾きが進む。大きい物ほど時間がかかる
+      o.state = 'teeter';
+      const teeterTime = 0.22 + 1.05 * (o.r / hole.r);
+      o.teeter = Math.min(1, o.teeter + dt / teeterTime);
+      const slide = hole.r * (0.25 + 1.5 * o.teeter) * dt;
+      o.x += nx * slide; o.y += ny * slide;
+      if(o.teeter >= 1){ o.state = 'falling'; o.fallT = 0; }
+    } else if(o.state === 'teeter'){
+      // 穴が離れると傾きが戻る（キープし続ける判断が生まれる）
+      o.teeter -= dt * 2.2;
+      if(o.teeter <= 0){ o.teeter = 0; o.state = isMover ? 'move' : 'idle'; }
+    }
+  } else {
+    if(o.state === 'teeter'){ o.teeter = 0; o.state = isMover ? 'move' : 'idle'; }
+    if(d < hole.r + o.r * 0.5){
+      const push = (hole.r + o.r * 0.5) - d;
+      hole.x += -nx * push; hole.y += -ny * push;
+      o.wobble = 1;
+      if(bumpCooldown <= 0){
+        bumpCooldown = 0.45; thudSound();
+        floaters.push({ x: o.x, y: o.y - o.r - 10, text: '大きい！', t: 0, color: '#d33' });
+      }
+    }
+  }
+  o.wobble = Math.max(0, o.wobble - dt * 5);
+}
+
+function consume(o, isMover){
+  const ratio = o.r / hole.r;
+  o.state = 'gone';
+  hole.r = Math.sqrt(hole.r*hole.r + o.r*o.r * 0.6);
+  hole.pulse = 1;
+  swallowedTotal++;
+  combo = (nowSec - lastConsumeAt < 1.2) ? combo + 1 : 1;
+  lastConsumeAt = nowSec;
+  shake = Math.min(16, 3 + ratio * 15);
+  swallowSound(ratio, combo);
+  // 積み重なりの上段を崩す
+  for(const t of objects){ if(t.baseId === o.id && t.state === 'stacked'){ t.state = 'dropping'; t.dropT = 0; t.dropFrom = o.h; t.x = o.x; t.y = o.y; } }
+  const c = project(hole.x, hole.y);
+  const n = 8 + Math.floor(ratio * 14);
+  for(let i = 0; i < n; i++){
+    const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 130;
+    particles.push({ x: c.x + Math.cos(a)*hole.r*zoom*0.5, y: c.y + Math.sin(a)*hole.r*zoom*0.4,
+      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 50, t: 0 });
+  }
+  floaters.push({ x: hole.x, y: hole.y - hole.r - 6, text: '+1', t: 0, color: '#222' });
+  if(combo >= 3) floaters.push({ x: hole.x, y: hole.y - hole.r - 30, text: '🔥x' + combo, t: 0, color: '#e67e00' });
+  if(o.isLargest) floaters.push({ x: hole.x, y: hole.y - hole.r - 54, text: '👑 最大を飲んだ！', t: 0, color: '#b8860b' });
+  updateHUD();
+  if(!isMover && staticsLeft() === 0 && !cleared){
+    cleared = true; save();
+    clearSound();
+    setTimeout(() => {
+      clearText.innerHTML = '穴は ' + formatSize(holeMeters()) + ' まで大きくなった（通算 ' + swallowedTotal + ' 個）。<br>同じ街に、さらに大きな物が運び込まれてくるよ。';
+      overlay.classList.add('show');
+    }, 500);
+  }
+}
 
 // ---------- 更新 ----------
 function project(x, y){ return { x: (x - cam.x) * zoom + W/2, y: (y - cam.y) * zoom + H/2 }; }
-
 let lastTime = performance.now();
 function update(dt){
+  nowSec += dt;
+  if(nowSec - lastConsumeAt > 1.2 && combo !== 0){ combo = 0; updateHUD(); }
   // 移動
   let vx = 0, vy = 0;
   if(joy){
-    const dx = joy.x - joy.ox, dy = joy.y - joy.oy;
-    const d = Math.hypot(dx, dy);
-    if(d > 8){
-      const power = Math.min(1, d / 70);
-      vx = dx / d * power; vy = dy / d * power;
-    }
+    const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy);
+    if(d > 8){ const p = Math.min(1, d / 70); vx = dx / d * p; vy = dy / d * p; }
   }
   if(keys['ArrowLeft'])  vx -= 1;
   if(keys['ArrowRight']) vx += 1;
@@ -232,176 +351,172 @@ function update(dt){
   if(keys['ArrowDown'])  vy += 1;
   const vl = Math.hypot(vx, vy);
   if(vl > 0){
-    const speed = 560 * Math.min(1, vl);
+    const speed = Math.max(300, hole.r * 3.2) * Math.min(1, vl);
     hole.x += vx / (vl || 1) * speed * dt;
     hole.y += vy / (vl || 1) * speed * dt;
   }
-  hole.x = Math.max(hole.r, Math.min(WORLD - hole.r, hole.x));
-  hole.y = Math.max(hole.r, Math.min(WORLD - hole.r, hole.y));
+  hole.x = Math.max(hole.r, Math.min(worldSize - hole.r, hole.x));
+  hole.y = Math.max(hole.r, Math.min(worldSize - hole.r, hole.y));
   hole.pulse = Math.max(0, hole.pulse - dt * 4);
   bumpCooldown = Math.max(0, bumpCooldown - dt);
+  shake = Math.max(0, shake - dt * 30);
 
-  // カメラとズーム（穴が画面の約100pxを超えたらズームアウトして世界が広く見える）
-  const zTarget = Math.min(1, 100 / hole.r);
+  const zTarget = Math.max(0.02, Math.min(1.5, 110 / Math.max(hole.r, 55)));
   zoom += (zTarget - zoom) * Math.min(1, dt * 3);
   cam.x += (hole.x - cam.x) * Math.min(1, dt * 6);
   cam.y += (hole.y - cam.y) * Math.min(1, dt * 6);
   const halfW = W / (2 * zoom), halfH = H / (2 * zoom);
-  cam.x = halfW >= WORLD/2 ? WORLD/2 : Math.max(halfW, Math.min(WORLD - halfW, cam.x));
-  cam.y = halfH >= WORLD/2 ? WORLD/2 : Math.max(halfH, Math.min(WORLD - halfH, cam.y));
+  cam.x = halfW >= worldSize/2 ? worldSize/2 : Math.max(halfW, Math.min(worldSize - halfW, cam.x));
+  cam.y = halfH >= worldSize/2 ? worldSize/2 : Math.max(halfH, Math.min(worldSize - halfH, cam.y));
 
-  // 物との判定
-  for(const o of objects){
-    if(o.state === 'gone') continue;
-    const d = Math.hypot(o.x - hole.x, o.y - hole.y);
-    if(o.state === 'sucking'){
-      o.suckT += dt / 0.18;
-      o.x += (hole.x - o.x) * Math.min(1, dt * 14);
-      o.y += (hole.y - o.y) * Math.min(1, dt * 14);
-      if(o.suckT >= 1) consume(o);
-      continue;
-    }
-    if(isEdible(o)){
-      if(d < hole.r + o.r * 0.25){
-        if(d < hole.r * 0.55){ o.state = 'sucking'; o.suckT = 0; }
-        else {
-          o.x += (hole.x - o.x) * Math.min(1, dt * 6);
-          o.y += (hole.y - o.y) * Math.min(1, dt * 6);
-        }
+  // 動くもの
+  for(const m of movers){
+    if(m.state === 'gone' || m.state === 'falling' || m.state === 'teeter'){ interact(m, dt, true); continue; }
+    if(m.kind === 'car'){
+      m.x += m.vx * dt; m.y += m.vy * dt;
+      if(m.x < m.r) { m.x = m.r; m.vx = Math.abs(m.vx); }
+      if(m.x > worldSize - m.r) { m.x = worldSize - m.r; m.vx = -Math.abs(m.vx); }
+      if(m.y < m.r) { m.y = m.r; m.vy = Math.abs(m.vy); }
+      if(m.y > worldSize - m.r) { m.y = worldSize - m.r; m.vy = -Math.abs(m.vy); }
+      m.angle = Math.atan2(m.vy, m.vx);
+    } else {
+      const dHole = Math.hypot(m.x - hole.x, m.y - hole.y);
+      let sp = 55;
+      if(dHole < hole.r + 300){  // 穴が近いと逃げる
+        m.heading = Math.atan2(m.y - hole.y, m.x - hole.x);
+        sp = 210;
+      } else if(Math.random() < dt * 0.7){
+        m.heading += (Math.random() - 0.5) * 1.6;
       }
-    } else if(d < hole.r + o.r * 0.72){
-      const push = (hole.r + o.r * 0.72) - d;
-      const nx = (hole.x - o.x) / (d || 1), ny = (hole.y - o.y) / (d || 1);
-      hole.x += nx * push; hole.y += ny * push;
-      o.wobble = 1;
-      if(bumpCooldown <= 0){
-        bumpCooldown = 0.45; thudSound();
-        floaters.push({ x: o.x, y: o.y - o.r - 10, text: '大きい！', t: 0, color: '#d33' });
-      }
+      m.x += Math.cos(m.heading) * sp * dt;
+      m.y += Math.sin(m.heading) * sp * dt;
+      m.x = Math.max(m.r, Math.min(worldSize - m.r, m.x));
+      m.y = Math.max(m.r, Math.min(worldSize - m.r, m.y));
+      m.angle = m.heading;
     }
-    o.wobble = Math.max(0, o.wobble - dt * 5);
+    interact(m, dt, true);
   }
+  for(const o of objects) interact(o, dt, false);
 
   for(const p of particles){ p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 300 * dt; p.t += dt; }
   particles = particles.filter(p => p.t < 0.45);
   for(const f of floaters){ f.y -= 30 * dt; f.t += dt; }
-  floaters = floaters.filter(f => f.t < 0.8);
-
+  floaters = floaters.filter(f => f.t < 0.85);
   saveTimer += dt;
   if(saveTimer > 2){ saveTimer = 0; save(); }
 }
 
-function consume(o){
-  o.state = 'gone';
-  genSwallowed++; swallowedTotal++;
-  const wasLargest = o.isLargest;
-  hole.r = Math.sqrt(hole.r*hole.r + o.r*o.r * 0.6);
-  hole.pulse = 1;
-  if(wasLargest){ bigSound(); floaters.push({ x: hole.x, y: hole.y - hole.r - 14, text: '👑 最大を飲んだ！', t: 0, color: '#b8860b' }); }
-  else popSound();
-  const c = project(hole.x, hole.y);
-  for(let i = 0; i < 10; i++){
-    const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 110;
-    particles.push({ x: c.x + Math.cos(a)*hole.r*zoom*0.5, y: c.y + Math.sin(a)*hole.r*zoom*0.5,
-      vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 40, t: 0 });
+// ---------- 描画（2.5D：影・高さ・傾きで立体感を出す） ----------
+function drawObject(o){
+  if(o.state === 'gone') return;
+  const g = project(o.x, o.y);
+  if(g.x < -260 || g.x > W + 260 || g.y < -260 || g.y > H + 260) return;
+  const sR = o.r * zoom;
+  let lift = o.h * zoom * 0.55;
+  if(o.state === 'stacked'){
+    const b = objects.find(t => t.id === o.baseId);
+    if(b) lift += b.h * zoom * 0.55;
   }
-  floaters.push({ x: hole.x, y: hole.y - hole.r - 6, text: '+1', t: 0, color: '#222' });
-  updateHUD();
-  if(remaining() === 0 && !cleared){
-    cleared = true;
-    genStartMeters = holeMeters();       // 次世代はこの大きさから（物はさらに大きくなる）
-    save();
-    clearSound();
-    setTimeout(() => {
-      clearText.innerHTML = '穴は ' + genStartMeters.toFixed(1) + 'm まで大きくなった（通算 ' + swallowedTotal + ' 個）。<br>次の世代では、さらに大きな物が世界に現れるよ。';
-      overlay.classList.add('show');
-    }, 450);
+  if(o.state === 'dropping') lift += o.dropFrom * zoom * 0.55 * (1 - o.dropT) * (1 - o.dropT);
+  // 落下中は穴の中心へ寄りながら沈む
+  let bx = g.x, by = g.y - lift, scale = 1, rot = o.angle, sink = 0;
+  const hs = project(hole.x, hole.y);
+  if(o.state === 'teeter' || o.state === 'falling'){
+    const dirx = hs.x - g.x, diry = hs.y - g.y, dl = Math.hypot(dirx, diry) || 1;
+    const lean = o.state === 'falling' ? 1 : o.teeter;
+    bx += dirx / dl * sR * 0.38 * lean;
+    by += diry / dl * sR * 0.2 * lean;
+    rot += lean * 0.85 * (dirx >= 0 ? 1 : -1);
+    if(o.state === 'falling'){
+      bx = bx + (hs.x - bx) * o.fallT * 0.8;
+      by = by + (hs.y - by) * o.fallT * 0.8;
+      rot += o.fallT * 6 * (dirx >= 0 ? 1 : -1);
+      scale = Math.max(0.05, 1 - o.fallT * 0.9);
+      sink = o.fallT * sR * 0.5;
+    }
+  }
+  if(o.wobble > 0) rot += Math.sin(performance.now()/26 + o.seed) * 0.1 * o.wobble;
+  by += sink;
+  ctx.save();
+  // 影（地面）
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.beginPath(); ctx.ellipse(g.x, g.y, sR*0.92, sR*0.34, 0, 0, Math.PI*2); ctx.fill();
+  // 高さの側面（背が高い物ほど柱が見える）
+  if(lift > 3 && o.state !== 'falling'){
+    ctx.fillStyle = 'rgba(60,50,30,0.28)';
+    ctx.beginPath();
+    ctx.moveTo(g.x - sR*0.8, g.y);
+    ctx.lineTo(g.x + sR*0.8, g.y);
+    ctx.lineTo(bx + sR*0.8, by + lift*0.4);
+    ctx.lineTo(bx - sR*0.8, by + lift*0.4);
+    ctx.closePath(); ctx.fill();
+  }
+  // 状態リング（地面）
+  ctx.lineWidth = 3;
+  if(o.isLargest){ ctx.strokeStyle = '#e6a817'; ctx.setLineDash([10,7]); }
+  else if(isEdible(o) && o.state !== 'stacked'){ ctx.strokeStyle = 'rgba(46,160,80,0.5)'; ctx.setLineDash([]); }
+  else if(o.state === 'stacked'){ ctx.strokeStyle = 'rgba(120,120,120,0.4)'; ctx.setLineDash([3,6]); }
+  else { ctx.strokeStyle = 'rgba(215,50,50,0.7)'; ctx.setLineDash([7,6]); }
+  ctx.beginPath(); ctx.ellipse(g.x, g.y, sR + 5, (sR + 5) * 0.42, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+  // 本体
+  ctx.translate(bx, by); ctx.rotate(rot);
+  ctx.font = Math.min(640, sR * 2 * scale) + 'px serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(o.emoji, 0, 0);
+  ctx.restore();
+  if(o.isLargest && o.state !== 'falling'){
+    ctx.font = '24px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('👑', bx, by - sR - 12);
   }
 }
 
-// ---------- 描画 ----------
 function draw(){
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  ctx.fillStyle = '#ddd6c2'; ctx.fillRect(0, 0, W, H);
-  ctx.translate(W/2, H/2); ctx.scale(zoom, zoom); ctx.translate(-cam.x, -cam.y);
-
-  // 地面と世界の境界
-  ctx.fillStyle = '#f3efe4'; ctx.fillRect(0, 0, WORLD, WORLD);
-  ctx.fillStyle = 'rgba(0,0,0,0.05)';
-  for(let x = 60; x < WORLD; x += 120) for(let y = 60; y < WORLD; y += 120){
-    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#cfc8b2'; ctx.fillRect(0, 0, W, H);
+  const shx = shake ? (Math.random()-0.5) * 2 * shake : 0;
+  const shy = shake ? (Math.random()-0.5) * 2 * shake : 0;
+  ctx.save(); ctx.translate(shx, shy);
+  // 街（区画と道路）
+  const tl = project(0, 0), br = project(worldSize, worldSize);
+  ctx.fillStyle = '#ece5cf'; ctx.fillRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+  const street = worldSize / 8, roadW = street * 0.24;
+  ctx.fillStyle = '#b7b09c';
+  for(let i = 0; i <= 8; i++){
+    const p = project(i * street, i * street);
+    ctx.fillRect(p.x - roadW*zoom/2, tl.y, roadW * zoom, br.y - tl.y);
+    ctx.fillRect(tl.x, p.y - roadW*zoom/2, br.x - tl.x, roadW * zoom);
   }
-  ctx.strokeStyle = '#222'; ctx.lineWidth = 10 / zoom;
-  ctx.strokeRect(0, 0, WORLD, WORLD);
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 4;
+  ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
 
-  // 物
-  for(const o of objects){
-    if(o.state === 'gone') continue;
-    const scale = o.state === 'sucking' ? Math.max(0.05, 1 - o.suckT) : 1;
-    const r = o.r * scale;
-    const wob = o.wobble > 0 ? Math.sin(performance.now()/28) * 0.08 * o.wobble : 0;
-    ctx.save();
-    ctx.translate(o.x, o.y);
-    ctx.fillStyle = 'rgba(0,0,0,0.13)';
-    ctx.beginPath(); ctx.ellipse(0, r*0.72, r*0.85, r*0.28, 0, 0, Math.PI*2); ctx.fill();
-    ctx.lineWidth = Math.max(2.5, 3 / zoom);
-    if(o.isLargest){ ctx.strokeStyle = '#e6a817'; ctx.setLineDash([10,7]); }
-    else if(isEdible(o)){ ctx.strokeStyle = 'rgba(46,160,80,0.55)'; ctx.setLineDash([]); }
-    else { ctx.strokeStyle = 'rgba(215,50,50,0.75)'; ctx.setLineDash([7,6]); }
-    ctx.beginPath(); ctx.arc(0, 0, r + 6, 0, Math.PI*2); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.rotate(o.angle + wob + (o.state === 'sucking' ? o.suckT * 2.2 : 0));
-    ctx.font = (r * 2) + 'px serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(o.emoji, 0, 2);
-    ctx.restore();
-    if(o.isLargest){
-      ctx.font = (26 / zoom + 10) + 'px serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('👑', o.x, o.y - r - 20);
-    }
+  // 描画順：北（上）の物から
+  const all = objects.concat(movers).filter(o => o.state !== 'gone').sort((a, b) => a.y - b.y);
+  let holeDrawn = false;
+  for(const o of all){
+    if(!holeDrawn && o.y > hole.y){ drawHole(); holeDrawn = true; }
+    drawObject(o);
   }
+  if(!holeDrawn) drawHole();
 
-  // 目標ガイド矢印（画面外の「一番近い落とせる物」／最大が落とせる時は最大へ・金色）
+  // ガイド矢印
   const guide = guideTarget();
   if(guide){
     const gs = project(guide.x, guide.y);
-    const onScreen = gs.x > -40 && gs.x < W + 40 && gs.y > -40 && gs.y < H + 40;
-    if(!onScreen){
+    if(gs.x < -30 || gs.x > W + 30 || gs.y < -30 || gs.y > H + 30){
       const hs = project(hole.x, hole.y);
       const ang = Math.atan2(guide.y - hole.y, guide.x - hole.x);
-      const gr = hole.r * zoom + 26;
-      const ax = hs.x + Math.cos(ang) * gr, ay = hs.y + Math.sin(ang) * gr;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const gr = hole.r * zoom + 30;
       ctx.save();
-      ctx.translate(ax, ay); ctx.rotate(ang);
+      ctx.translate(hs.x + Math.cos(ang) * gr, hs.y + Math.sin(ang) * gr * 0.85); ctx.rotate(ang);
       ctx.fillStyle = guide.isLargest ? '#e6a817' : '#2ea050';
       ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill();
       ctx.restore();
-      ctx.translate(W/2, H/2); ctx.scale(zoom, zoom); ctx.translate(-cam.x, -cam.y);
     }
   }
-
-  // 穴
-  const pr = hole.r * (1 + hole.pulse * 0.09);
-  ctx.save();
-  ctx.translate(hole.x, hole.y);
-  ctx.strokeStyle = 'rgba(0,0,0,0.14)'; ctx.lineWidth = Math.max(2, 3 / zoom);
-  const ringPhase = (performance.now() % 900) / 900;
-  ctx.beginPath(); ctx.arc(0, 0, pr * (1.12 + ringPhase * 0.22), 0, Math.PI*2);
-  ctx.globalAlpha = 1 - ringPhase; ctx.stroke(); ctx.globalAlpha = 1;
-  ctx.fillStyle = 'rgba(0,0,0,0.18)';
-  ctx.beginPath(); ctx.ellipse(0, pr*0.16, pr*1.04, pr*0.96, 0, 0, Math.PI*2); ctx.fill();
-  const grad = ctx.createRadialGradient(0, 0, pr*0.1, 0, 0, pr);
-  grad.addColorStop(0, '#000'); grad.addColorStop(0.78, '#050505'); grad.addColorStop(1, '#2b2b2b');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = Math.max(2, 2.5 / zoom);
-  ctx.beginPath(); ctx.arc(0, 0, pr - 1.5, Math.PI * 1.05, Math.PI * 1.55); ctx.stroke();
   ctx.restore();
 
-  // スクリーン座標パス
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  // スクリーン座標：粒子とフローター
   ctx.fillStyle = '#222';
   for(const p of particles){
     ctx.globalAlpha = 1 - p.t / 0.45;
@@ -410,23 +525,42 @@ function draw(){
   ctx.globalAlpha = 1;
   for(const f of floaters){
     const s = project(f.x, f.y);
-    ctx.globalAlpha = 1 - f.t / 0.8;
+    ctx.globalAlpha = 1 - f.t / 0.85;
     ctx.fillStyle = f.color;
     ctx.font = '900 16px "Hiragino Maru Gothic ProN", system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(f.text, s.x, s.y);
   }
   ctx.globalAlpha = 1;
-
   drawMinimap();
   drawJoystick();
 }
 
+function drawHole(){
+  const hs = project(hole.x, hole.y);
+  const pr = hole.r * (1 + hole.pulse * 0.09) * zoom;
+  ctx.save(); ctx.translate(hs.x, hs.y);
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 3;
+  const ph = (performance.now() % 900) / 900;
+  ctx.globalAlpha = 1 - ph;
+  ctx.beginPath(); ctx.ellipse(0, 0, pr * (1.1 + ph * 0.22), pr * (1.1 + ph * 0.22) * 0.82, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(0,0,0,0.18)';
+  ctx.beginPath(); ctx.ellipse(0, pr*0.14, pr*1.05, pr*0.9, 0, 0, Math.PI*2); ctx.fill();
+  const grad = ctx.createRadialGradient(0, 0, pr*0.1, 0, 0, pr);
+  grad.addColorStop(0, '#000'); grad.addColorStop(0.78, '#050505'); grad.addColorStop(1, '#2b2b2b');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.ellipse(0, 0, pr, pr * 0.82, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(0, 0, pr - 1.5, (pr - 1.5) * 0.82, 0, Math.PI * 1.05, Math.PI * 1.5); ctx.stroke();
+  ctx.restore();
+}
+
 function guideTarget(){
-  if(largest && largest.state !== 'gone' && isEdible(largest)) return largest;
+  if(largest && largest.state !== 'gone' && largest.state !== 'stacked' && isEdible(largest)) return largest;
   let best = null, bestD = Infinity;
   for(const o of objects){
-    if(o.state === 'gone' || !isEdible(o)) continue;
+    if(o.state === 'gone' || o.state === 'stacked' || !isEdible(o)) continue;
     const d = Math.hypot(o.x - hole.x, o.y - hole.y);
     if(d < bestD){ bestD = d; best = o; }
   }
@@ -434,13 +568,12 @@ function guideTarget(){
 }
 
 function drawMinimap(){
-  const size = 92, x0 = 12, y0 = H - size - 12;
+  const size = 92, x0 = 12, y0 = H - size - 12, k = size / worldSize;
   ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,0.88)';
   ctx.strokeStyle = '#222'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.roundRect(x0, y0, size, size, 10); ctx.fill(); ctx.stroke();
   ctx.clip();
-  const k = size / WORLD;
   for(const o of objects){
     if(o.state === 'gone') continue;
     ctx.fillStyle = o.isLargest ? '#e6a817' : (isEdible(o) ? '#2ea050' : '#d33');
@@ -456,15 +589,11 @@ function drawMinimap(){
 function drawJoystick(){
   if(!joy) return;
   ctx.save();
-  ctx.globalAlpha = 0.35;
-  ctx.fillStyle = '#222';
+  ctx.globalAlpha = 0.35; ctx.fillStyle = '#222';
   ctx.beginPath(); ctx.arc(joy.ox, joy.oy, 46, 0, Math.PI*2); ctx.fill();
-  const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy);
-  const cl = Math.min(d, 46);
-  const kx = joy.ox + (d ? dx / d * cl : 0), ky = joy.oy + (d ? dy / d * cl : 0);
-  ctx.globalAlpha = 0.75;
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(kx, ky, 20, 0, Math.PI*2); ctx.fill();
+  const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy), cl = Math.min(d, 46);
+  ctx.globalAlpha = 0.75; ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(joy.ox + (d ? dx / d * cl : 0), joy.oy + (d ? dy / d * cl : 0), 20, 0, Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
@@ -476,7 +605,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 
-spawnGeneration(gen);
+spawnWave(gen);
 requestAnimationFrame(loop);
 </script>
 </body>
