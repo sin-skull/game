@@ -308,23 +308,25 @@ function makeShelf(S, x, z){
   return item;
 }
 
-function productMeshAndShape(ps){
+function productMeshAndShape(ps, maxW){
   const kindRoll = Math.random();
   const mat = new THREE.MeshStandardMaterial({ color: randColor(), roughness: 0.55 });
   let mesh, shape, boundR, h;
+  const lim = maxW || Infinity;
   if(kindRoll < 0.45){
-    const w = ps * (0.7 + Math.random() * 0.5), d = ps * (0.7 + Math.random() * 0.4);
+    const w = Math.min(ps * (0.7 + Math.random() * 0.5), lim);
+    const d = Math.min(ps * (0.7 + Math.random() * 0.4), lim);
     h = ps * (0.7 + Math.random() * 0.7);
     mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     shape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2));
     boundR = Math.hypot(w, d) / 2 * 0.85;
   } else if(kindRoll < 0.8){
-    const r = ps * 0.34; h = ps * 0.95;
+    const r = Math.min(ps * 0.34, lim / 2); h = ps * 0.95;
     mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 14), mat);
     shape = new CANNON.Box(new CANNON.Vec3(r, h/2, r));
     boundR = r * 1.15;
   } else {
-    const r = ps * 0.42; h = r * 2;
+    const r = Math.min(ps * 0.42, lim / 2); h = r * 2;
     mesh = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), mat);
     shape = new CANNON.Sphere(r);
     boundR = r;
@@ -333,10 +335,9 @@ function productMeshAndShape(ps){
   return { mesh, shape, boundR, h };
 }
 
-function makeProduct(S, shelf, boardY){
+function makeProduct(S, shelf, boardY, lx, maxW){
   const ps = S * (0.5 + Math.random() * 0.55);
-  const { mesh, shape, boundR, h } = productMeshAndShape(ps);
-  const lx = (Math.random() - 0.5) * (shelf.L - S * 2);
+  const { mesh, shape, boundR, h } = productMeshAndShape(ps, maxW);
   const lz = (Math.random() - 0.5) * (shelf.D * 0.45);
   const wx = shelf.body.position.x + lx, wz = shelf.body.position.z + lz;
   const wy = boardY + shelf.S * 0.08 + h / 2 + 0.02;
@@ -354,29 +355,50 @@ function makeProduct(S, shelf, boardY){
 function stockShelf(sh){
   for(const by of sh.boardYs){
     const n = 6 + Math.floor(Math.random() * 3);
-    for(let i = 0; i < n; i++) makeProduct(sh.S, sh, by);
+    const usable = sh.L - sh.S * 2;
+    const slotW = usable / n;
+    for(let i = 0; i < n; i++){
+      // スロット割りで置く（ランダム配置の重なり＝有効化時の跳ね上がりを防ぐ）
+      const lx = -usable / 2 + slotW * (i + 0.5) + (Math.random() - 0.5) * slotW * 0.25;
+      makeProduct(sh.S, sh, by, lx, slotW * 0.92);
+    }
   }
 }
 
 // 物の山：小物を積んだパイル。穴が差し掛かると一斉に物理化して崩れる
+// スロット（格子）で置くので物同士は重ならない＝有効化しても跳ね上がらない
+function pileSlots(S, pile){
+  const slots = [];
+  const cell = S * 1.15;
+  [3, 2, 1].forEach((g, layer) => {
+    for(let i = 0; i < g; i++) for(let j = 0; j < g; j++){
+      slots.push({ x: pile.x + (i - (g - 1) / 2) * cell, z: pile.z + (j - (g - 1) / 2) * cell, layer });
+    }
+  });
+  return slots;
+}
 function makePileItem(S, pile){
+  if(!pile.slots) pile.slots = pileSlots(S, pile);
   const n = pile.count++;
-  const s = S * (0.55 + ((n * 37) % 10) / 10 * 0.3);
-  const layer = Math.floor(n / 7);
-  const ringR = pile.baseR * (0.2 + 0.6 * (((n * 53) % 10) / 10)) * Math.max(0.35, 1 - layer * 0.2);
-  const ang = n * 2.399;
-  const x = pile.x + Math.cos(ang) * ringR;
-  const z = pile.z + Math.sin(ang) * ringR;
-  const { mesh, shape, boundR, h } = productMeshAndShape(s);
-  const wy = h / 2 + 0.02 + layer * s * 0.8;
-  mesh.position.set(x, wy, z);
-  mesh.rotation.y = (n * 1.7) % Math.PI;
+  const slot = pile.slots[n % pile.slots.length];
+  const stack = Math.floor(n / pile.slots.length);
+  const s = S * (0.55 + ((n * 37) % 10) / 10 * 0.25);   // ≤ S*0.8 < セル幅 S*1.15
+  const wy = s / 2 + 0.01 + slot.layer * S * 0.85 + stack * S * 0.85;
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(s, s, s),
+    new THREE.MeshStandardMaterial({ color: randColor(), roughness: 0.55 })
+  );
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  const rotY = ((n % 5) - 2) * 0.12;
+  mesh.position.set(slot.x, wy, slot.z);
+  mesh.rotation.y = rotY;
   scene.add(mesh);
   const body = staticBody();
-  body.addShape(shape);
-  body.position.set(x, wy, z);
-  body.quaternion.setFromEuler(0, mesh.rotation.y, 0);
+  body.addShape(new CANNON.Box(new CANNON.Vec3(s / 2, s / 2, s / 2)));
+  body.position.set(slot.x, wy, slot.z);
+  body.quaternion.setFromEuler(0, rotY, 0);
   world.addBody(body);
+  const boundR = s * 0.62;
   const item = { mesh, body, kind: 'product', boundR, emoji: '🥫', gone: false, active: false,
                  mass0: Math.max(0.05, boundR * boundR * 6), shelf: null, pile };
   items.push(item);
@@ -618,9 +640,9 @@ function buildStore(no){
       if(Math.hypot(x - p.x, z - p.z) < baseR * 2 + S * 2){ bad = true; break; }
     }
     if(bad) continue;
-    const pile = { x, z, baseR, count: 0 };
+    const pile = { x, z, baseR, count: 0, slots: null };
     piles.push(pile);
-    for(let i = 0; i < 16; i++) makePileItem(S, pile);
+    for(let i = 0; i < 14; i++) makePileItem(S, pile);
   }
   tileTs = 0; tileAnchorX = null;
   layoutFloor(true);
@@ -723,6 +745,17 @@ function animate(){
   floorUniforms.uHoleRadius.value = holeR * 0.995;
 
   layoutFloor(false);
+  // 穴の近くで眠っている動的物を起こす。
+  // 眠ったままでは、穴が真下に来て支えの床が消えても落下しないため
+  for(const it of items){
+    if(it.gone || !it.active) continue;
+    const b = it.body;
+    if(b.sleepState !== 2) continue;
+    const dx = b.position.x - holePos.x, dz = b.position.z - holePos.z;
+    const reach = it.kind === 'shelf' ? it.L / 2 : it.boundR;
+    const rr = holeR + reach + 0.9;
+    if(dx * dx + dz * dz < rr * rr) b.wakeUp();
+  }
   activationScan();
   world.step(1/60, dt, 3);
   checkFalls();
