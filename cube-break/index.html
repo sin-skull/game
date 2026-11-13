@@ -40,17 +40,6 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 .float{position:absolute;font-weight:900;font-size:18px;color:#fff;text-shadow:2px 2px 0 #000;animation:floatUp .8s forwards}
 .float.crit{font-size:24px;background:#fff;color:#000;padding:1px 5px;text-shadow:none}
 @keyframes floatUp{to{transform:translateY(-46px);opacity:0}}
-#cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px;background:#0d0d0d;border-top:2px solid #fff}
-.card{border:2px solid #555;background:#181818;padding:8px 6px;text-align:left;display:flex;flex-direction:column;gap:3px;min-height:108px}
-.card .icon{font-size:22px;line-height:1;height:26px}
-.card .name{font-size:13px}
-.card .desc{font-size:11px;color:#bbb;font-weight:600;flex:1;line-height:1.35}
-.card .cost{font-size:12px;background:#fff;color:#000;padding:4px;text-align:center}
-.card:disabled .cost{background:#444;color:#aaa}
-.card.tier1{border-color:#888;background:#222}
-.card.tier2{border-color:#fff;border-width:3px;background:#2a2a2a}
-.card.tier3{background:#fff;color:#000}.card.tier3 .desc{color:#333}.card.tier3 .cost{background:#000;color:#fff}
-.card.tier4{background:#000;border-color:#fff;box-shadow:inset 0 0 0 3px #555;color:#fff}.card.tier4 .cost{background:#fff;color:#000}
 /* overlay panels */
 .overlay{position:absolute;inset:0;background:#000;z-index:20;display:none;flex-direction:column}
 .overlay.open{display:flex}
@@ -74,7 +63,11 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 .smallnote{font-size:11px;color:#888;font-weight:600;text-align:center;padding:6px}
 .shake{animation:shk .09s infinite}
 @keyframes shk{25%{transform:translate(1px,-1px)}75%{transform:translate(-1px,1px)}}
-@media (max-height:600px){.card{min-height:92px}.coin{font-size:21px}}
+.ptbox{text-align:center;font-size:20px;line-height:1}
+.ptbox small{font-size:11px;color:var(--gray);display:block;letter-spacing:.12em}
+.secTitle{font-size:13px;letter-spacing:.14em;color:#ddd;border-bottom:1px solid #333;padding-bottom:4px;margin-top:6px}
+#baseList,#skillList,#permList{display:flex;flex-direction:column;gap:8px}
+@media (max-height:600px){.coin{font-size:21px}}
 </style>
 </head>
 <body>
@@ -82,6 +75,7 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
 <header>
   <div class="coinrow">
     <div class="coin"><small>COIN</small><span id="coin">0</span></div>
+    <div class="ptbox"><small>累計破壊</small><span id="totalBroken">0</span></div>
     <div class="stagebox">STAGE <b id="stageNum">1</b><br><span id="cubeSize" style="color:#aaa;font-size:11px">3×3×3</span></div>
   </div>
   <div class="progresswrap">
@@ -90,27 +84,30 @@ canvas{width:100%;height:100%;display:block;touch-action:none}
   </div>
 </header>
 <div class="topbtns">
-  <button id="skillBtn">◆ スキル</button>
+  <button id="skillBtn">◆ 強化・スキル</button>
   <button id="resetBtn">初期化</button>
 </div>
-<div id="comboArea"><span>COMBO <span id="combo">0</span></span><span id="comboBonus" style="color:#aaa">コイン +0%</span><span id="holdState" style="color:#fff"></span></div>
+<div id="comboArea"><span>COMBO <span id="combo">0</span></span><span id="comboBonus" style="color:#aaa">コイン +0枚/個</span><span id="holdState" style="color:#fff"></span></div>
 <div id="stageWrap">
   <canvas id="cv"></canvas>
   <div id="floatLayer"></div>
-  <div class="hint">タップ：掘る ／ スワイプ：上下左右に回転</div>
+  <div class="hint">タップ：掘る ／ スワイプ：回転 ／ コアは最後の1個になってから掘れる</div>
   <div class="rotbtns"><button id="rotL" aria-label="左回転">◀</button><button id="rotR" aria-label="右回転">▶</button><button id="rotU" aria-label="上回転">▲</button><button id="rotD" aria-label="下回転">▼</button></div>
-</div>
-<div id="cards">
-  <button class="card" id="cardPick"><span class="icon" id="pickIcon">⛏</span><span class="name">ツルハシ Lv<span id="pickLv">1</span></span><span class="desc">1タップ <b id="pickDmg">1</b> ダメージ</span><span class="cost" id="pickCost">15</span></button>
-  <button class="card" id="cardDrill"><span class="icon">▚</span><span class="name">自動ドリル Lv<span id="drillLv">0</span></span><span class="desc">毎秒 <b id="drillDmg">0</b> ダメージ。対象は外側に近い順に自動選択</span><span class="cost" id="drillCost">50</span></button>
-  <button class="card" id="cardIncome"><span class="icon">◈</span><span class="name">収入 Lv<span id="incomeLv">1</span></span><span class="desc">コイン倍率 ×<b id="incomeMult">1.0</b></span><span class="cost" id="incomeCost">30</span></button>
 </div>
 
 <!-- SKILL PANEL -->
 <div class="overlay" id="skillPanel">
-  <header><h2>スキル</h2><button id="skillClose" style="padding:6px 14px">閉じる ✕</button></header>
-  <div class="smallnote">累計破壊数で開放。各スキル Lv5 まで強化できる。</div>
-  <div class="skilllist" id="skillList"></div>
+  <header><h2>強化・スキル</h2><button id="skillClose" style="padding:6px 14px">閉じる ✕</button></header>
+  <div class="smallnote">スキルは累計破壊数で解放され、Lv1は無料で手に入る。Lv2以降の強化と基礎体力はコインで買う。スキル強化費は「解放される頃のステージを全破壊した収入の約1/4」をLv2の基準にし、レベルが上がるごとの上昇率（×1.5）はステージ収入自体の伸びと同じにしてある。</div>
+  <div class="smallnote" id="unlockNote" style="color:#fff"></div>
+  <div class="skilllist">
+    <div class="secTitle">基礎体力（強化）</div>
+    <div id="baseList"></div>
+    <div class="secTitle">スキル（Lv1は達成度で解放）</div>
+    <div id="skillList"></div>
+    <div class="secTitle">永久スキル</div>
+    <div id="permList"></div>
+  </div>
 </div>
 
 <!-- RESULT -->
@@ -193,14 +190,16 @@ function newCube(st){
 }
 function defaultState(){
   var st=1,c=newCube(st);
-  return {coins:0,stage:st,pickLv:1,drillLv:0,incomeLv:1,
+  return {coins:0,stage:st,pickLv:1,drillLv:0,drillSpdLv:0,incomeLv:1,
     skArea:0,skCrit:0,skDrillPlus:0,skHold:0,totalBroken:0,
-    rot:0,yaw:0,pitch:0,ori:[[0,1],[2,1],[1,1]],cube:c,stageStart:Date.now(),stageBroken:0};
+    rot:0,yaw:0,pitch:0,ori:[[0,1],[2,1],[1,1]],cube:c,stageStart:Date.now(),stageBroken:0,totalClears:0,permAuto:false};
 }
-function save(){ try{ var dead=[],hps=[],imps=[]; for(var bi=0;bi<S.cube.blocks.length;bi++){ var b=S.cube.blocks[bi]; dead.push(b.alive?0:1); hps.push(b.hp);
-    if(!b.net){ imps.push(''); } else { var parts=[]; for(var fk in b.net.centers){ var cc=b.net.centers[fk]; parts.push(FACES.indexOf(fk)+':'+Math.round(cc[0]*999)+','+Math.round(cc[1]*999)); } imps.push(parts.join('|')); } }
-  var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.yaw,yaw:S.yaw,pitch:S.pitch,ori:[S.ori[0][0],S.ori[0][1],S.ori[1][0],S.ori[1][1],S.ori[2][0],S.ori[2][1]],stageStart:S.stageStart,stageBroken:S.stageBroken,
-  dead:dead, hps:hps, imp:imps};
+function save(){ try{ var dead=[],hps=[]; for(var bi=0;bi<S.cube.blocks.length;bi++){ var b=S.cube.blocks[bi]; dead.push(b.alive?0:1); hps.push(b.hp); }
+  // No crack data is saved at all: crack patterns are centre-based and
+  // regenerate deterministically from the stage + block + face seed, so
+  // only each block's remaining HP is needed to reproduce them exactly.
+  var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,dspd:S.drillSpdLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.yaw,yaw:S.yaw,pitch:S.pitch,ori:[S.ori[0][0],S.ori[0][1],S.ori[1][0],S.ori[1][1],S.ori[2][0],S.ori[2][1]],stageStart:S.stageStart,stageBroken:S.stageBroken,clears:S.totalClears,perm:S.permAuto?1:0,
+  dead:dead, hps:hps};
   localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){} }
 // High-frequency paths (every tap / drill tick) must not serialize the whole
 // cube to localStorage each time — that was a major source of jank. They mark
@@ -214,27 +213,27 @@ window.addEventListener('pagehide',flushSave);
 function load(){
   try{ var raw=localStorage.getItem(KEY); if(!raw) return null;
     var c=JSON.parse(raw); var st=defaultState(); st.stage=c.stage||1; st.cube=newCube(st.stage);
-    st.coins=c.coins||0; st.pickLv=c.pickLv||1; st.drillLv=c.drillLv||0; st.incomeLv=c.incomeLv||1;
+    st.coins=c.coins||0; st.pickLv=c.pickLv||1; st.drillLv=c.drillLv||0; st.drillSpdLv=c.dspd||0; st.incomeLv=c.incomeLv||1;
     st.skArea=c.skArea||0; st.skCrit=c.skCrit||0; st.skDrillPlus=c.skDrillPlus||0; st.skHold=c.skHold||0;
     st.totalBroken=c.totalBroken||0; st.stageStart=c.stageStart||Date.now(); st.stageBroken=c.stageBroken||0;
+    // Lifetime clears: old saves have no counter, so seed it from the
+    // current stage (stage N means N-1 stages were cleared to reach it).
+    st.totalClears=(c.clears!=null?c.clears:Math.max(0,st.stage-1)); st.permAuto=!!c.perm;
     // Orientation: new saves carry the full 3-axis orientation matrix; old
     // saves only had yaw (rot), so rebuild the matrix from it.
     if(c.ori&&c.ori.length===6){ var po=[[c.ori[0],c.ori[1]],[c.ori[2],c.ori[3]],[c.ori[4],c.ori[5]]]; if(validOri(po)){ st.ori=po; st.yaw=c.yaw||0; st.pitch=c.pitch||0; } }
     else { st.ori=oriFromYaw(c.rot||0); st.yaw=c.rot||0; st.pitch=0; }
     st.rot=st.yaw;
     if(c.dead&&c.dead.length===st.cube.blocks.length){ st.cube.blocks.forEach(function(b,i){ if(c.dead[i]){b.alive=false;b.hp=0;} else if(c.hps) b.hp=c.hps[i]; }); }
-    if(c.imp&&c.imp.length===st.cube.blocks.length){ st.cube.blocks.forEach(function(b,i){ var s=c.imp[i]; if(!s) return; var net=ensureNet(b); s.split('|').forEach(function(en){ var kv=en.split(':'); var fi=parseInt(kv[0],10); var xy=(kv[1]||'').split(','); if(FACES[fi]&&xy.length===2) net.centers[FACES[fi]]=[parseInt(xy[0],10)/999,parseInt(xy[1],10)/999]; }); }); }
-    // Regenerate the crack networks for every restored face: genFaceNet is
-    // seeded deterministically (stage + block coords + face), so the rebuilt
-    // network (cracks + chip/peel fx) is identical to the pre-save one and
-    // damaged blocks reopen with their cracks already drawn.
-    // genFaceNet reads S.stage for its seed, so point S at the restored
-    // state first (the caller assigns the same object right after).
+    // Old saves may carry per-face impact-point data (c.imp): it is
+    // ignored on purpose. Cracks are centre-based now and regenerate
+    // deterministically from the stage + block + face seed at draw time,
+    // so any block restored with hp below max reopens showing exactly
+    // the same crack pattern as before the save.
     S=st;
-    st.cube.blocks.forEach(function(b){ if(b.net){ for(var fk in b.net.centers){ genFaceNet(b,fk); } } });
     // if core already dead in save (cleared but not advanced), advance
     var core=st.cube.blocks.find(function(b){return b.core;});
-    if(core&&!core.alive){ var ns=st.stage+1; var keep={coins:st.coins,pickLv:st.pickLv,drillLv:st.drillLv,incomeLv:st.incomeLv,skArea:st.skArea,skCrit:st.skCrit,skDrillPlus:st.skDrillPlus,skHold:st.skHold,totalBroken:st.totalBroken};
+    if(core&&!core.alive){ var ns=st.stage+1; var keep={coins:st.coins,pickLv:st.pickLv,drillLv:st.drillLv,drillSpdLv:st.drillSpdLv,incomeLv:st.incomeLv,skArea:st.skArea,skCrit:st.skCrit,skDrillPlus:st.skDrillPlus,skHold:st.skHold,totalBroken:st.totalBroken,totalClears:st.totalClears,permAuto:st.permAuto};
       st.stage=ns; st.cube=newCube(ns); st.stageStart=Date.now(); st.stageBroken=0; Object.assign(st,keep); }
     return st;
   }catch(e){ return null; }
@@ -245,13 +244,53 @@ function pickCost(){ return Math.round(15*Math.pow(1.15,S.pickLv-1)); }
 function drillCost(){ return Math.round(50*Math.pow(1.15,S.drillLv)); }
 function incomeCost(){ return Math.round(30*Math.pow(1.12,S.incomeLv-1)); }
 function incomeMult(){ return 1+(S.incomeLv-1)*0.5; }
+function drillSpdCost(){ return Math.round(40*Math.pow(1.15,S.drillSpdLv)); }
+function drillInterval(){ return Math.max(120,Math.round(1000*Math.pow(0.9,S.drillSpdLv))); }
 var SKILLS=[
- {key:'skArea', name:'範囲破壊', unlock:100, base:500, desc:function(lv){return '開放条件：累計100個破壊。ツルハシで壊した時、その時のツルハシダメージの '+(50+Math.max(0,lv-1)*10)+'% を隣の露出ブロックにも与える（ツルハシ強化に連動して上昇・連鎖なし）。';}},
- {key:'skCrit', name:'クリティカル', unlock:300, base:1200, desc:function(lv){return '開放条件：累計300個破壊。タップ時 '+(lv===0?'10':(10+(lv-1)*5))+'% でダメージ×5。';}},
- {key:'skDrillPlus', name:'ドリル増設', unlock:800, base:5000, desc:function(lv){return '開放条件：累計800個破壊。ドリルの同時攻撃数が 1→'+(1+lv)+' になる。';}},
- {key:'skHold', name:'長押しツルハシ', unlock:1500, base:30000, desc:function(lv){return '開放条件：累計1,500個破壊。長押し中、自動で掘り続ける。間隔 Lv1:0.25秒 → Lv5:0.10秒。対象が壊れたら、外側に近い順（深さ→残HP割合→直前の破壊位置からの近さ）で次の対象を自動選択して継続。';}}
+ {key:'skArea', name:'範囲破壊', unlock:100, base:600, desc:function(lv){return '開放条件：累計100個破壊でLv1を無料解放（解放目安：ステージ3）。ツルハシで壊した時、その時のツルハシダメージの '+(50+Math.max(0,lv-1)*10)+'% を隣の露出ブロックにも与える（ツルハシ強化に連動して上昇・連鎖なし）。第2層より奥のブロックには効かない。';}},
+ {key:'skCrit', name:'クリティカル', unlock:300, base:1500, desc:function(lv){return '開放条件：累計300個破壊（解放目安：ステージ4）。タップ時 '+(lv===0?'10':(10+(lv-1)*5))+'% でダメージ×5。';}},
+ {key:'skDrillPlus', name:'ドリル増設', unlock:800, base:5500, desc:function(lv){return '開放条件：累計800個破壊（解放目安：ステージ6）。ドリルの同時攻撃数が 1→'+(1+lv)+' になる。';}},
+ {key:'skHold', name:'長押しツルハシ', unlock:1500, base:13500, desc:function(lv){return '開放条件：累計1,500個破壊（解放目安：ステージ8）。長押し中、自動で掘り続ける。間隔 Lv1:0.25秒 → Lv5:0.10秒。対象が壊れたら、外側に近い順（深さ→残HP割合→直前の破壊位置からの近さ）で次の対象を自動選択して継続。';}}
 ];
-function skillCost(sk){ var lv=S[sk.key]; return Math.round(sk.base*Math.pow(2.2,lv)); }
+// Skill economy: Lv1 is granted free once the lifetime destroyed count
+// reaches the skill's unlock threshold (achievement). Lv2-5 are bought
+// with coins, exactly like the base upgrade cards.
+// BALANCE (stage-income based): because the core is sealed until every
+// block is destroyed, cumulative block counts at stage boundaries are
+// fixed (27/91/216/432/775/1118/1461/1804), so each skill unlocks in a
+// known stage, and one full clear of that stage pays (block coins +
+// clear bonus, before income multiplier):
+//   area      unlocks in stage 3, clear income ≈ 2,368  -> Lv2 = 600
+//   crit      unlocks in stage 4, clear income ≈ 5,900  -> Lv2 = 1,500
+//   drillPlus unlocks in stage 6, clear income ≈ 22,235 -> Lv2 = 5,500
+//   hold      unlocks in stage 8, clear income ≈ 53,445 -> Lv2 = 13,500
+// Each Lv2 price is ~1/4 of one clear at its unlock stage. Prices then
+// grow x1.5 per level — the same rate stage income itself grows
+// (stageMult x1.5/stage) — so maxing a skill (Lv2-5) costs about two
+// clears' worth of income spread over the richer stages that follow,
+// instead of the old flat guesses (hold was 30,000 for Lv2 alone,
+// ~56% of a whole stage-8 clear, 243,750 to max ≈ 4.6 clears).
+function skillCost(sk){ var lv=S[sk.key]; if(lv<1) return 0; return Math.round(sk.base*Math.pow(1.5,lv-1)); }
+// On achievement-unlock, the player is also granted coins equal to the
+// Lv1->Lv2 upgrade cost, i.e. exactly enough for one immediate level-up.
+var unlockMsgs=[];
+function grantUnlocks(fromBlock){
+  SKILLS.forEach(function(sk){
+    if(S[sk.key]===0&&S.totalBroken>=sk.unlock){
+      S[sk.key]=1;
+      var bonus=skillCost(sk);
+      S.coins+=bonus;
+      var msg=sk.name+'解放！ 解放ボーナス +'+fmt(bonus)+' コイン';
+      unlockMsgs.push(msg);
+      if(fromBlock) floatText(fromBlock,msg,true);
+    }
+  });
+  var un=document.getElementById('unlockNote');
+  if(un) un.textContent=unlockMsgs.join(' ／ ');
+}
+// Permanent skill: unlocked at 100 lifetime stage clears. No levels, no cost.
+var PERM_UNLOCK=100;
+function permUnlocked(){ return S.totalClears>=PERM_UNLOCK; }
 function holdInterval(){ var t=[0,0.25,0.2125,0.175,0.1375,0.10]; return t[S.skHold]||0.25; }
 function critChance(){ return S.skCrit<=0?0:(0.10+(S.skCrit-1)*0.05); }
 // ---------- audio ----------
@@ -259,15 +298,17 @@ var AC=null;
 function beep(f,d,type){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); var o=AC.createOscillator(),g=AC.createGain(); o.type=type||'square'; o.frequency.value=f; g.gain.setValueAtTime(0.06,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+(d||0.06)); o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+(d||0.06)); }catch(e){} }
 // ---------- combo ----------
 var combo=0,lastTap=0,comboTimer=null;
-function comboBonusPct(){ return Math.min(100,Math.floor(combo/10)*10); }
-function registerTap(){
+function comboCoinAdd(){ return Math.min(10,Math.floor(combo/10)); }
+function addCombo(bumpIt){
   var now=performance.now();
   combo++; lastTap=now;
-  var el=document.getElementById('combo'); el.textContent=combo; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
-  document.getElementById('comboBonus').textContent='コイン +'+comboBonusPct()+'%';
+  var el=document.getElementById('combo'); el.textContent=combo;
+  if(bumpIt){ el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  document.getElementById('comboBonus').textContent='コイン +'+comboCoinAdd()+'枚/個';
   if(comboTimer)clearInterval(comboTimer);
-  comboTimer=setInterval(function(){ if(performance.now()-lastTap>1200){ combo=0; document.getElementById('combo').textContent='0'; document.getElementById('comboBonus').textContent='コイン +0%'; clearInterval(comboTimer);} },200);
+  comboTimer=setInterval(function(){ if(performance.now()-lastTap>1200){ combo=0; document.getElementById('combo').textContent='0'; document.getElementById('comboBonus').textContent='コイン +0枚/個'; clearInterval(comboTimer);} },200);
 }
+function registerTap(){ addCombo(true); }
 // ---------- cube logic ----------
 function blockAt(x,y,z){ var c=S.cube; if(x<0||y<0||z<0||x>=c.N||y>=c.N||z>=c.N) return null; return c.blocks[y*c.N*c.N+z*c.N+x]; }
 function isExposed(b){ if(!b.alive) return false; var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
@@ -281,7 +322,8 @@ var drillTargets=[];
 function manhattan(a,b){ return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)+Math.abs(a.z-b.z); }
 function autoTargets(count,ref){
   var r=ref||lastBrokenPos;
-  var exposed=S.cube.blocks.filter(function(b){ return b.alive&&isExposed(b); });
+  var coreOk=remaining()<=1;
+  var exposed=S.cube.blocks.filter(function(b){ return b.alive&&isExposed(b)&&(!b.core||coreOk); });
   exposed.sort(function(a,b){
     if(a.depth!==b.depth) return a.depth-b.depth;
     var ra=a.hp/a.maxHp, rb=b.hp/b.maxHp;
@@ -295,11 +337,13 @@ var particles=[];
 function spawnParticles(b){ var p=projBlock(b); if(!p) return; for(var i=0;i<10;i++){ particles.push({x:p.cx,y:p.cy,vx:(Math.random()-0.5)*3.2,vy:-Math.random()*3-1,life:1,s:4+Math.random()*6,g:i%2?'#fff':'#999'}); } }
 function floatText(b,text,crit){ var p=projBlock(b); if(!p) return; var layer=document.getElementById('floatLayer'); var d=document.createElement('div'); d.className='float'+(crit?' crit':''); d.textContent=text; d.style.left=(p.cx-14)+'px'; d.style.top=(p.cy-26)+'px'; layer.appendChild(d); setTimeout(function(){d.remove();},850); }
 var stageCleared=false;
+var coreLocked=true;
 function destroyBlock(b,byTap,hitDmg,src){
   b.alive=false; b.hp=0; S.totalBroken++; S.stageBroken++;
   lastBrokenPos={x:b.x,y:b.y,z:b.z};
-  var gain=b.coin*incomeMult()*(1+comboBonusPct()/100);
-  gain=Math.round(gain); S.coins+=gain;
+  grantUnlocks(b);
+  var gain=Math.round(b.coin*incomeMult())+comboCoinAdd();
+  S.coins+=gain;
   spawnParticles(b); spawnShards(b); if(byTap) floatText(b,'+'+fmt(gain),false);
   beep(b.core?520:880,0.08);
   // area splash: fires only when a pickaxe hit (tap / hold, both go through
@@ -310,17 +354,22 @@ function destroyBlock(b,byTap,hitDmg,src){
   if(S.skArea>0 && src==='tap'){
     var ratio=(50+(S.skArea-1)*10)/100; var dmg=(hitDmg!=null?hitDmg:S.pickLv)*ratio;
     var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&isExposed(n)){ damageBlock(n,dmg,false,false,null,'splash'); } });
+    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&n.depth===0&&isExposed(n)){ damageBlock(n,dmg,false,false,null,'splash'); } });
   }
-  if(b.core && !stageCleared){ stageCleared=true; setTimeout(showResult,450); }
+  if(b.core && !stageCleared){ stageCleared=true; setTimeout(afterClear,450); }
   // HUD refresh + save are left to the top-level caller (tapDamage / drill
   // tick), which runs them once per action instead of once per broken block
   // (splash chains included).
 }
 function damageBlock(b,dmg,isTap,isCrit,impact,src){
   if(!b||!b.alive||stageCleared) return false;
+  // The core is sealed until every other block in the stage is destroyed:
+  // digging straight to it no longer clears the stage early.
+  if(b.core&&remaining()>1) return false;
+  // The impact point now only positions the dust particles (hit feel);
+  // the crack pattern itself is centre-based and tap-position independent.
   var imp=impact||autoImpact(b);
-  setHit(b,imp);
+  setHit(b);
   b.animT=performance.now();
   spawnDust(b,imp);
   b.hp-=dmg;
@@ -328,6 +377,7 @@ function damageBlock(b,dmg,isTap,isCrit,impact,src){
   return false;
 }
 function tapDamage(b,impact){
+  if(b.core&&remaining()>1){ floatText(b,'コアは全ブロック破壊後',false); beep(140,0.05); return; }
   registerTap();
   var crit=S.skCrit>0 && Math.random()<critChance();
   var dmg=S.pickLv*(crit?5:1);
@@ -337,14 +387,20 @@ function tapDamage(b,impact){
   draw(); updateHUD(); saveSoon();
 }
 // ---------- realistic crack system ----------
-// One crack network per block, generated ONCE (seeded by stage + block coords)
-// the first time a face is hit, then only *revealed* further as HP drops.
-// The network lives on physical cube faces; view rotation picks which faces show.
-function ensureNet(b){ if(b.net) return b.net; b.net={segs:{top:[],xp:[],xm:[],zp:[],zm:[],ym:[]},gen:{},centers:{},fx:{}}; return b.net; }
+// One crack network per block and face, generated ONCE from a seed
+// (stage + block coords + face) and always radiating from the CENTRE of
+// the face — never from the tap position, so the same block always shows
+// the same pattern no matter where it was hit. The pattern is only
+// *revealed* further as HP drops (chip ~90% HP, edge-reaching branches
+// ~45%, mesh + corner chipping ~30%, deep cracks + peeling ~15%).
+// Each face's network is self-contained (branches stop at the edges);
+// view rotation picks which physical faces show.
+function ensureNet(b){ if(b.net) return b.net; b.net={segs:{top:[],xp:[],xm:[],zp:[],zm:[],ym:[]},gen:{},fx:{}}; return b.net; }
 function recordPt(map,f,u,v,t,br){ if(!map[f]) map[f]=[]; map[f].push({u:u,v:v,t:t,br:br}); }
-// Walk one jagged branch in face-local coords, continuing across edges onto
-// neighbouring faces. The crossing is resolved in 3D through the face frames
-// (FR), so branches now continue onto every neighbour, including the bottom.
+// Walk one jagged branch in face-local coords, starting from the face
+// centre. Each branch is contained within its own face: when it reaches
+// an edge it ends there (no continuation onto neighbouring faces), which
+// keeps generation per-face, deterministic and cheap.
 function walkBranch(b,f0,u0,v0,ang,totalLen,t0,wScale,brId,allPts,rng){
   var net=b.net;
   var f=f0, cu=u0, cv=v0;
@@ -363,35 +419,20 @@ function walkBranch(b,f0,u0,v0,ang,totalLen,t0,wScale,brId,allPts,rng){
     var nu=cu+du*stepLen, nv=cv+dv*stepLen;
     dist+=stepLen;
     t=t0+(dist/totalLen)*(1-t0); if(t>1)t=1;
-    var alive=true, guard=0;
-    while((nu<0||nu>1||nv<0||nv>1)&&guard<5){
-      guard++;
-      var side, s;
-      if(nu>1){ side='r'; s=(1-cu)/((nu-cu)||1e-9); }
-      else if(nu<0){ side='l'; s=(0-cu)/((nu-cu)||1e-9); }
-      else if(nv<0){ side='t'; s=(0-cv)/((nv-cv)||1e-9); }
-      else { side='b'; s=(1-cv)/((nv-cv)||1e-9); }
+    if(nu<0||nu>1||nv<0||nv>1){
+      // Stop at the exact edge crossing point and end the branch there.
+      var s=1;
+      if(nu>1) s=Math.min(s,(1-cu)/((nu-cu)||1e-9));
+      else if(nu<0) s=Math.min(s,(0-cu)/((nu-cu)||1e-9));
+      if(nv>1) s=Math.min(s,(1-cv)/((nv-cv)||1e-9));
+      else if(nv<0) s=Math.min(s,(0-cv)/((nv-cv)||1e-9));
       s=Math.max(0,Math.min(1,s));
-      var eu=cu+(nu-cu)*s, ev=cv+(nv-cv)*s;
-      if(side==='r') eu=1; else if(side==='l') eu=0; else if(side==='t') ev=0; else ev=1;
+      var eu=Math.max(0,Math.min(1,cu+(nu-cu)*s)), ev=Math.max(0,Math.min(1,cv+(nv-cv)*s));
       var et=t0+((dist-stepLen+stepLen*s)/totalLen)*(1-t0); if(et>1)et=1;
       curSeg.pts.push([eu,ev,et]); recordPt(allPts,f,eu,ev,et,brId);
-      var fr=FR[f], cax, csign;
-      if(side==='r'){ cax=fr.u[0]; csign=fr.u[1]; }
-      else if(side==='l'){ cax=fr.u[0]; csign=-fr.u[1]; }
-      else if(side==='t'){ cax=fr.v[0]; csign=-fr.v[1]; }
-      else { cax=fr.v[0]; csign=fr.v[1]; }
-      var g=FACE_BY_NORMAL[cax+':'+csign];
-      if(!g){ alive=false; break; }
-      var pExit=facePoint3(f,eu,ev), pNext=facePoint3(f,nu,nv), d3=faceDir3(f,du,dv);
-      var euv=faceUV(g,pExit), nuv=faceUV(g,pNext), duv=faceDirUV(g,d3);
-      var dl=Math.hypot(duv[0],duv[1])||1; du=duv[0]/dl; dv=duv[1]/dl;
-      f=g; cu=euv[0]; cv=euv[1]; nu=nuv[0]; nv=nuv[1];
-      curSeg={pts:[[cu,cv,et]], w:wScale};
-      net.segs[f].push(curSeg);
+      break;
     }
-    if(!alive) break;
-    cu=Math.max(0,Math.min(1,nu)); cv=Math.max(0,Math.min(1,nv));
+    cu=nu; cv=nv;
     curSeg.pts.push([cu,cv,t]); recordPt(allPts,f,cu,cv,t,brId);
     if(rng()<0.30) waypoints.push({f:f,u:cu,v:cv,ang:Math.atan2(dv,du),t:t});
   }
@@ -401,8 +442,11 @@ function genFaceNet(b,face){
   var net=b.net; if(!net||net.gen[face]) return; net.gen[face]=1;
   var fi=FACES.indexOf(face);
   var rng=mulberry(hashN(S.stage*31+fi*131+7, b.x+101, b.y+211, b.z+307));
-  var ctr=net.centers[face]||[0.5,0.5];
-  // per-face seeded fx: corner chip triangle, peeling patch, impact specks
+  // Cracks always radiate from the centre of the face: the pattern is a
+  // pure function of stage + block coords + face, never of where the
+  // block happened to be tapped, so every hit shows the same pattern.
+  var ctr=[0.5,0.5];
+  // per-face seeded fx: corner chip triangle, peeling patch, centre specks
   var corner=Math.floor(rng()*4);
   var cc=[[0,0],[1,0],[1,1],[0,1]][corner];
   var sxn=cc[0]===0?1:-1, syn=cc[1]===0?1:-1;
@@ -440,10 +484,13 @@ function genFaceNet(b,face){
     }
   });
 }
-function setHit(b,imp){
-  var net=ensureNet(b);
-  if(!net.centers[imp.face]) net.centers[imp.face]=[imp.cu,imp.cv];
-  genFaceNet(b,imp.face);
+function setHit(b){
+  // A hit only marks the block as damaged. The crack pattern is
+  // centre-based and fully determined by the stage + block + face seed,
+  // so it is generated lazily at draw time for whichever faces are
+  // visible — the tap position never affects it, and nothing about the
+  // pattern needs to be stored or saved.
+  ensureNet(b);
 }
 // Auto attacks (drill / hold / splash): impact near a face centre, jittered per hit
 function autoImpact(b){
@@ -544,9 +591,8 @@ function drawFaceFx(b,viewFace,sx,sy,p){
   function poly(list){ ctx.beginPath(); list.forEach(function(q,i){ var s=SP(q[0],q[1]); if(i===0) ctx.moveTo(s[0],s[1]); else ctx.lineTo(s[0],s[1]); }); ctx.closePath(); }
   if(p>=0.85&&fx.peel){ poly(fx.peel); ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.30)'; ctx.lineWidth=1; ctx.stroke(); }
   if(p>=0.7&&fx.chipTri){ poly(fx.chipTri); ctx.fillStyle='#000'; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1; ctx.stroke(); }
-  var ctr=net.centers[face];
-  if(ctr&&p>=0.04&&fx.dots){
-    var cp=SP(ctr[0],ctr[1]);
+  if(p>=0.04&&fx.dots){
+    var cp=SP(0.5,0.5); // specks gather at the face centre, like the cracks
     ctx.globalAlpha=0.45+0.55*Math.min(1,p*2);
     for(var i=0;i<fx.dots.length;i++){ var d=fx.dots[i]; ctx.fillStyle=d[3]?'#fff':'#bbb'; ctx.fillRect(cp[0]+d[0]*view.tw, cp[1]+d[1]*view.tw, d[2], d[2]); }
     ctx.globalAlpha=1;
@@ -622,6 +668,7 @@ function draw(){
   var tw=Math.min((W*0.92)/N, (H*0.86)/(N*0.5+N)); tw=Math.max(16,tw);
   view.tw=tw; view.th=tw/2; view.W=W; view.H=H;
   physMemo={};
+  coreLocked=remaining()>1;
   // Compute the projected bounds with the origin at 0, then offset to centre.
   view.ox=0; view.oy=0;
   var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
@@ -654,15 +701,19 @@ function drawBlock(b,invert,pat){
   drawFace(left,cLeft,pat,false); drawFace(right,cRight,pat,false); drawFace(top,cTop,pat,true);
   // ---- growing crack network (same network, revealed further as HP drops) ----
   var dmgP=b.maxHp>0?1-b.hp/b.maxHp:0;
-  if(b.net&&dmgP>0.02){
-    for(var fk2 in b.net.centers){ if(!b.net.gen[fk2]) genFaceNet(b,fk2); }
+  if(dmgP>0.02){
+    // Generate (once) the centre-based pattern for each visible face.
+    // This also restores cracks after a reload: a block saved with
+    // hp < maxHp regenerates the identical seeded pattern here.
+    var net2=ensureNet(b);
+    ['left','right','top'].forEach(function(vf){ var pf2=physFaceOf(vf); if(!net2.gen[pf2]) genFaceNet(b,pf2); });
     if(dmgP>=0.55){ ctx.fillStyle='rgba(0,0,0,'+Math.min(0.22,(dmgP-0.55)*0.5).toFixed(3)+')'; fillPolyPts(left); fillPolyPts(right); fillPolyPts(top); }
     var crackLight=b.core||invert;
     drawFaceFx(b,'left',sx,sy,dmgP); drawFaceFx(b,'right',sx,sy,dmgP); drawFaceFx(b,'top',sx,sy,dmgP);
     drawFaceCracks(b,'left',sx,sy,crackLight); drawFaceCracks(b,'right',sx,sy,crackLight); drawFaceCracks(b,'top',sx,sy,crackLight);
   }
-  if(b.core){ ctx.fillStyle='#fff'; ctx.save(); ctx.translate(sx,sy-th/2); ctx.rotate(Math.PI/4); var cs=tw*0.16; ctx.fillRect(-cs/2,-cs/2+th*0.4,cs,cs); ctx.restore();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.strokeRect(sx-tw*0.3,sy-th*0.15,tw*0.6,th*0.9); }
+  if(b.core){ ctx.fillStyle=coreLocked?'#666':'#fff'; ctx.save(); ctx.translate(sx,sy-th/2); ctx.rotate(Math.PI/4); var cs=tw*0.16; ctx.fillRect(-cs/2,-cs/2+th*0.4,cs,cs); ctx.restore();
+    ctx.strokeStyle=coreLocked?'#666':'#fff'; ctx.lineWidth=1.5; ctx.strokeRect(sx-tw*0.3,sy-th*0.15,tw*0.6,th*0.9); }
   var ratio=b.hp/b.maxHp;
   var blinkOn=Math.floor(Date.now()/350)%2===0;
   var isDrillTarget=drillTargets.indexOf(b)>=0;
@@ -765,17 +816,22 @@ document.getElementById('game').addEventListener('touchstart',function(e){ if(e.
 var lastTapEnd=0;
 cv.addEventListener('touchend',function(e){ var now=Date.now(); if(now-lastTapEnd<350) e.preventDefault(); lastTapEnd=now; },{passive:false});
 // ---------- drill ----------
-setInterval(function(){
-  if(S.drillLv<=0||stageCleared){ drillTargets=[]; return; }
-  // Auto-select targets outside-first: depth -> HP ratio -> closest to last destroyed.
-  // With the drill-expansion skill, take the top N of that ranking without duplication.
-  var picked=autoTargets(1+S.skDrillPlus,lastBrokenPos);
-  if(!picked.length){ drillTargets=[]; return; }
-  drillTargets=picked.slice();
-  picked.forEach(function(t){ if(t.alive) damageBlock(t,S.drillLv,false,false,null,'drill'); });
-  drillTargets=drillTargets.filter(function(t){return t.alive;});
-  draw(); updateHUD(); saveSoon();
-},1000);
+// Tick interval is driven by the drill speed level (drillInterval()); each
+// drill hit also feeds the combo, so an idle drill keeps the combo (and
+// its coin bonus) alive just like tapping does.
+function drillTick(){
+  if(S.drillLv>0&&!stageCleared){
+    // Auto-select targets outside-first: depth -> HP ratio -> closest to last destroyed.
+    // With the drill-expansion skill, take the top N of that ranking without duplication.
+    var picked=autoTargets(1+S.skDrillPlus,lastBrokenPos);
+    drillTargets=picked.slice();
+    picked.forEach(function(t){ if(t.alive){ addCombo(false); damageBlock(t,S.drillLv,false,false,null,'drill'); } });
+    drillTargets=drillTargets.filter(function(t){return t.alive;});
+    if(picked.length){ draw(); updateHUD(); saveSoon(); }
+  } else { drillTargets=[]; }
+  setTimeout(drillTick, drillInterval());
+}
+setTimeout(drillTick, drillInterval());
 // Particle / highlight anim loop. A full redraw is only needed while
 // particles fly, a hit-sink animation runs, the hold pickaxe is active, or
 // the drill-target blink actually flips phase (~every 350ms) — previously
@@ -803,20 +859,7 @@ function updateHUD(){
   var rem=remaining(); document.getElementById('remain').textContent=rem;
   var pct=S.cube.total?Math.round((S.cube.total-rem)/S.cube.total*100):100;
   document.getElementById('pct').textContent=pct+'%'; document.getElementById('barFill').style.width=pct+'%';
-  document.getElementById('pickLv').textContent=S.pickLv; document.getElementById('pickDmg').textContent=S.pickLv;
-  document.getElementById('pickCost').textContent=fmt(pickCost())+' コイン';
-  document.getElementById('drillLv').textContent=S.drillLv; document.getElementById('drillDmg').textContent=S.drillLv;
-  document.getElementById('drillCost').textContent=fmt(drillCost())+' コイン';
-  document.getElementById('incomeLv').textContent=S.incomeLv; document.getElementById('incomeMult').textContent=incomeMult().toFixed(1);
-  document.getElementById('incomeCost').textContent=fmt(incomeCost())+' コイン';
-  document.getElementById('cardPick').disabled=S.coins<pickCost();
-  document.getElementById('cardDrill').disabled=S.coins<drillCost();
-  document.getElementById('cardIncome').disabled=S.coins<incomeCost();
-  var tier=function(lv){return 'card tier'+Math.min(4,Math.floor((lv-1)/5));};
-  document.getElementById('cardPick').className=tier(Math.max(1,S.pickLv));
-  document.getElementById('cardDrill').className=tier(Math.max(1,S.drillLv));
-  document.getElementById('cardIncome').className=tier(Math.max(1,S.incomeLv));
-  document.getElementById('pickIcon').textContent=['⛏','⛏','⚒','⚒','⛏'][Math.min(4,Math.floor((S.pickLv-1)/5))]||'⛏';
+  document.getElementById('totalBroken').textContent=fmt(S.totalBroken);
   // Rebuilding the whole skill list DOM on every HUD refresh (every tap,
   // every drill tick) was pure waste while the panel is closed; it is
   // rendered on open and after skill purchases instead.
@@ -824,11 +867,47 @@ function updateHUD(){
 }
 // ---------- upgrades ----------
 function buy(cost,fn){ if(S.coins<cost) return; S.coins-=cost; fn(); beep(980,0.07); updateHUD(); draw(); save(); }
-document.getElementById('cardPick').addEventListener('click',function(){ buy(pickCost(),function(){S.pickLv++;}); });
-document.getElementById('cardDrill').addEventListener('click',function(){ buy(drillCost(),function(){S.drillLv++;}); });
-document.getElementById('cardIncome').addEventListener('click',function(){ buy(incomeCost(),function(){S.incomeLv++;}); });
+// ---------- base upgrades (former bottom cards, now inside the panel) ----------
+var BASE=[
+ {key:'pick', name:'⛏ ツルハシ', lv:function(){return S.pickLv;}, max:0, cost:function(){return pickCost();}, desc:function(){return '1タップ '+S.pickLv+' ダメージ';}, apply:function(){S.pickLv++;}},
+ {key:'drill', name:'▚ 自動ドリル｜ダメージ', lv:function(){return S.drillLv;}, max:0, cost:function(){return drillCost();}, desc:function(){return '自動で外側に近いブロックを攻撃。1ヒット '+S.drillLv+' ダメージ。ドリルのヒットもコンボに加算され、コンボのコインボーナスが乗る。対象は外側に近い順に自動選択。';}, apply:function(){S.drillLv++;}},
+ {key:'drillSpd', name:'▚ 自動ドリル｜速度', lv:function(){return S.drillSpdLv;}, max:20, cost:function(){return drillSpdCost();}, desc:function(){return 'ドリルの攻撃間隔が短くなる。現在 '+(drillInterval()/1000).toFixed(2)+' 秒に1ヒット（'+(1000/drillInterval()).toFixed(1)+' ヒット/秒）。';}, apply:function(){S.drillSpdLv++;}},
+ {key:'income', name:'◈ 収入', lv:function(){return S.incomeLv;}, max:0, cost:function(){return incomeCost();}, desc:function(){return 'コイン倍率 ×'+incomeMult().toFixed(1);}, apply:function(){S.incomeLv++;}}
+];
+function renderBase(){
+  var bl=document.getElementById('baseList'); if(!bl) return;
+  bl.innerHTML='';
+  BASE.forEach(function(u,idx){
+    var lv=u.lv(); var maxed=u.max>0&&lv>=u.max;
+    var div=document.createElement('div'); div.className='skill';
+    var btnHtml=maxed?'<button disabled>MAX</button>':'<button data-base="'+idx+'">強化 '+fmt(u.cost())+' コイン</button>';
+    div.innerHTML='<h3>'+u.name+'</h3><p>'+u.desc()+'</p><div class="row"><span class="lvDots">Lv'+lv+'</span>'+btnHtml+'</div>';
+    bl.appendChild(div);
+  });
+  bl.querySelectorAll('button[data-base]').forEach(function(btn){
+    var u=BASE[parseInt(btn.dataset.base,10)];
+    btn.disabled=S.coins<u.cost();
+    btn.addEventListener('click',function(){ buy(u.cost(),function(){ u.apply(); }); renderSkills(); });
+  });
+}
 // ---------- skills UI ----------
+function renderPerm(){
+  var pl=document.getElementById('permList'); if(!pl) return;
+  pl.innerHTML='';
+  var div=document.createElement('div'); div.className='skill'+(permUnlocked()?'':' locked');
+  var btnHtml;
+  if(!permUnlocked()) btnHtml='<button disabled>🔒 クリア '+fmt(S.totalClears)+' / '+PERM_UNLOCK+' 回</button>';
+  else btnHtml='<button id="permToggle">'+(S.permAuto?'ON':'OFF')+'</button>';
+  div.innerHTML='<h3>'+(permUnlocked()?'':'🔒 ')+'リザルトなし＆コンボ継続</h3><p>解放条件：累計'+PERM_UNLOCK+'回クリア。ONの間、ステージクリア時にリザルト画面を出さず、そのまま次のキューブへ進み、コンボもリセットされない。</p><div class="row"><span class="lvDots">永久スキル</span>'+btnHtml+'</div>';
+  pl.appendChild(div);
+  var tg=document.getElementById('permToggle');
+  if(tg) tg.addEventListener('click',function(){ S.permAuto=!S.permAuto; beep(S.permAuto?980:520,0.06); save(); renderSkills(); });
+}
 function renderSkills(){
+  renderBase();
+  renderPerm();
+  var un=document.getElementById('unlockNote');
+  if(un) un.textContent=unlockMsgs.join(' ／ ');
   var list=document.getElementById('skillList'); if(!list) return;
   list.innerHTML='';
   SKILLS.forEach(function(sk){
@@ -838,7 +917,8 @@ function renderSkills(){
     var btnHtml;
     if(!unlocked) btnHtml='<button disabled>🔒 '+fmt(S.totalBroken)+' / '+fmt(sk.unlock)+'</button>';
     else if(maxed) btnHtml='<button disabled>MAX</button>';
-    else btnHtml='<button data-sk="'+sk.key+'">強化 '+fmt(skillCost(sk))+'</button>';
+    else if(lv===0) btnHtml='<button data-sk="'+sk.key+'">取得（無料）</button>';
+    else btnHtml='<button data-sk="'+sk.key+'">強化 '+fmt(skillCost(sk))+' コイン</button>';
     div.innerHTML='<h3>'+(unlocked?'':'🔒 ')+sk.name+'</h3><p>'+sk.desc(lv)+'</p><div class="row"><span class="lvDots">'+dots+' Lv'+lv+'</span>'+btnHtml+'</div>';
     list.appendChild(div);
   });
@@ -850,6 +930,22 @@ function renderSkills(){
 document.getElementById('skillBtn').addEventListener('click',function(){ renderSkills(); document.getElementById('skillPanel').classList.add('open'); });
 document.getElementById('skillClose').addEventListener('click',function(){ document.getElementById('skillPanel').classList.remove('open'); });
 // ---------- result ----------
+// Advance to the next cube. keepCombo=true (permanent skill ON) carries
+// the combo count and its expiry timer across the stage change untouched.
+function advanceStage(keepCombo){
+  S.stage++; S.cube=newCube(S.stage); S.stageStart=Date.now(); S.stageBroken=0; S.ori=[[0,1],[2,1],[1,1]]; S.yaw=0; S.pitch=0; S.rot=0; stageCleared=false; drillTargets=[]; lastBrokenPos=null;
+  if(!keepCombo){ combo=0; document.getElementById('combo').textContent='0'; document.getElementById('comboBonus').textContent='コイン +0枚/個'; }
+  updateHUD(); draw(); save();
+}
+function afterClear(){
+  S.totalClears++;
+  if(permUnlocked()&&S.permAuto){
+    // No result screen, but the stage-clear bonus is still paid out.
+    S.coins+=Math.round((100*S.stage + S.cube.total*2)*stageMult(S.stage)*incomeMult());
+    advanceStage(true); beep(660,0.1);
+  }
+  else showResult();
+}
 function showResult(){
   var elapsed=Math.max(0,Math.floor((Date.now()-S.stageStart)/1000));
   var mm=Math.floor(elapsed/60),ss=(''+(elapsed%60)).padStart(2,'0');
@@ -863,9 +959,7 @@ function showResult(){
 }
 document.getElementById('resultOk').addEventListener('click',function(){
   document.getElementById('resultPanel').classList.remove('open');
-  S.stage++; S.cube=newCube(S.stage); S.stageStart=Date.now(); S.stageBroken=0; S.ori=[[0,1],[2,1],[1,1]]; S.yaw=0; S.pitch=0; S.rot=0; stageCleared=false; combo=0; drillTargets=[]; lastBrokenPos=null;
-  document.getElementById('combo').textContent='0';
-  updateHUD(); draw(); save(); beep(660,0.1);
+  advanceStage(false); beep(660,0.1);
 });
 // ---------- reset ----------
 document.getElementById('resetBtn').addEventListener('click',function(){ document.getElementById('resetPanel').classList.add('open'); });
@@ -873,6 +967,7 @@ document.getElementById('resetNo').addEventListener('click',function(){ document
 document.getElementById('resetYes').addEventListener('click',function(){ try{localStorage.removeItem(KEY);}catch(e){} S=defaultState(); stageCleared=false; drillTargets=[]; lastBrokenPos=null; if(hold.active) stopHold(); document.getElementById('resetPanel').classList.remove('open'); updateHUD(); draw(); save(); });
 // ---------- init ----------
 window.addEventListener('resize',draw);
+grantUnlocks();
 updateHUD(); draw();
 setTimeout(draw,80);
 })();
