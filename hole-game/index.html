@@ -163,6 +163,7 @@ let combo = 0, lastConsumeAt = -10, nowSec = 0;
 let shake = 0;
 let floaters = [];
 let camPos = new THREE.Vector3(0, 10, 12);
+let smoothDist = 12;
 let saveTimer = 0, crashCooldown = 0;
 
 const PALETTE = [0xe74c3c, 0xf39c12, 0x27ae60, 0x2980b9, 0x8e44ad, 0xe67e22, 0x16a085, 0xecf0f1, 0xf1c40f, 0xd35400];
@@ -427,6 +428,7 @@ function buildStore(no){
   holeBody.position.set(0, holeR * 0.2, storeD * 0.32);
   holeBody.velocity.set(0,0,0);
   camPos.set(0, 10, storeD * 0.32 + 12);
+  smoothDist = Math.max(9, holeR * 10);
   updateHUD();
 }
 
@@ -596,8 +598,15 @@ function animate(){
     }
   }
 
-  // カメラ
-  const dist = Math.max(9, Math.min(95, holeR * 10));
+  // カメラ（距離に上限を付けない：穴がどれだけ巨大化しても画面を埋めない）
+  const distWanted = Math.max(9, holeR * 10);
+  // 引くときは速く、寄せるときはゆっくり（成長の瞬間に穴が画面を埋めるのを防ぐ）
+  smoothDist += (distWanted - smoothDist) * Math.min(1, dt * (distWanted > smoothDist ? 10 : 3.5));
+  const dist = smoothDist;
+  camera.far = Math.max(500, dist * 12);
+  camera.updateProjectionMatrix();
+  scene.fog.near = dist * 2.4;
+  scene.fog.far = dist * 7;
   const shx = shake ? (Math.random() - 0.5) * shake * 0.14 : 0;
   const shy = shake ? (Math.random() - 0.5) * shake * 0.1 : 0;
   shake = Math.max(0, shake - dt * 26);
@@ -605,7 +614,7 @@ function animate(){
     holeBody.position.x + shx, 0, holeBody.position.z + shy
   );
   const desired = new THREE.Vector3(target.x, dist * 0.92, target.z + dist * 0.82);
-  camPos.lerp(desired, Math.min(1, dt * 4));
+  camPos.lerp(desired, Math.min(1, dt * (distWanted > smoothDist ? 10 : 4)));
   camera.position.copy(camPos);
   camera.lookAt(target.x, 0, target.z - dist * 0.12);
   sun.position.set(target.x + dist * 0.7, dist * 1.5, target.z + dist * 0.4);
