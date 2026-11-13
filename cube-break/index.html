@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="color-scheme" content="dark"/>
+<link rel="icon" href="data:,"/>
+<title>キューブ破壊インクリメンタル</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#000;--panel:#111;--panel2:#1c1c1c;--line:#333;--white:#fff;--gray:#aaa;--mid:#666}
+html,body{height:100%;margin:0;background:#050505;color:#fff;font-family:"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;font-weight:700;overflow:hidden}
+button{font-family:inherit;font-weight:800;color:#fff;background:#222;border:2px solid #444;border-radius:0;min-height:44px;cursor:pointer}
+button:active{transform:translateY(2px)}
+button:disabled{opacity:.38;cursor:not-allowed}
+#wrap{height:100dvh;display:flex;align-items:center;justify-content:center;background:#000}
+#game{width:min(100vw,56.25dvh);height:min(177.78vw,100dvh);aspect-ratio:9/16;display:flex;flex-direction:column;background:#000;border-left:1px solid #222;border-right:1px solid #222;position:relative;overflow:hidden}
+header{padding:8px 10px 6px;border-bottom:2px solid #fff}
+.coinrow{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.coin{font-size:26px;letter-spacing:.02em;line-height:1}
+.coin small{font-size:12px;color:var(--gray);display:block;letter-spacing:.14em}
+.stagebox{text-align:right;font-size:13px;line-height:1.2}
+.stagebox b{font-size:20px}
+.progresswrap{margin-top:8px}
+.progressmeta{display:flex;justify-content:space-between;font-size:12px;color:#ddd}
+.bar{height:12px;border:2px solid #fff;background:#111;margin-top:4px}
+.bar i{display:block;height:100%;background:#fff;width:0%}
+.topbtns{display:flex;gap:6px;padding:7px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.topbtns button{flex:1;padding:6px 4px;font-size:12px;white-space:nowrap}
+.topbtns .test{background:#fff;color:#000;border-color:#fff}
+#comboArea{height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#0a0a0a;border-bottom:1px solid #222;font-size:13px}
+#combo{font-size:18px}
+#combo.bump{animation:bump .15s}
+@keyframes bump{50%{transform:scale(1.18)}}
+#stageWrap{flex:1;position:relative;min-height:0;background:#000;overflow:hidden}
+canvas{width:100%;height:100%;display:block;touch-action:none}
+.hint{position:absolute;left:8px;bottom:10px;font-size:11px;color:#888;pointer-events:none;font-weight:600;max-width:calc(100% - 118px);line-height:1.4}
+.rotbtns{position:absolute;right:8px;bottom:6px;display:flex;gap:6px}
+.rotbtns button{min-height:40px;width:44px;font-size:20px;background:#111}
+#floatLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.float{position:absolute;font-weight:900;font-size:18px;color:#fff;text-shadow:2px 2px 0 #000;animation:floatUp .8s forwards}
+.float.crit{font-size:24px;background:#fff;color:#000;padding:1px 5px;text-shadow:none}
+@keyframes floatUp{to{transform:translateY(-46px);opacity:0}}
+#cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px;background:#0d0d0d;border-top:2px solid #fff}
+.card{border:2px solid #555;background:#181818;padding:8px 6px;text-align:left;display:flex;flex-direction:column;gap:3px;min-height:108px}
+.card .icon{font-size:22px;line-height:1;height:26px}
+.card .name{font-size:13px}
+.card .desc{font-size:11px;color:#bbb;font-weight:600;flex:1;line-height:1.35}
+.card .cost{font-size:12px;background:#fff;color:#000;padding:4px;text-align:center}
+.card:disabled .cost{background:#444;color:#aaa}
+.card.tier1{border-color:#888;background:#222}
+.card.tier2{border-color:#fff;border-width:3px;background:#2a2a2a}
+.card.tier3{background:#fff;color:#000}.card.tier3 .desc{color:#333}.card.tier3 .cost{background:#000;color:#fff}
+.card.tier4{background:#000;border-color:#fff;box-shadow:inset 0 0 0 3px #555;color:#fff}.card.tier4 .cost{background:#fff;color:#000}
+/* overlay panels */
+.overlay{position:absolute;inset:0;background:#000;z-index:20;display:none;flex-direction:column}
+.overlay.open{display:flex}
+.overlay header{display:flex;justify-content:space-between;align-items:center}
+.overlay h2{margin:0;font-size:20px;letter-spacing:.08em}
+.skilllist{overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
+.skill{border:2px solid #555;background:#161616;padding:10px}
+.skill.locked{opacity:.65;border-style:dashed}
+.skill h3{margin:0 0 4px;font-size:15px}
+.skill p{margin:0 0 8px;font-size:12px;color:#bbb;line-height:1.5;font-weight:600}
+.skill .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.skill button{padding:6px 10px;font-size:13px;background:#fff;color:#000;border-color:#fff;flex-shrink:0}
+.skill button:disabled{background:#333;color:#888;border-color:#333}
+.lvDots{font-size:13px;letter-spacing:2px}
+.resultBody{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center}
+.resultBody .big{font-size:34px;letter-spacing:.1em;border:3px solid #fff;padding:10px 18px}
+.resultBody table{font-size:16px;border-collapse:collapse}
+.resultBody td{padding:6px 14px;border-bottom:1px solid #333;text-align:left}
+.resultBody td:last-child{text-align:right}
+.resultBody .ok{width:70%;font-size:18px;background:#fff;color:#000;border-color:#fff;padding:12px}
+.smallnote{font-size:11px;color:#888;font-weight:600;text-align:center;padding:6px}
+.shake{animation:shk .09s infinite}
+@keyframes shk{25%{transform:translate(1px,-1px)}75%{transform:translate(-1px,1px)}}
+@media (max-height:600px){.card{min-height:92px}.coin{font-size:21px}}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="game">
+<header>
+  <div class="coinrow">
+    <div class="coin"><small>COIN</small><span id="coin">0</span></div>
+    <div class="stagebox">STAGE <b id="stageNum">1</b><br><span id="cubeSize" style="color:#aaa;font-size:11px">3×3×3</span></div>
+  </div>
+  <div class="progresswrap">
+    <div class="progressmeta"><span>残り <b id="remain">27</b> ブロック</span><span>掘削率 <b id="pct">0%</b></span></div>
+    <div class="bar"><i id="barFill"></i></div>
+  </div>
+</header>
+<div class="topbtns">
+  <button id="skillBtn">◆ スキル</button>
+  <button class="test" id="testBtn">+100000</button>
+  <button id="resetBtn">初期化</button>
+</div>
+<div id="comboArea"><span>COMBO <span id="combo">0</span></span><span id="comboBonus" style="color:#aaa">コイン +0%</span><span id="holdState" style="color:#fff"></span></div>
+<div id="stageWrap">
+  <canvas id="cv"></canvas>
+  <div id="floatLayer"></div>
+  <div class="hint">タップ：掘る ／ スワイプ：回転</div>
+  <div class="rotbtns"><button id="rotL" aria-label="左回転">◀</button><button id="rotR" aria-label="右回転">▶</button></div>
+</div>
+<div id="cards">
+  <button class="card" id="cardPick"><span class="icon" id="pickIcon">⛏</span><span class="name">ツルハシ Lv<span id="pickLv">1</span></span><span class="desc">1タップ <b id="pickDmg">1</b> ダメージ</span><span class="cost" id="pickCost">15</span></button>
+  <button class="card" id="cardDrill"><span class="icon">▚</span><span class="name">自動ドリル Lv<span id="drillLv">0</span></span><span class="desc">毎秒 <b id="drillDmg">0</b> ダメージ。対象は外側に近い順に自動選択</span><span class="cost" id="drillCost">50</span></button>
+  <button class="card" id="cardIncome"><span class="icon">◈</span><span class="name">収入 Lv<span id="incomeLv">1</span></span><span class="desc">コイン倍率 ×<b id="incomeMult">1.0</b></span><span class="cost" id="incomeCost">30</span></button>
+</div>
+
+<!-- SKILL PANEL -->
+<div class="overlay" id="skillPanel">
+  <header><h2>スキル</h2><button id="skillClose" style="padding:6px 14px">閉じる ✕</button></header>
+  <div class="smallnote">累計破壊数で開放。各スキル Lv5 まで強化できる。</div>
+  <div class="skilllist" id="skillList"></div>
+</div>
+
+<!-- RESULT -->
+<div class="overlay" id="resultPanel">
+  <div class="resultBody">
+    <div class="big">STAGE CLEAR!</div>
+    <table>
+      <tr><td>クリアタイム</td><td id="rTime">0:00</td></tr>
+      <tr><td>破壊数</td><td id="rBroken">0</td></tr>
+      <tr><td>クリアボーナス</td><td id="rBonus">0</td></tr>
+      <tr><td>次ステージ</td><td id="rNext">2</td></tr>
+    </table>
+    <button class="ok" id="resultOk">OK ― 次のキューブへ</button>
+  </div>
+</div>
+
+<!-- RESET CONFIRM -->
+<div class="overlay" id="resetPanel">
+  <div class="resultBody">
+    <div class="big" style="font-size:24px">データ初期化</div>
+    <p style="color:#bbb;font-size:14px;line-height:1.6">コイン・強化・スキル・ステージ・<br>キューブの状態をすべて消します。<br>よろしいですか？</p>
+    <button class="ok" id="resetYes" style="background:#000;color:#fff;border-color:#fff">初期化する</button>
+    <button class="ok" id="resetNo">キャンセル</button>
+  </div>
+</div>
+
+</div></div>
+<script>
+(function(){
+"use strict";
+var KEY='cube-break-save-v1';
+// ---------- helpers ----------
+function fmt(n){ n=Math.floor(n); if(n>=1e9) return (n/1e9).toFixed(2)+'B'; if(n>=1e6) return (n/1e6).toFixed(2)+'M'; if(n>=1e5) return n.toLocaleString('en-US'); return ''+n; }
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+// ---------- deterministic RNG (crack networks) ----------
+function hashN(a,b,c,d){ var h=2166136261>>>0; var arr=[a,b,c,d]; for(var i=0;i<4;i++){ h^=((arr[i]|0)+0x9e3779b9); h=Math.imul(h,16777619); h^=h>>>13; } return h>>>0; }
+function mulberry(seed){ var t=seed>>>0; return function(){ t=(t+0x6D2B79F5)>>>0; var r=Math.imul(t^(t>>>15),1|t); r^=(r+Math.imul(r^(r>>>7),61|r))>>>0; return ((r^(r>>>14))>>>0)/4294967296; }; }
+// Physical cube faces cracks live on: top + 4 sides (bottom is never visible)
+var FACES=['top','xp','xm','zp','zm'];
+// Affine maps taking a point that exits one face onto the neighbouring face.
+// side keys: r = cu>1, l = cu<0, t = cv<0 (cv>1 is the bottom face -> crack ends)
+var AFF={
+ 'top:r':['xp',function(u,v){return [v,u-1];}],
+ 'top:l':['xm',function(u,v){return [v,-u];}],
+ 'top:t':['zm',function(u,v){return [u,-v];}],
+ 'xp:r':['zp',function(u,v){return [2-u,v];}],
+ 'xp:l':['zm',function(u,v){return [1+u,v];}],
+ 'xp:t':['top',function(u,v){return [1+v,u];}],
+ 'xm:r':['zp',function(u,v){return [u-1,v];}],
+ 'xm:l':['zm',function(u,v){return [-u,v];}],
+ 'xm:t':['top',function(u,v){return [-v,u];}],
+ 'zp:r':['xp',function(u,v){return [2-u,v];}],
+ 'zp:l':['xm',function(u,v){return [1+u,v];}],
+ 'zp:t':['top',function(u,v){return [u,1+v];}],
+ 'zm:r':['xp',function(u,v){return [u-1,v];}],
+ 'zm:l':['xm',function(u,v){return [-u,v];}],
+ 'zm:t':['top',function(u,v){return [u,-v];}]
+};
+// ---------- state ----------
+var S=null;
+function sizeForStage(st){ return st<=1?3: st===2?4: st===3?5: st===4?6:7; }
+function stageMult(st){ return Math.pow(1.5, st-1); }
+function depthStats(d){
+  var t=[[3,2],[10,6],[25,18],[60,45],[120,95],[220,180]];
+  return t[Math.min(d,t.length-1)];
+}
+function newCube(st){
+  var N=sizeForStage(st), blocks=[],total=N*N*N;
+  var cx=Math.floor(N/2),cy=Math.floor(N/2),cz=Math.floor(N/2);
+  for(var y=0;y<N;y++)for(var z=0;z<N;z++)for(var x=0;x<N;x++){
+    var depth=Math.min(x,N-1-x,y,N-1-y,z,N-1-z);
+    var isCore=(x===cx&&y===cy&&z===cz);
+    var base=isCore?[50,150]:depthStats(depth);
+    var hp=Math.round(base[0]*stageMult(st));
+    blocks.push({x:x,y:y,z:z,depth:depth,core:isCore,alive:true,maxHp:hp,hp:hp,coin:base[1]*stageMult(st)});
+  }
+  return {N:N,blocks:blocks,total:total};
+}
+function defaultState(){
+  var st=1,c=newCube(st);
+  return {coins:0,stage:st,pickLv:1,drillLv:0,incomeLv:1,
+    skArea:0,skCrit:0,skDrillPlus:0,skHold:0,totalBroken:0,
+    rot:0,cube:c,stageStart:Date.now(),stageBroken:0};
+}
+function save(){ try{ var c={coins:S.coins,stage:S.stage,pickLv:S.pickLv,drillLv:S.drillLv,incomeLv:S.incomeLv,skArea:S.skArea,skCrit:S.skCrit,skDrillPlus:S.skDrillPlus,skHold:S.skHold,totalBroken:S.totalBroken,rot:S.rot,stageStart:S.stageStart,stageBroken:S.stageBroken,
+  dead:S.cube.blocks.map(function(b){return b.alive?0:1;}), hps:S.cube.blocks.map(function(b){return b.hp;}),
+  imp:S.cube.blocks.map(function(b){ if(!b.net) return ''; var parts=[]; for(var fk in b.net.centers){ var cc=b.net.centers[fk]; parts.push(FACES.indexOf(fk)+':'+Math.round(cc[0]*999)+','+Math.round(cc[1]*999)); } return parts.join('|'); })};
+  localStorage.setItem(KEY,JSON.stringify(c)); }catch(e){} }
+function load(){
+  try{ var raw=localStorage.getItem(KEY); if(!raw) return null;
+    var c=JSON.parse(raw); var st=defaultState(); st.stage=c.stage||1; st.cube=newCube(st.stage);
+    st.coins=c.coins||0; st.pickLv=c.pickLv||1; st.drillLv=c.drillLv||0; st.incomeLv=c.incomeLv||1;
+    st.skArea=c.skArea||0; st.skCrit=c.skCrit||0; st.skDrillPlus=c.skDrillPlus||0; st.skHold=c.skHold||0;
+    st.totalBroken=c.totalBroken||0; st.rot=c.rot||0; st.stageStart=c.stageStart||Date.now(); st.stageBroken=c.stageBroken||0;
+    if(c.dead&&c.dead.length===st.cube.blocks.length){ st.cube.blocks.forEach(function(b,i){ if(c.dead[i]){b.alive=false;b.hp=0;} else if(c.hps) b.hp=c.hps[i]; }); }
+    if(c.imp&&c.imp.length===st.cube.blocks.length){ st.cube.blocks.forEach(function(b,i){ var s=c.imp[i]; if(!s) return; var net=ensureNet(b); s.split('|').forEach(function(en){ var kv=en.split(':'); var fi=parseInt(kv[0],10); var xy=(kv[1]||'').split(','); if(FACES[fi]&&xy.length===2) net.centers[FACES[fi]]=[parseInt(xy[0],10)/999,parseInt(xy[1],10)/999]; }); }); }
+    // Regenerate the crack networks for every restored face: genFaceNet is
+    // seeded deterministically (stage + block coords + face), so the rebuilt
+    // network (cracks + chip/peel fx) is identical to the pre-save one and
+    // damaged blocks reopen with their cracks already drawn.
+    // genFaceNet reads S.stage for its seed, so point S at the restored
+    // state first (the caller assigns the same object right after).
+    S=st;
+    st.cube.blocks.forEach(function(b){ if(b.net){ for(var fk in b.net.centers){ genFaceNet(b,fk); } } });
+    // if core already dead in save (cleared but not advanced), advance
+    var core=st.cube.blocks.find(function(b){return b.core;});
+    if(core&&!core.alive){ var ns=st.stage+1; var keep={coins:st.coins,pickLv:st.pickLv,drillLv:st.drillLv,incomeLv:st.incomeLv,skArea:st.skArea,skCrit:st.skCrit,skDrillPlus:st.skDrillPlus,skHold:st.skHold,totalBroken:st.totalBroken};
+      st.stage=ns; st.cube=newCube(ns); st.stageStart=Date.now(); st.stageBroken=0; Object.assign(st,keep); }
+    return st;
+  }catch(e){ return null; }
+}
+S=load()||defaultState();
+// ---------- costs ----------
+function pickCost(){ return Math.round(15*Math.pow(1.15,S.pickLv-1)); }
+function drillCost(){ return Math.round(50*Math.pow(1.15,S.drillLv)); }
+function incomeCost(){ return Math.round(30*Math.pow(1.12,S.incomeLv-1)); }
+function incomeMult(){ return 1+(S.incomeLv-1)*0.5; }
+var SKILLS=[
+ {key:'skArea', name:'範囲破壊', unlock:100, base:500, desc:function(lv){return '開放条件：累計100個破壊。壊したブロックの隣の露出ブロックにも '+(50+Math.max(0,lv-1)*10)+'% ダメージ（Lvで上昇）。';}},
+ {key:'skCrit', name:'クリティカル', unlock:300, base:1200, desc:function(lv){return '開放条件：累計300個破壊。タップ時 '+(lv===0?'10':(10+(lv-1)*5))+'% でダメージ×5。';}},
+ {key:'skDrillPlus', name:'ドリル増設', unlock:800, base:5000, desc:function(lv){return '開放条件：累計800個破壊。ドリルの同時攻撃数が 1→'+(1+lv)+' になる。';}},
+ {key:'skHold', name:'長押しツルハシ', unlock:1500, base:30000, desc:function(lv){return '開放条件：累計1,500個破壊。長押し中、自動で掘り続ける。間隔 Lv1:0.25秒 → Lv5:0.10秒。対象が壊れたら、外側に近い順（深さ→残HP割合→直前の破壊位置からの近さ）で次の対象を自動選択して継続。';}}
+];
+function skillCost(sk){ var lv=S[sk.key]; return Math.round(sk.base*Math.pow(2.2,lv)); }
+function holdInterval(){ var t=[0,0.25,0.2125,0.175,0.1375,0.10]; return t[S.skHold]||0.25; }
+function critChance(){ return S.skCrit<=0?0:(0.10+(S.skCrit-1)*0.05); }
+// ---------- audio ----------
+var AC=null;
+function beep(f,d,type){ try{ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); var o=AC.createOscillator(),g=AC.createGain(); o.type=type||'square'; o.frequency.value=f; g.gain.setValueAtTime(0.06,AC.currentTime); g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+(d||0.06)); o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime+(d||0.06)); }catch(e){} }
+// ---------- combo ----------
+var combo=0,lastTap=0,comboTimer=null;
+function comboBonusPct(){ return Math.min(100,Math.floor(combo/10)*10); }
+function registerTap(){
+  var now=performance.now();
+  combo++; lastTap=now;
+  var el=document.getElementById('combo'); el.textContent=combo; el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+  document.getElementById('comboBonus').textContent='コイン +'+comboBonusPct()+'%';
+  if(comboTimer)clearInterval(comboTimer);
+  comboTimer=setInterval(function(){ if(performance.now()-lastTap>1200){ combo=0; document.getElementById('combo').textContent='0'; document.getElementById('comboBonus').textContent='コイン +0%'; clearInterval(comboTimer);} },200);
+}
+// ---------- cube logic ----------
+function blockAt(x,y,z){ var c=S.cube; if(x<0||y<0||z<0||x>=c.N||y>=c.N||z>=c.N) return null; return c.blocks[y*c.N*c.N+z*c.N+x]; }
+function isExposed(b){ if(!b.alive) return false; var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  for(var i=0;i<6;i++){ var n=blockAt(b.x+dirs[i][0],b.y+dirs[i][1],b.z+dirs[i][2]); if(!n||!n.alive) return true; } return false; }
+// ---------- auto target selection ----------
+// Priority: (1) smallest original depth (closest to the outside; fixed at spawn, never changes)
+//           (2) same depth: lowest remaining-HP ratio (finish wounded blocks first)
+//           (3) still tied: closest (Manhattan) to the last destroyed block, so digging stays in one clump
+var lastBrokenPos=null;
+var drillTargets=[];
+function manhattan(a,b){ return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)+Math.abs(a.z-b.z); }
+function autoTargets(count,ref){
+  var r=ref||lastBrokenPos;
+  var exposed=S.cube.blocks.filter(function(b){ return b.alive&&isExposed(b); });
+  exposed.sort(function(a,b){
+    if(a.depth!==b.depth) return a.depth-b.depth;
+    var ra=a.hp/a.maxHp, rb=b.hp/b.maxHp;
+    if(ra!==rb) return ra-rb;
+    if(r){ var da=manhattan(a,r), db=manhattan(b,r); if(da!==db) return da-db; }
+    return 0;
+  });
+  return exposed.slice(0,Math.max(0,count));
+}
+var particles=[];
+function spawnParticles(b){ var p=projBlock(b); if(!p) return; for(var i=0;i<10;i++){ particles.push({x:p.cx,y:p.cy,vx:(Math.random()-0.5)*3.2,vy:-Math.random()*3-1,life:1,s:4+Math.random()*6,g:i%2?'#fff':'#999'}); } }
+function floatText(b,text,crit){ var p=projBlock(b); if(!p) return; var layer=document.getElementById('floatLayer'); var d=document.createElement('div'); d.className='float'+(crit?' crit':''); d.textContent=text; d.style.left=(p.cx-14)+'px'; d.style.top=(p.cy-26)+'px'; layer.appendChild(d); setTimeout(function(){d.remove();},850); }
+var stageCleared=false;
+function destroyBlock(b,byTap){
+  b.alive=false; b.hp=0; S.totalBroken++; S.stageBroken++;
+  lastBrokenPos={x:b.x,y:b.y,z:b.z};
+  var gain=b.coin*incomeMult()*(1+comboBonusPct()/100);
+  gain=Math.round(gain); S.coins+=gain;
+  spawnParticles(b); spawnShards(b); if(byTap) floatText(b,'+'+fmt(gain),false);
+  beep(b.core?520:880,0.08);
+  // area splash
+  if(S.skArea>0){
+    var ratio=(50+(S.skArea-1)*10)/100; var dmg=Math.max(1,Math.round(S.pickLv*ratio));
+    var dirs=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    dirs.forEach(function(d){ var n=blockAt(b.x+d[0],b.y+d[1],b.z+d[2]); if(n&&n.alive&&isExposed(n)){ damageBlock(n,dmg,false,false); } });
+  }
+  if(b.core && !stageCleared){ stageCleared=true; setTimeout(showResult,450); }
+  updateHUD(); save();
+}
+function damageBlock(b,dmg,isTap,isCrit,impact){
+  if(!b||!b.alive||stageCleared) return false;
+  var imp=impact||autoImpact(b);
+  setHit(b,imp);
+  b.animT=performance.now();
+  spawnDust(b,imp);
+  b.hp-=dmg;
+  if(b.hp<=0){ destroyBlock(b,isTap); return true; }
+  return false;
+}
+function tapDamage(b,impact){
+  registerTap();
+  var crit=S.skCrit>0 && Math.random()<critChance();
+  var dmg=S.pickLv*(crit?5:1);
+  var destroyed=damageBlock(b,dmg,true,crit,impact||null);
+  if(crit&&!destroyed) floatText(b,'CRIT ×5',true);
+  if(!destroyed) beep(220,0.04);
+  draw(); updateHUD(); save();
+}
+// ---------- realistic crack system ----------
+// One crack network per block, generated ONCE (seeded by stage + block coords)
+// the first time a face is hit, then only *revealed* further as HP drops.
+// The network lives on physical cube faces; view rotation picks which faces show.
+function ensureNet(b){ if(b.net) return b.net; b.net={segs:{top:[],xp:[],xm:[],zp:[],zm:[]},gen:{},centers:{},fx:{}}; return b.net; }
+function recordPt(map,f,u,v,t,br){ if(!map[f]) map[f]=[]; map[f].push({u:u,v:v,t:t,br:br}); }
+// Walk one jagged branch in face-local coords, continuing across edges onto
+// neighbouring faces (positions matched through the shared edge via AFF).
+function walkBranch(b,f0,u0,v0,ang,totalLen,t0,wScale,brId,allPts,rng){
+  var net=b.net;
+  var f=f0, cu=u0, cv=v0;
+  var du=Math.cos(ang), dv=Math.sin(ang);
+  var dist=0, steps=0;
+  var t=t0;
+  var curSeg={pts:[[cu,cv,t]], w:wScale};
+  net.segs[f].push(curSeg);
+  recordPt(allPts,f,cu,cv,t,brId);
+  var waypoints=[];
+  while(dist<totalLen&&steps<40){
+    steps++;
+    var stepLen=0.07+rng()*0.08;
+    var da=(rng()-0.5)*0.85, ca=Math.cos(da), sa=Math.sin(da);
+    var ndu=du*ca-dv*sa, ndv=du*sa+dv*ca; du=ndu; dv=ndv;
+    var nu=cu+du*stepLen, nv=cv+dv*stepLen;
+    dist+=stepLen;
+    t=t0+(dist/totalLen)*(1-t0); if(t>1)t=1;
+    var alive=true, guard=0;
+    while((nu<0||nu>1||nv<0||nv>1)&&guard<5){
+      guard++;
+      if(nv>1){ alive=false; break; } // bottom face: crack ends
+      var side=nu>1?'r':(nu<0?'l':'t');
+      var A=AFF[f+':'+side]; if(!A){ alive=false; break; }
+      var s=1;
+      if(side==='r') s=(1-cu)/((nu-cu)||1e-9); else if(side==='l') s=(0-cu)/((nu-cu)||1e-9); else s=(0-cv)/((nv-cv)||1e-9);
+      s=Math.max(0,Math.min(1,s));
+      var eu=cu+(nu-cu)*s, ev=cv+(nv-cv)*s;
+      var et=t0+((dist-stepLen+stepLen*s)/totalLen)*(1-t0); if(et>1)et=1;
+      curSeg.pts.push([eu,ev,et]); recordPt(allPts,f,eu,ev,et,brId);
+      var ep=A[1](eu,ev), np2=A[1](nu,nv);
+      var dp=A[1](cu+du,cv+dv), cp0=A[1](cu,cv);
+      du=dp[0]-cp0[0]; dv=dp[1]-cp0[1];
+      var dl=Math.hypot(du,dv)||1; du/=dl; dv/=dl;
+      f=A[0]; cu=ep[0]; cv=ep[1]; nu=np2[0]; nv=np2[1];
+      curSeg={pts:[[cu,cv,et]], w:wScale};
+      net.segs[f].push(curSeg);
+    }
+    if(!alive) break;
+    cu=Math.max(0,Math.min(1,nu)); cv=Math.max(0,Math.min(1,nv));
+    curSeg.pts.push([cu,cv,t]); recordPt(allPts,f,cu,cv,t,brId);
+    if(rng()<0.30) waypoints.push({f:f,u:cu,v:cv,ang:Math.atan2(dv,du),t:t});
+  }
+  return waypoints;
+}
+function genFaceNet(b,face){
+  var net=b.net; if(!net||net.gen[face]) return; net.gen[face]=1;
+  var fi=FACES.indexOf(face);
+  var rng=mulberry(hashN(S.stage*31+fi*131+7, b.x+101, b.y+211, b.z+307));
+  var ctr=net.centers[face]||[0.5,0.5];
+  // per-face seeded fx: corner chip triangle, peeling patch, impact specks
+  var corner=Math.floor(rng()*4);
+  var cc=[[0,0],[1,0],[1,1],[0,1]][corner];
+  var sxn=cc[0]===0?1:-1, syn=cc[1]===0?1:-1;
+  var L=0.15+rng()*0.1;
+  var fx={corner:corner,
+    chipTri:[[cc[0],cc[1]],[cc[0]+sxn*L,cc[1]],[cc[0],cc[1]+syn*L]],
+    peel:[[cc[0],cc[1]],[cc[0]+sxn*(0.27+rng()*0.15),cc[1]+(rng()-0.5)*0.06],[cc[0]+sxn*(0.16+rng()*0.1),cc[1]+syn*(0.16+rng()*0.1)],[cc[0]+(rng()-0.5)*0.06,cc[1]+syn*(0.27+rng()*0.15)]],
+    dots:[]};
+  for(var di=0;di<6;di++) fx.dots.push([(rng()-0.5)*0.15,(rng()-0.5)*0.15,1+rng()*1.8,rng()<0.5?1:0]);
+  net.fx[face]=fx;
+  var allPts={};
+  var nMain=6+Math.floor(rng()*3);
+  for(var bi=0;bi<nMain;bi++){
+    var ang=(bi/nMain)*Math.PI*2+(rng()-0.5)*1.0;
+    var totalLen=0.5+rng()*0.6;
+    var delay=rng()*0.45;
+    var wps=walkBranch(b,face,ctr[0],ctr[1],ang,totalLen,delay,1,bi,allPts,rng);
+    for(var wi=0;wi<wps.length;wi++){
+      var wp=wps[wi];
+      if(rng()<0.8){ var sang=wp.ang+(rng()<0.5?1:-1)*(0.55+rng()*0.65); walkBranch(b,wp.f,wp.u,wp.v,sang,0.14+rng()*0.22,wp.t,0.55,bi,allPts,rng); }
+    }
+  }
+  // mesh links: connect nearby points of different branches (revealed late)
+  Object.keys(allPts).forEach(function(fk){
+    var pts=allPts[fk], added=0;
+    for(var i=0;i<pts.length&&added<7;i++){
+      for(var j=i+1;j<pts.length&&added<7;j++){
+        var A=pts[i],C=pts[j]; if(A.br===C.br) continue;
+        var dd=Math.hypot(A.u-C.u,A.v-C.v);
+        if(dd<0.30&&dd>0.05&&Math.max(A.t,C.t)>0.5){
+          var lt=Math.min(0.97,Math.max(A.t,C.t)+0.1);
+          net.segs[fk].push({pts:[[A.u,A.v,lt],[C.u,C.v,Math.min(1,lt+0.04)]],w:0.5}); added++;
+        }
+      }
+    }
+  });
+}
+function setHit(b,imp){
+  var net=ensureNet(b);
+  if(!net.centers[imp.face]) net.centers[imp.face]=[imp.cu,imp.cv];
+  genFaceNet(b,imp.face);
+}
+// Auto attacks (drill / hold / splash): impact near a face centre, jittered per hit
+function autoImpact(b){
+  b.hits=(b.hits||0)+1;
+  var rng=mulberry(hashN(S.stage*13+5, b.x+3, b.y+7, b.z+11+b.hits*101));
+  var face=FACES[Math.floor(rng()*5)];
+  return {face:face, cu:0.5+(rng()-0.5)*0.34, cv:0.5+(rng()-0.5)*0.34};
+}
+function spawnDust(b,imp){
+  var sp=imp?canonToScreen(b,imp.face,imp.cu,imp.cv):null;
+  var c=projBlock(b); if(!c) return;
+  var x=sp?sp[0]:c.cx, y=sp?sp[1]:c.cy;
+  var cols=['#eee','#bbb','#888','#666'];
+  for(var i=0;i<7;i++) particles.push({x:x,y:y,vx:(Math.random()-0.5)*2.4,vy:-Math.random()*1.8-0.3,life:0.7,s:1.2+Math.random()*2.4,g:cols[i%4]});
+}
+function spawnShards(b){ // larger chunks when the block breaks along its cracks
+  var p=projBlock(b); if(!p) return;
+  var cols=['#fff','#ccc','#999','#666'];
+  for(var i=0;i<6;i++) particles.push({x:p.cx,y:p.cy,vx:(Math.random()-0.5)*4.4,vy:-Math.random()*3.6-0.6,life:1.15,s:8+Math.random()*7,g:cols[i%4]});
+}
+// ----- face coordinate conversion (view faces <-> physical canonical faces) -----
+function leftCanon(){ return ['zp','xm','zm','xp'][S.rot&3]; }
+function rightCanon(){ return ['xp','zp','xm','zm'][S.rot&3]; }
+function sideFlip(viewFace){ var r=S.rot&3; if(viewFace==='left') return (r===2||r===3); return (r===1||r===2); }
+function topToCanon(u,v){ switch(S.rot&3){ case 0:return [u,v]; case 1:return [1-v,u]; case 2:return [1-u,1-v]; default:return [v,1-u]; } }
+function topFromCanon(cu,cv){ switch(S.rot&3){ case 0:return [cu,cv]; case 1:return [cv,1-cu]; case 2:return [1-cu,1-cv]; default:return [1-cv,cu]; } }
+function viewToCanon(viewFace,u,v){
+  if(viewFace==='top'){ var c=topToCanon(u,v); return ['top',c[0],c[1]]; }
+  var flip=sideFlip(viewFace);
+  return [viewFace==='left'?leftCanon():rightCanon(), flip?1-u:u, v];
+}
+function canonToView(face,cu,cv){
+  if(face==='top'){ var uv=topFromCanon(cu,cv); return ['top',uv[0],uv[1]]; }
+  var vf=null; if(face===leftCanon()) vf='left'; else if(face===rightCanon()) vf='right';
+  if(!vf) return null;
+  var flip=sideFlip(vf); return [vf, flip?1-cu:cu, cv];
+}
+function facePoint(viewFace,sx,sy,u,v){
+  var tw=view.tw, th=view.th;
+  if(viewFace==='top') return [sx+(u-v)*tw/2, sy-th+(u+v)*th/2];
+  if(viewFace==='left') return [sx-tw/2+u*tw/2, sy-th/2+u*th/2+v*th];
+  return [sx+u*tw/2, sy-u*th/2+v*th];
+}
+function canonPtOnView(viewFace,cu,cv,sx,sy){
+  var u,v;
+  if(viewFace==='top'){ var uv=topFromCanon(cu,cv); u=uv[0]; v=uv[1]; }
+  else { var flip=sideFlip(viewFace); u=flip?1-cu:cu; v=cv; }
+  return facePoint(viewFace,sx,sy,u,v);
+}
+function canonToScreen(b,face,cu,cv){
+  var p=projBlock(b); if(!p) return null;
+  var cvt=canonToView(face,cu,cv); if(!cvt) return null;
+  return facePoint(cvt[0],p.sx,p.sy,cvt[1],cvt[2]);
+}
+function viewImpactOf(pk){ var c=viewToCanon(pk.face,pk.u,pk.v); return {face:c[0],cu:c[1],cv:c[2]}; }
+function fillPolyPts(pts){ ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); for(var i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath(); ctx.fill(); }
+// Peel patch / corner chip / impact specks for one visible face
+function drawFaceFx(b,viewFace,sx,sy,p){
+  var net=b.net; if(!net) return;
+  var face=viewToCanon(viewFace,0,0)[0];
+  var fx=net.fx[face]; if(!fx) return;
+  function SP(cu,cv){ return canonPtOnView(viewFace,cu,cv,sx,sy); }
+  function poly(list){ ctx.beginPath(); list.forEach(function(q,i){ var s=SP(q[0],q[1]); if(i===0) ctx.moveTo(s[0],s[1]); else ctx.lineTo(s[0],s[1]); }); ctx.closePath(); }
+  if(p>=0.85&&fx.peel){ poly(fx.peel); ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.30)'; ctx.lineWidth=1; ctx.stroke(); }
+  if(p>=0.7&&fx.chipTri){ poly(fx.chipTri); ctx.fillStyle='#000'; ctx.fill(); ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1; ctx.stroke(); }
+  var ctr=net.centers[face];
+  if(ctr&&p>=0.04&&fx.dots){
+    var cp=SP(ctr[0],ctr[1]);
+    ctx.globalAlpha=0.45+0.55*Math.min(1,p*2);
+    for(var i=0;i<fx.dots.length;i++){ var d=fx.dots[i]; ctx.fillStyle=d[3]?'#fff':'#bbb'; ctx.fillRect(cp[0]+d[0]*view.tw, cp[1]+d[1]*view.tw, d[2], d[2]); }
+    ctx.globalAlpha=1;
+  }
+}
+// The crack groove: dark-gray shadow line offset by ~1px, then the black main
+// line, each segment tapered (thick at the root, thin at the tip).
+function drawFaceCracks(b,viewFace,sx,sy,light){
+  var net=b.net; if(!net) return;
+  var face=viewToCanon(viewFace,0,0)[0];
+  var segs=net.segs[face]; if(!segs||!segs.length) return;
+  var p=1-b.hp/b.maxHp; if(p<=0.02) return;
+  var g=Math.pow(p,0.75)*1.04;
+  var baseW=Math.max(1.1,Math.min(3,view.tw*0.06))*(p>0.85?1.5:1);
+  var mainCol=light?'#ececec':'#0b0b0b';
+  var shadCol=light?'rgba(0,0,0,0.85)':'rgba(72,72,72,0.8)';
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  for(var si=0;si<segs.length;si++){
+    var seg=segs[si], pts=seg.pts, vis=[];
+    for(var i=0;i<pts.length;i++){
+      var t=pts[i][2];
+      var sp=canonPtOnView(viewFace,pts[i][0],pts[i][1],sx,sy);
+      if(i===0){ if(t<=g) vis.push([sp[0],sp[1],t]); continue; }
+      var tp=pts[i-1][2];
+      if(g<=tp) break;
+      if(g>=t){ vis.push([sp[0],sp[1],t]); }
+      else { var pp=canonPtOnView(viewFace,pts[i-1][0],pts[i-1][1],sx,sy); var fr=(g-tp)/((t-tp)||1e-9); vis.push([pp[0]+(sp[0]-pp[0])*fr, pp[1]+(sp[1]-pp[1])*fr, g]); break; }
+    }
+    if(vis.length<2) continue;
+    for(var pass=0;pass<2;pass++){
+      ctx.strokeStyle=pass===0?shadCol:mainCol;
+      var ox=pass===0?0.9:0, oy=pass===0?0.9:0;
+      for(var k=1;k<vis.length;k++){
+        var tm=(vis[k-1][2]+vis[k][2])/2;
+        ctx.lineWidth=Math.max(0.5, baseW*seg.w*(1.3-0.85*tm));
+        ctx.beginPath(); ctx.moveTo(vis[k-1][0]+ox, vis[k-1][1]+oy); ctx.lineTo(vis[k][0]+ox, vis[k][1]+oy); ctx.stroke();
+      }
+    }
+  }
+}
+// ---------- projection / drawing ----------
+var cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+var view={tw:40,th:20,ox:0,oy:0,W:0,H:0};
+function rotateXZ(x,z){ var N=S.cube.N; switch(S.rot&3){ case 0:return[x,z]; case 1:return[z,N-1-x]; case 2:return[N-1-x,N-1-z]; default:return[N-1-z,x]; } }
+function projBlock(b){ var r=rotateXZ(b.x,b.z); var rx=r[0],rz=r[1];
+  var sx=view.ox+(rx-rz)*view.tw/2; var sy=view.oy+(rx+rz)*view.th/2 - b.y*view.th;
+  return {sx:sx,sy:sy,cx:sx,cy:sy-view.th*0.1,rx:rx,rz:rz}; }
+function patternIdx(){ return Math.floor((S.stage-1)/5)%5; }
+function drawFace(pts,base,pat,isTop){
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); for(var i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]); ctx.closePath();
+  ctx.fillStyle=base; ctx.fill();
+  if(pat>0){ ctx.save(); ctx.clip();
+    ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=1.5;
+    var xs=pts.map(function(p){return p[0];}),ys=pts.map(function(p){return p[1];});
+    var minx=Math.min.apply(null,xs),maxx=Math.max.apply(null,xs),miny=Math.min.apply(null,ys),maxy=Math.max.apply(null,ys);
+    if(pat===1){ for(var gx=minx+5;gx<maxx;gx+=9)for(var gy=miny+4;gy<maxy;gy+=8){ ctx.fillRect(gx,gy,2,2);} }
+    else if(pat===2){ for(var l=-20;l<40;l+=8){ ctx.beginPath(); ctx.moveTo(minx+l,miny); ctx.lineTo(minx+l+14,maxy); ctx.stroke(); } }
+    else if(pat===3){ for(var gx2=minx+6;gx2<maxx;gx2+=10){ctx.beginPath();ctx.moveTo(gx2,miny);ctx.lineTo(gx2,maxy);ctx.stroke();} for(var gy2=miny+5;gy2<maxy;gy2+=9){ctx.beginPath();ctx.moveTo(minx,gy2);ctx.lineTo(maxx,gy2);ctx.stroke();} }
+    ctx.restore();
+    ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]); for(var j=1;j<pts.length;j++)ctx.lineTo(pts[j][0],pts[j][1]); ctx.closePath();
+  }
+  ctx.strokeStyle='#000'; ctx.lineWidth=1.4; ctx.stroke();
+}
+function draw(){
+  var wrapEl=document.getElementById('stageWrap'); var W=wrapEl.clientWidth,H=wrapEl.clientHeight; if(!W)return;
+  var dpr=window.devicePixelRatio||1;
+  if(cv.width!==W*dpr){ cv.width=W*dpr; cv.height=H*dpr; }
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H); ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  var N=S.cube.N;
+  // fit: iso width = N*tw, height approx N*th + N*th
+  var tw=Math.min((W*0.92)/N, (H*0.86)/(N*0.5+N)); tw=Math.max(16,tw);
+  view.tw=tw; view.th=tw/2; view.W=W; view.H=H;
+  view.ox=W/2; view.oy=H*0.16 + (N-1)*view.th*0 + view.th*2;
+  // Actually center vertically: total height = (N-1)*th (ground diag) + N*th (stack). top of top block:
+  view.oy=H/2 - ((2*N-1)*view.th)/2 + (N-1)*view.th + view.th; // origin for y=0 ground center block adjusted below
+  // Simpler: compute projected bounds
+  var test=[]; S.cube.blocks.forEach(function(b){ if(b.alive) test.push(projBlockRaw(b,tw)); });
+  // Use projBlockRaw approach: first set ox=0,oy=0 compute bounds then offset
+  view.ox=0; view.oy=0;
+  var minX=1e9,maxX=-1e9,minY=1e9,maxY=-1e9;
+  S.cube.blocks.forEach(function(b){ if(!b.alive)return; var p=projBlock(b); var hw=tw/2,hh=view.th;
+    minX=Math.min(minX,p.sx-hw); maxX=Math.max(maxX,p.sx+hw); minY=Math.min(minY,p.sy-hh); maxY=Math.max(maxY,p.sy+hh); });
+  if(minX>maxX){ view.ox=W/2; view.oy=H/2; }
+  else { view.ox=W/2-(minX+maxX)/2; view.oy=H/2-(minY+maxY)/2 - 6; }
+  var pat=patternIdx(), invert=(pat===4);
+  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var r=rotateXZ(b.x,b.z); return {b:b,s:r[0]+r[1]}; });
+  sorted.sort(function(a,b2){ if(a.s!==b2.s) return a.s-b2.s; return a.b.y-b2.b.y; });
+  sorted.forEach(function(it){ drawBlock(it.b,invert,pat); });
+  // particles
+  particles=particles.filter(function(p){return p.life>0;});
+  particles.forEach(function(p){ p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=0.045; ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.g; ctx.fillRect(p.x,p.y,p.s,p.s); ctx.globalAlpha=1; });
+}
+function projBlockRaw(b,tw){ return {sx:0,sy:0}; }
+function drawBlock(b,invert,pat){
+  var p=projBlock(b); var tw=view.tw,th=view.th;
+  var sx=p.sx, sy=p.sy;
+  // hit feedback: block sinks 1-2px and shudders briefly after each hit
+  if(b.animT){ var age=performance.now()-b.animT; if(age<170){ var kk=Math.sin(age/170*Math.PI); sy+=kk*2.2; sx+=Math.sin(age*0.11)*0.7*kk; } }
+  var top=[[sx,sy-th],[sx+tw/2,sy-th/2],[sx,sy],[sx-tw/2,sy-th/2]];
+  var left=[[sx-tw/2,sy-th/2],[sx,sy],[sx,sy+th],[sx-tw/2,sy+th/2]];
+  var right=[[sx,sy],[sx+tw/2,sy-th/2],[sx+tw/2,sy+th/2],[sx,sy+th]];
+  var cTop,cLeft,cRight;
+  if(b.core){ cTop='#111'; cLeft='#000'; cRight='#222'; }
+  else if(invert){ cTop='#222'; cLeft='#000'; cRight='#444'; }
+  else { var d=b.depth; var shade=d===0?['#ffffff','#bdbdbd','#7a7a7a']: d===1?['#e8e8e8','#a8a8a8','#666']: ['#d2d2d2','#929292','#525252'];
+    cTop=shade[0]; cLeft=shade[1]; cRight=shade[2]; }
+  var holdTarget=(hold.active&&hold.block===b);
+  drawFace(left,cLeft,pat,false); drawFace(right,cRight,pat,false); drawFace(top,cTop,pat,true);
+  // ---- growing crack network (same network, revealed further as HP drops) ----
+  var dmgP=b.maxHp>0?1-b.hp/b.maxHp:0;
+  if(b.net&&dmgP>0.02){
+    for(var fk2 in b.net.centers){ if(!b.net.gen[fk2]) genFaceNet(b,fk2); }
+    if(dmgP>=0.55){ ctx.fillStyle='rgba(0,0,0,'+Math.min(0.22,(dmgP-0.55)*0.5).toFixed(3)+')'; fillPolyPts(left); fillPolyPts(right); fillPolyPts(top); }
+    var crackLight=b.core||invert;
+    drawFaceFx(b,'left',sx,sy,dmgP); drawFaceFx(b,'right',sx,sy,dmgP); drawFaceFx(b,'top',sx,sy,dmgP);
+    drawFaceCracks(b,'left',sx,sy,crackLight); drawFaceCracks(b,'right',sx,sy,crackLight); drawFaceCracks(b,'top',sx,sy,crackLight);
+  }
+  if(b.core){ ctx.fillStyle='#fff'; ctx.save(); ctx.translate(sx,sy-th/2); ctx.rotate(Math.PI/4); var cs=tw*0.16; ctx.fillRect(-cs/2,-cs/2+th*0.4,cs,cs); ctx.restore();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.strokeRect(sx-tw*0.3,sy-th*0.15,tw*0.6,th*0.9); }
+  var ratio=b.hp/b.maxHp;
+  var blinkOn=Math.floor(Date.now()/350)%2===0;
+  var isDrillTarget=drillTargets.indexOf(b)>=0;
+  if(isDrillTarget&&!holdTarget){ ctx.save(); ctx.strokeStyle=blinkOn?'#fff':'#888'; ctx.lineWidth=2; ctx.setLineDash([5,3]); ctx.strokeRect(sx-tw/2+2,sy-th+2,tw-4,th*2-4); ctx.restore(); }
+  if(holdTarget){ ctx.strokeStyle=blinkOn?'#fff':'#bbb'; ctx.lineWidth=3; ctx.strokeRect(sx-tw/2,sy-th,tw,th*2);
+    ctx.fillStyle='#fff'; var ms=Math.max(5,tw*0.14); ctx.beginPath(); ctx.moveTo(sx,sy-th-ms-3); ctx.lineTo(sx-ms*0.7,sy-th-3); ctx.lineTo(sx+ms*0.7,sy-th-3); ctx.closePath(); ctx.fill(); }
+  // HP mini bar for damaged
+  if(ratio<1){ ctx.fillStyle='#000'; ctx.fillRect(sx-tw*0.32,sy+th*1.05,tw*0.64,4); ctx.fillStyle='#fff'; ctx.fillRect(sx-tw*0.32,sy+th*1.05,tw*0.64*ratio,4); }
+}
+// hit test: iterate frontmost first; returns block + which view face was hit
+// and the exact position on that face (the crack network grows from there)
+function pickBlock(px,py){
+  var sorted=S.cube.blocks.filter(function(b){return b.alive;}).map(function(b){ var r=rotateXZ(b.x,b.z); return {b:b,s:r[0]+r[1]}; });
+  sorted.sort(function(a,b2){ if(a.s!==b2.s) return b2.s-a.s; return b2.b.y-a.b.y; });
+  for(var i=0;i<sorted.length;i++){ var b=sorted[i].b; var p=projBlock(b); var tw=view.tw,th=view.th; var sx=p.sx,sy=p.sy;
+    var defs=[ ['top', sx, sy-th, tw/2, th/2, -tw/2, th/2], ['left', sx-tw/2, sy-th/2, tw/2, th/2, 0, th], ['right', sx, sy, tw/2, -th/2, 0, th] ];
+    for(var f=0;f<3;f++){ var fd=defs[f];
+      var det=fd[3]*fd[6]-fd[4]*fd[5]; if(!det) continue;
+      var dx=px-fd[1], dy=py-fd[2];
+      var u=(dx*fd[6]-dy*fd[5])/det, v=(fd[3]*dy-fd[4]*dx)/det;
+      if(u>=-0.001&&u<=1.001&&v>=-0.001&&v<=1.001) return {b:b, face:fd[0], u:clamp(u,0,1), v:clamp(v,0,1)};
+    }
+  }
+  return null;
+}
+function pointInPoly(x,y,poly){ var inside=false; for(var i=0,j=poly.length-1;i<poly.length;j=i++){ var xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1]; var intersect=((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi); if(intersect)inside=!inside; } return inside; }
+// ---------- hold pickaxe ----------
+var hold={active:false,block:null,timer:null,pointerId:null};
+var cvEl=document.getElementById('stageWrap');
+function stopHold(){ hold.active=false; hold.block=null; if(hold.timer){clearInterval(hold.timer);hold.timer=null;} document.getElementById('holdState').textContent=''; cv.classList.remove('shake'); draw(); }
+function holdTick(){
+  if(!hold.active) return;
+  var b=hold.block;
+  if(!b||!b.alive){
+    // Current target broke: auto-select the next one by outside-first priority
+    // (depth -> HP ratio -> closest to the block just destroyed), regardless of finger position.
+    var ref=b||lastBrokenPos;
+    var next=autoTargets(1,ref)[0];
+    if(next){ hold.block=next; b=next; document.getElementById('holdState').textContent='⛏ 長押し掘削中（次の対象を自動選択）'; }
+    else { stopHold(); return; }
+  }
+  if(!isExposed(b)){ // target got buried / no longer exposed: re-select by the same priority
+    var alt=autoTargets(1,b)[0];
+    if(alt){ hold.block=alt; b=alt; } else { stopHold(); return; }
+  }
+  tapDamage(b);
+}
+function startHold(b,x,y){
+  if(S.skHold<=0) return;
+  hold.active=true; hold.block=b; hold.lastX=x; hold.lastY=y;
+  document.getElementById('holdState').textContent='⛏ 長押し掘削中';
+  cv.classList.add('shake');
+  if(hold.timer)clearInterval(hold.timer);
+  hold.timer=setInterval(holdTick, holdInterval()*1000);
+  draw();
+}
+// ---------- pointer handling ----------
+var ptr={down:false,sx:0,sy:0,x:0,y:0,id:null,holdStarted:false};
+function localPos(e){ var r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+cv.addEventListener('pointerdown',function(e){ var p=localPos(e); ptr.down=true; ptr.sx=p.x; ptr.sy=p.y; ptr.x=p.x; ptr.y=p.y; ptr.id=e.pointerId; ptr.holdStarted=false;
+  // schedule hold start after 220ms if still down & not moved
+  ptr.holdTimeout=setTimeout(function(){ if(ptr.down && Math.hypot(ptr.x-ptr.sx,ptr.y-ptr.sy)<10){ var pk=pickBlock(ptr.sx,ptr.sy); if(pk&&isExposed(pk.b)&&S.skHold>0){
+      tapDamage(pk.b,viewImpactOf(pk)); ptr.holdStarted=true; startHold(pk.b,ptr.sx,ptr.sy); } } },230);
+});
+cv.addEventListener('pointermove',function(e){ if(!ptr.down)return; var p=localPos(e); ptr.x=p.x; ptr.y=p.y; if(hold.active){ hold.lastX=p.x; hold.lastY=p.y; }
+  var dist=Math.hypot(p.x-ptr.sx,p.y-ptr.sy);
+  if(dist>=40){ if(ptr.holdTimeout)clearTimeout(ptr.holdTimeout); if(hold.active) stopHold(); }
+});
+function endPointer(e,cancelled){
+  if(!ptr.down) return; ptr.down=false; if(ptr.holdTimeout)clearTimeout(ptr.holdTimeout);
+  var wasHold=ptr.holdStarted; if(hold.active) stopHold();
+  if(cancelled) return;
+  var dist=Math.hypot(ptr.x-ptr.sx,ptr.y-ptr.sy);
+  if(dist>=40){ // swipe = rotate
+    var dx=ptr.x-ptr.sx; S.rot=(S.rot+(dx>0?1:3))&3; beep(330,0.05,'triangle'); draw(); save(); return;
+  }
+  if(dist<10 && !wasHold){ var pk=pickBlock(ptr.sx,ptr.sy); if(pk){ var b=pk.b; if(isExposed(b)){ tapDamage(b,viewImpactOf(pk)); } else { floatText(b,'内側は掘れない',false); beep(140,0.05); } } }
+  // 10-39px: invalid, nothing
+}
+cv.addEventListener('pointerup',function(e){ endPointer(e,false); });
+cv.addEventListener('pointercancel',function(e){ endPointer(e,true); });
+document.getElementById('rotL').addEventListener('click',function(){ S.rot=(S.rot+3)&3; draw(); save(); });
+document.getElementById('rotR').addEventListener('click',function(){ S.rot=(S.rot+1)&3; draw(); save(); });
+// prevent context menu long press
+cv.addEventListener('contextmenu',function(e){e.preventDefault();});
+// ---------- drill ----------
+setInterval(function(){
+  if(S.drillLv<=0||stageCleared){ drillTargets=[]; return; }
+  // Auto-select targets outside-first: depth -> HP ratio -> closest to last destroyed.
+  // With the drill-expansion skill, take the top N of that ranking without duplication.
+  var picked=autoTargets(1+S.skDrillPlus,lastBrokenPos);
+  if(!picked.length){ drillTargets=[]; return; }
+  drillTargets=picked.slice();
+  picked.forEach(function(t){ if(t.alive) damageBlock(t,S.drillLv,false,false); });
+  drillTargets=drillTargets.filter(function(t){return t.alive;});
+  draw(); updateHUD(); save();
+},1000);
+// particle / highlight anim loop (keeps the auto-target blink + hit sink alive)
+setInterval(function(){
+  var anim=false;
+  if(!particles.length&&!hold.active&&!drillTargets.length){
+    var now=performance.now();
+    for(var i=0;i<S.cube.blocks.length;i++){ if(S.cube.blocks[i].animT&&now-S.cube.blocks[i].animT<200){ anim=true; break; } }
+  }
+  if(particles.length||hold.active||drillTargets.length||anim) draw();
+},60);
+// ---------- HUD ----------
+function remaining(){ return S.cube.blocks.filter(function(b){return b.alive;}).length; }
+function updateHUD(){
+  document.getElementById('coin').textContent=fmt(S.coins);
+  document.getElementById('stageNum').textContent=S.stage;
+  document.getElementById('cubeSize').textContent=S.cube.N+'×'+S.cube.N+'×'+S.cube.N+'　/ 回転 '+((S.rot*90))+'°';
+  var rem=remaining(); document.getElementById('remain').textContent=rem;
+  var pct=S.cube.total?Math.round((S.cube.total-rem)/S.cube.total*100):100;
+  document.getElementById('pct').textContent=pct+'%'; document.getElementById('barFill').style.width=pct+'%';
+  document.getElementById('pickLv').textContent=S.pickLv; document.getElementById('pickDmg').textContent=S.pickLv;
+  document.getElementById('pickCost').textContent=fmt(pickCost())+' コイン';
+  document.getElementById('drillLv').textContent=S.drillLv; document.getElementById('drillDmg').textContent=S.drillLv;
+  document.getElementById('drillCost').textContent=fmt(drillCost())+' コイン';
+  document.getElementById('incomeLv').textContent=S.incomeLv; document.getElementById('incomeMult').textContent=incomeMult().toFixed(1);
+  document.getElementById('incomeCost').textContent=fmt(incomeCost())+' コイン';
+  document.getElementById('cardPick').disabled=S.coins<pickCost();
+  document.getElementById('cardDrill').disabled=S.coins<drillCost();
+  document.getElementById('cardIncome').disabled=S.coins<incomeCost();
+  var tier=function(lv){return 'card tier'+Math.min(4,Math.floor((lv-1)/5));};
+  document.getElementById('cardPick').className=tier(Math.max(1,S.pickLv));
+  document.getElementById('cardDrill').className=tier(Math.max(1,S.drillLv));
+  document.getElementById('cardIncome').className=tier(Math.max(1,S.incomeLv));
+  document.getElementById('pickIcon').textContent=['⛏','⛏','⚒','⚒','⛏'][Math.min(4,Math.floor((S.pickLv-1)/5))]||'⛏';
+  renderSkills();
+}
+// ---------- upgrades ----------
+function buy(cost,fn){ if(S.coins<cost) return; S.coins-=cost; fn(); beep(980,0.07); updateHUD(); draw(); save(); }
+document.getElementById('cardPick').addEventListener('click',function(){ buy(pickCost(),function(){S.pickLv++;}); });
+document.getElementById('cardDrill').addEventListener('click',function(){ buy(drillCost(),function(){S.drillLv++;}); });
+document.getElementById('cardIncome').addEventListener('click',function(){ buy(incomeCost(),function(){S.incomeLv++;}); });
+document.getElementById('testBtn').addEventListener('click',function(){ S.coins+=100000; updateHUD(); save(); beep(1200,0.06); });
+// ---------- skills UI ----------
+function renderSkills(){
+  var list=document.getElementById('skillList'); if(!list) return;
+  list.innerHTML='';
+  SKILLS.forEach(function(sk){
+    var lv=S[sk.key]; var unlocked=S.totalBroken>=sk.unlock; var maxed=lv>=5;
+    var div=document.createElement('div'); div.className='skill'+(unlocked?'':' locked');
+    var dots=''; for(var i=0;i<5;i++) dots+=(i<lv?'●':'○');
+    var btnHtml;
+    if(!unlocked) btnHtml='<button disabled>🔒 '+fmt(S.totalBroken)+' / '+fmt(sk.unlock)+'</button>';
+    else if(maxed) btnHtml='<button disabled>MAX</button>';
+    else btnHtml='<button data-sk="'+sk.key+'">強化 '+fmt(skillCost(sk))+'</button>';
+    div.innerHTML='<h3>'+(unlocked?'':'🔒 ')+sk.name+'</h3><p>'+sk.desc(lv)+'</p><div class="row"><span class="lvDots">'+dots+' Lv'+lv+'</span>'+btnHtml+'</div>';
+    list.appendChild(div);
+  });
+  list.querySelectorAll('button[data-sk]').forEach(function(btn){
+    btn.disabled=S.coins<skillCost(SKILLS.find(function(s){return s.key===btn.dataset.sk;}));
+    btn.addEventListener('click',function(){ var sk=SKILLS.find(function(s){return s.key===btn.dataset.sk;}); buy(skillCost(sk),function(){ S[sk.key]++; }); renderSkills(); });
+  });
+}
+document.getElementById('skillBtn').addEventListener('click',function(){ renderSkills(); document.getElementById('skillPanel').classList.add('open'); });
+document.getElementById('skillClose').addEventListener('click',function(){ document.getElementById('skillPanel').classList.remove('open'); });
+// ---------- result ----------
+function showResult(){
+  var elapsed=Math.max(0,Math.floor((Date.now()-S.stageStart)/1000));
+  var mm=Math.floor(elapsed/60),ss=(''+(elapsed%60)).padStart(2,'0');
+  var bonus=Math.round((100*S.stage + S.cube.total*2)*stageMult(S.stage)*incomeMult());
+  S.coins+=bonus;
+  document.getElementById('rTime').textContent=mm+':'+ss;
+  document.getElementById('rBroken').textContent=S.stageBroken+' 個';
+  document.getElementById('rBonus').textContent='+'+fmt(bonus)+' コイン';
+  document.getElementById('rNext').textContent='STAGE '+(S.stage+1)+'（'+sizeForStage(S.stage+1)+'×'+sizeForStage(S.stage+1)+'×'+sizeForStage(S.stage+1)+'）';
+  document.getElementById('resultPanel').classList.add('open'); updateHUD(); save();
+}
+document.getElementById('resultOk').addEventListener('click',function(){
+  document.getElementById('resultPanel').classList.remove('open');
+  S.stage++; S.cube=newCube(S.stage); S.stageStart=Date.now(); S.stageBroken=0; S.rot=0; stageCleared=false; combo=0; drillTargets=[]; lastBrokenPos=null;
+  document.getElementById('combo').textContent='0';
+  updateHUD(); draw(); save(); beep(660,0.1);
+});
+// ---------- reset ----------
+document.getElementById('resetBtn').addEventListener('click',function(){ document.getElementById('resetPanel').classList.add('open'); });
+document.getElementById('resetNo').addEventListener('click',function(){ document.getElementById('resetPanel').classList.remove('open'); });
+document.getElementById('resetYes').addEventListener('click',function(){ try{localStorage.removeItem(KEY);}catch(e){} S=defaultState(); stageCleared=false; drillTargets=[]; lastBrokenPos=null; if(hold.active) stopHold(); document.getElementById('resetPanel').classList.remove('open'); updateHUD(); draw(); save(); });
+// ---------- init ----------
+window.addEventListener('resize',draw);
+updateHUD(); draw();
+setTimeout(draw,80);
+})();
+</script>
+</body>
+</html>
