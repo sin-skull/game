@@ -491,8 +491,8 @@ function updateHUD(){
   sizeLabel.textContent = formatSize(holeR * 2);
   const lg = largestItem();
   if(lg){
-    const fits = lg.kind === 'shelf' ? holeR >= lg.needR : lg.boundR <= holeR;
-    maxLabel.textContent = lg.emoji + (fits ? ' 穴より小さい' : ' まだ大きい');
+    // 落ちるかどうかは物理が決めるので、判定は表示しない。物の大きさだけ出す
+    maxLabel.textContent = lg.emoji + ' ' + formatSize(lg.kind === 'shelf' ? lg.L : lg.boundR * 2);
   } else maxLabel.textContent = '👑 制覇！';
   comboChip.style.display = combo >= 2 ? 'flex' : 'none';
   if(combo >= 2) comboLabel.textContent = 'x' + combo + ' コンボ';
@@ -520,8 +520,27 @@ document.addEventListener('touchend', e => {
   lastTouchEnd = now;
 }, { passive: false });
 document.addEventListener('contextmenu', e => e.preventDefault());
-document.getElementById('resetBtn').addEventListener('click', () => {
-  storeNo = 1; holeR = 0.35; save(); buildStore(1);
+const resetBtn = document.getElementById('resetBtn');
+let resetArmed = false, resetArmTimer = 0;
+function disarmReset(){
+  resetArmed = false;
+  resetBtn.textContent = '↺'; resetBtn.style.background = '#fff';
+}
+resetBtn.addEventListener('click', () => {
+  if(!resetArmed){
+    // 誤タップ防止：1回目は確認状態にするだけ
+    resetArmed = true; resetArmTimer = 3;
+    resetBtn.textContent = '？'; resetBtn.style.background = '#ffd93d';
+    return;
+  }
+  disarmReset();
+  // 完全初期化：セーブ（店・穴の大きさ・通算）を全部消して最初から
+  localStorage.removeItem('hole3dStore');
+  localStorage.removeItem('hole3dR');
+  localStorage.removeItem('hole3dTotal');
+  storeNo = 1; holeR = 0.35; swallowedTotal = 0;
+  overlay.classList.remove('show');
+  save(); buildStore(storeNo);
 });
 document.getElementById('nextBtn').addEventListener('click', () => {
   overlay.classList.remove('show');
@@ -558,7 +577,7 @@ function checkFalls(){
   for(const it of items){
     if(it.gone) continue;
     const y = it.body.position.y;
-    const threshold = it.kind === 'shelf' ? -holeR * 0.55 : -(it.boundR + 0.3);
+    const threshold = it.kind === 'shelf' ? -(it.L * 0.3 + 0.3) : -(it.boundR + 0.3);
     if(y < threshold) countFall(it);
   }
 }
@@ -570,6 +589,7 @@ function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(0.05, clock.getDelta());
   nowSec += dt;
+  if(resetArmed){ resetArmTimer -= dt; if(resetArmTimer <= 0) disarmReset(); }
   if(nowSec - lastConsumeAt > 1.4 && combo !== 0){ combo = 0; updateHUD(); }
   crashCooldown = Math.max(0, crashCooldown - dt);
 
@@ -682,8 +702,7 @@ function drawFx(){
   fxCtx.clip();
   for(const it of items){
     if(it.gone) continue;
-    const fits = it.kind === 'shelf' ? holeR >= it.needR : it.boundR <= holeR;
-    fxCtx.fillStyle = it === lg ? '#e6a817' : (fits ? '#2ea050' : '#d33');
+    fxCtx.fillStyle = it === lg ? '#e6a817' : '#666';
     fxCtx.beginPath();
     fxCtx.arc(x0 + (it.body.position.x + storeW/2) * kx, y0 + (it.body.position.z + storeD/2) * kz, it === lg ? 4 : 2.4, 0, Math.PI * 2);
     fxCtx.fill();
