@@ -20,15 +20,6 @@
   #resetBtn{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);z-index:6;width:48px;height:48px;border-radius:50%;
     border:2px solid #222;background:#fff;font-size:20px;box-shadow:0 3px 0 #222;cursor:pointer}
   #resetBtn:active{transform:translateY(2px);box-shadow:0 1px 0 #222}
-  #overlay{position:fixed;inset:0;z-index:10;display:none;align-items:center;justify-content:center;background:rgba(20,18,12,.45)}
-  #overlay.show{display:flex}
-  #panel{background:#fff;border:3px solid #222;border-radius:24px;padding:28px 30px;text-align:center;box-shadow:0 6px 0 #222;max-width:84vw}
-  #panel .big{font-size:44px}
-  #panel h2{font-size:24px;font-weight:900;margin:6px 0 4px}
-  #panel p{font-size:14px;font-weight:700;color:#666;margin-bottom:16px;line-height:1.6}
-  #nextBtn{border:2.5px solid #222;background:#ffd93d;color:#222;font-family:inherit;font-weight:900;font-size:18px;
-    padding:12px 34px;border-radius:999px;box-shadow:0 4px 0 #222;cursor:pointer}
-  #nextBtn:active{transform:translateY(3px);box-shadow:0 1px 0 #222}
 </style>
 <script type="importmap">
 { "imports": {
@@ -43,23 +34,14 @@
 
 <div id="hud">
   <div class="chip">🛒 <span id="storeLabel">スーパー</span></div>
-  <div class="chip"><span id="leftLabel">残り 0</span></div>
+  <div class="chip"><span id="leftLabel">店内 0</span></div>
   <div class="chip"><small>穴の大きさ</small><span id="sizeLabel">0.7m</span></div>
   <div class="chip"><small>最大</small><span id="maxLabel">-</span></div>
   <div class="chip" id="comboChip">🔥 <span id="comboLabel">x2</span></div>
 </div>
 
-<div id="hint">👆 ドラッグで穴を移動。穴の上では床が無くなるだけ——支えを失った物が重力で落ちる</div>
-<button id="resetBtn" title="最初から">↺</button>
-
-<div id="overlay">
-  <div id="panel">
-    <div class="big">🎉</div>
-    <h2>店じまい！全部落ちた</h2>
-    <p id="clearText"></p>
-    <button id="nextBtn">次の店へ ▶</button>
-  </div>
-</div>
+<div id="hint">👆 ドラッグで穴を移動。物は穴の縁に差し掛かって初めて物理で動き、重力で落ちる</div>
+<button id="resetBtn" title="初期化">↺</button>
 
 <script>
   window.__holeBootTimer = setTimeout(() => {
@@ -76,12 +58,12 @@ window.__hole3dBooted = true;
 clearTimeout(window.__holeBootTimer);
 
 // ============================================================
-// 穴の設計原則：穴は「床が無い場所」である。それだけ。
-// - 穴から力は出ない（吸引なし）
-// - 穴が物を掴まない（捕獲アニメーションなし）
-// - 物が落ちるのは、支えの床が消えて世界の重力に引かれるから
-// 実装：穴の周囲の床はタイルで構成され、穴の内側のタイルは
-// 　　　衝突を失う（＝そこに床が存在しない）。外側は大判スラブ。
+// 設計：床は y=0、穴は深さ -6 の竪穴。
+// - 物は全て「静止物」として置かれる。物理は働かないので沈まない。
+// - 穴の円周（縁）に差し掛かった物だけ物理が有効になる。
+// - 落ちるのは世界の重力だけ。穴から力は出ない。
+// - 中心が -6 に達したら消えて、新しい物が補充される。
+// - 床の見た目にも円形の開口部があり、物は穴の中でのみ見える。
 // ============================================================
 
 const glCanvas = document.getElementById('gl');
@@ -94,8 +76,6 @@ const maxLabel   = document.getElementById('maxLabel');
 const comboChip  = document.getElementById('comboChip');
 const comboLabel = document.getElementById('comboLabel');
 const hint       = document.getElementById('hint');
-const overlay    = document.getElementById('overlay');
-const clearText  = document.getElementById('clearText');
 
 let VW = window.innerWidth, VH = window.innerHeight;
 const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true });
@@ -124,7 +104,9 @@ world.broadphase = new CANNON.SAPBroadphase(world);
 world.allowSleep = true;
 world.defaultContactMaterial.friction = 0.45;
 world.defaultContactMaterial.restitution = 0.08;
-world.solver.iterations = 12;
+world.defaultContactMaterial.contactEquationStiffness = 1e7;
+world.defaultContactMaterial.contactEquationRelaxation = 3;
+world.solver.iterations = 14;
 
 window.addEventListener('resize', () => {
   VW = window.innerWidth; VH = window.innerHeight;
@@ -155,18 +137,18 @@ function fallSound(ratio, combo){
   if(ratio > 0.5) beep(55, 0.3, 'triangle', 0.2);
 }
 const crashSound = () => { beep(140, 0.2, 'sawtooth', 0.05); beep(90, 0.3, 'square', 0.05, 0.03); };
-const clearSound = () => { beep(523,0.14,'sine',0.12); beep(659,0.14,'sine',0.12,0.11); beep(784,0.24,'sine',0.12,0.22); };
 
 // ================= 状態 =================
 const STORE_NAMES = ['スーパー', '大型スーパー', '倉庫型スーパー', '巨大モール'];
+const HOLE_DEPTH = 6;
 let storeNo = +(localStorage.getItem('hole3dStore') || 1);
 let swallowedTotal = +(localStorage.getItem('hole3dTotal') || 0);
 let holeR = parseFloat(localStorage.getItem('hole3dR') || '0.35');
-const holePos = { x: 0, z: 14 };   // 穴はただの位置と半径。ボディも力も持たない
+const holePos = { x: 0, z: 14 };
 let items = [];
+let piles = [];
 let wallBodies = [];
-let storeW = 56, storeD = 40;
-let cleared = false;
+let storeW = 56, storeD = 40, storeS = 0.35, storeGen = 0;
 let combo = 0, lastConsumeAt = -10, nowSec = 0;
 let shake = 0;
 let floaters = [];
@@ -183,29 +165,47 @@ function save(){
   localStorage.setItem('hole3dTotal', swallowedTotal);
 }
 
-// ================= 穴の見た目（ただの穴。何もしない） =================
+// ================= 穴の見た目：深さ6の竪穴 =================
 const holeGroup = new THREE.Group();
-const holeDisc = new THREE.Mesh(
+const shaftWall = new THREE.Mesh(
+  new THREE.CylinderGeometry(1, 1, HOLE_DEPTH, 40, 1, true),
+  new THREE.MeshBasicMaterial({ color: 0x181818, side: THREE.DoubleSide })
+);
+shaftWall.position.y = -HOLE_DEPTH / 2;
+const shaftBottom = new THREE.Mesh(
   new THREE.CircleGeometry(1, 40),
-  new THREE.MeshBasicMaterial({ color: 0x000000 })
+  new THREE.MeshBasicMaterial({ color: 0x030303 })
 );
-holeDisc.rotation.x = -Math.PI / 2; holeDisc.position.y = 0.02;
-const holeInner = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.92, 0.55, 0.5, 40, 1, true),
-  new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.DoubleSide })
-);
-holeInner.position.y = -0.24;
+shaftBottom.rotation.x = -Math.PI / 2;
+shaftBottom.position.y = -HOLE_DEPTH;
 const holeRim = new THREE.Mesh(
   new THREE.TorusGeometry(1, 0.045, 10, 44),
   new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 })
 );
 holeRim.rotation.x = Math.PI / 2; holeRim.position.y = 0.03;
-holeGroup.add(holeDisc, holeInner, holeRim);
+holeGroup.add(shaftWall, shaftBottom, holeRim);
 scene.add(holeGroup);
 
-// ================= 床システム：タイル＋スラブ =================
-// 穴の周囲はタイル床（26×26）。穴の内側のタイルは衝突を失う＝床が無い。
-// タイル領域の外は4枚の大判スラブが床になる。
+// 床の見た目に開口部を開けるための共有ユニフォーム
+const floorUniforms = {
+  uHoleCenter: { value: new THREE.Vector2(0, 0) },
+  uHoleRadius: { value: 0.35 }
+};
+function applyHoleOpening(mat){
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uHoleCenter = floorUniforms.uHoleCenter;
+    shader.uniforms.uHoleRadius = floorUniforms.uHoleRadius;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHoleWP;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvHoleWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHoleWP;\nuniform vec2 uHoleCenter;\nuniform float uHoleRadius;')
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif (distance(vHoleWP.xz, uHoleCenter) < uHoleRadius) discard;');
+  };
+  mat.customProgramCacheKey = () => 'floor-with-hole';
+}
+
+// ================= 床の物理：タイル＋スラブ（支持の有無だけ） =================
 const TILE_N = 26;
 const tiles = [];
 const slabs = [];
@@ -257,52 +257,22 @@ function layoutFloor(force){
         b.collisionResponse = false; b.position.set(cx, -60, cz); continue;
       }
       b.position.set(cx, -0.05, cz);
-      // 穴の内側＝床が無い。それ以外は普通の床
       b.collisionResponse = Math.hypot(cx - holePos.x, cz - holePos.z) >= holeR - ts * 0.35;
       b.aabbNeedsUpdate = true;
     }
   }
-  // スラブ（タイル領域の外側すべて）
   const x0 = -storeW / 2, x1 = gx, x2 = gx + C, x3 = storeW / 2;
   const z0 = -storeD / 2, z1 = gz, z2 = gz + C, z3 = storeD / 2;
-  setSlab(slabs[0], (x0 + x1) / 2, 0, x1 - x0, storeD);                    // 西
-  setSlab(slabs[1], (x2 + x3) / 2, 0, x3 - x2, storeD);                    // 東
-  setSlab(slabs[2], (x1 + x2) / 2, (z0 + z1) / 2, C, z1 - z0);             // 北
-  setSlab(slabs[3], (x1 + x2) / 2, (z2 + z3) / 2, C, z3 - z2);             // 南
+  setSlab(slabs[0], (x0 + x1) / 2, 0, x1 - x0, storeD);
+  setSlab(slabs[1], (x2 + x3) / 2, 0, x3 - x2, storeD);
+  setSlab(slabs[2], (x1 + x2) / 2, (z0 + z1) / 2, C, z1 - z0);
+  setSlab(slabs[3], (x1 + x2) / 2, (z2 + z3) / 2, C, z3 - z2);
 }
 
-// ================= 店づくり =================
-function floorTexture(){
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const g = c.getContext('2d');
-  g.fillStyle = '#e8e4da'; g.fillRect(0, 0, 256, 256);
-  g.strokeStyle = '#c9c2b2'; g.lineWidth = 4;
-  g.strokeRect(0, 0, 256, 256);
-  g.fillStyle = 'rgba(0,0,0,0.03)'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
+// ================= 物づくり（全て静止物として配置） =================
+function staticBody(){
+  return new CANNON.Body({ type: CANNON.Body.STATIC, mass: 0 });
 }
-let floorMesh = null, wallMeshes = [];
-
-function clearStore(){
-  for(const it of items){
-    if(it.body) world.removeBody(it.body);
-    scene.remove(it.mesh);
-  }
-  items = [];
-  for(const b of wallBodies) world.removeBody(b);
-  wallBodies = [];
-  if(floorMesh){ scene.remove(floorMesh); floorMesh.geometry.dispose(); floorMesh = null; }
-  for(const m of wallMeshes) scene.remove(m);
-  wallMeshes = [];
-}
-function addWallBody(hx, hy, hz, x, y, z){
-  const b = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
-  b.position.set(x, y, z);
-  world.addBody(b); wallBodies.push(b);
-}
-
 function makeShelf(S, x, z){
   const L = S * 11, D = S * 2.6, H = S * 6, t = S * 0.22;
   const group = new THREE.Group();
@@ -316,6 +286,7 @@ function makeShelf(S, x, z){
   }
   part(t, H, D, -L/2 + t/2, H/2, 0, frameMat);
   part(t, H, D,  L/2 - t/2, H/2, 0, frameMat);
+  part(L, t * 0.7, D, 0, t * 0.35, 0, frameMat);              // 土台板（全面で支える）
   part(L, H * 0.1, t, 0, H * 0.06, -D/2 + t/2, frameMat);
   part(L, H * 0.1, t, 0, H * 0.06,  D/2 - t/2, frameMat);
   const boardYs = [H * 0.24, H * 0.55, H * 0.86];
@@ -324,24 +295,23 @@ function makeShelf(S, x, z){
   group.position.set(x, 0, z);
   scene.add(group);
 
-  const body = new CANNON.Body({ mass: 22 * (S / 0.35), allowSleep: true, sleepSpeedLimit: 0.35, sleepTimeLimit: 0.5 });
+  const body = staticBody();
   body.addShape(new CANNON.Box(new CANNON.Vec3(t/2, H/2, D/2)), new CANNON.Vec3(-L/2 + t/2, H/2, 0));
   body.addShape(new CANNON.Box(new CANNON.Vec3(t/2, H/2, D/2)), new CANNON.Vec3( L/2 - t/2, H/2, 0));
+  body.addShape(new CANNON.Box(new CANNON.Vec3(L/2, t*0.35, D/2)), new CANNON.Vec3(0, t*0.35, 0));
   for(const by of boardYs) body.addShape(new CANNON.Box(new CANNON.Vec3(L/2, t*0.3, D/2)), new CANNON.Vec3(0, by, 0));
   body.position.set(x, 0, z);
   world.addBody(body);
-  const item = { mesh: group, body, kind: 'shelf', boundR: L * 0.32, needR: L * 0.42, emoji: '🗄️', gone: false, L, D, H, boardYs, S };
+  const item = { mesh: group, body, kind: 'shelf', boundR: L * 0.32, needR: L * 0.42, emoji: '🗄️',
+                 gone: false, active: false, mass0: 22 * (S / 0.35), L, D, H, boardYs, S, ax: x, az: z, shelf: null };
   items.push(item);
   return item;
 }
 
-function makeProduct(S, shelf, boardY){
-  const ps = S * (0.5 + Math.random() * 0.55);
+function productMeshAndShape(ps){
   const kindRoll = Math.random();
-  let mesh, shape, boundR, h;
   const mat = new THREE.MeshStandardMaterial({ color: randColor(), roughness: 0.55 });
-  const lx = (Math.random() - 0.5) * (shelf.L - S * 2);
-  const lz = (Math.random() - 0.5) * (shelf.D * 0.45);
+  let mesh, shape, boundR, h;
   if(kindRoll < 0.45){
     const w = ps * (0.7 + Math.random() * 0.5), d = ps * (0.7 + Math.random() * 0.4);
     h = ps * (0.7 + Math.random() * 0.7);
@@ -360,14 +330,55 @@ function makeProduct(S, shelf, boardY){
     boundR = r;
   }
   mesh.castShadow = true; mesh.receiveShadow = true;
+  return { mesh, shape, boundR, h };
+}
+
+function makeProduct(S, shelf, boardY){
+  const ps = S * (0.5 + Math.random() * 0.55);
+  const { mesh, shape, boundR, h } = productMeshAndShape(ps);
+  const lx = (Math.random() - 0.5) * (shelf.L - S * 2);
+  const lz = (Math.random() - 0.5) * (shelf.D * 0.45);
   const wx = shelf.body.position.x + lx, wz = shelf.body.position.z + lz;
   const wy = boardY + shelf.S * 0.08 + h / 2 + 0.02;
   mesh.position.set(wx, wy, wz);
   scene.add(mesh);
-  const body = new CANNON.Body({ mass: Math.max(0.05, boundR * boundR * 6), shape, allowSleep: true, sleepSpeedLimit: 0.35, sleepTimeLimit: 0.45 });
+  const body = staticBody();
+  body.addShape(shape);
   body.position.set(wx, wy, wz);
   world.addBody(body);
-  const item = { mesh, body, kind: 'product', boundR, emoji: '🥫', gone: false };
+  const item = { mesh, body, kind: 'product', boundR, emoji: '🥫', gone: false, active: false,
+                 mass0: Math.max(0.05, boundR * boundR * 6), shelf };
+  items.push(item);
+  return item;
+}
+function stockShelf(sh){
+  for(const by of sh.boardYs){
+    const n = 6 + Math.floor(Math.random() * 3);
+    for(let i = 0; i < n; i++) makeProduct(sh.S, sh, by);
+  }
+}
+
+// 物の山：小物を積んだパイル。穴が差し掛かると一斉に物理化して崩れる
+function makePileItem(S, pile){
+  const n = pile.count++;
+  const s = S * (0.55 + ((n * 37) % 10) / 10 * 0.3);
+  const layer = Math.floor(n / 7);
+  const ringR = pile.baseR * (0.2 + 0.6 * (((n * 53) % 10) / 10)) * Math.max(0.35, 1 - layer * 0.2);
+  const ang = n * 2.399;
+  const x = pile.x + Math.cos(ang) * ringR;
+  const z = pile.z + Math.sin(ang) * ringR;
+  const { mesh, shape, boundR, h } = productMeshAndShape(s);
+  const wy = h / 2 + 0.02 + layer * s * 0.8;
+  mesh.position.set(x, wy, z);
+  mesh.rotation.y = (n * 1.7) % Math.PI;
+  scene.add(mesh);
+  const body = staticBody();
+  body.addShape(shape);
+  body.position.set(x, wy, z);
+  body.quaternion.setFromEuler(0, mesh.rotation.y, 0);
+  world.addBody(body);
+  const item = { mesh, body, kind: 'product', boundR, emoji: '🥫', gone: false, active: false,
+                 mass0: Math.max(0.05, boundR * boundR * 6), shelf: null, pile };
   items.push(item);
   return item;
 }
@@ -399,28 +410,170 @@ function makeProp(S, targetR, x, z){
   mesh.position.set(x, 0, z);
   mesh.rotation.y = Math.random() * Math.PI;
   scene.add(mesh);
-  const body = new CANNON.Body({ mass: Math.max(0.4, targetR * targetR * 22), shape, allowSleep: true, sleepSpeedLimit: 0.35, sleepTimeLimit: 0.5 });
+  const body = staticBody();
+  body.addShape(shape);
   body.position.set(x, h / 2, z);
   body.quaternion.setFromEuler(0, mesh.rotation.y, 0);
   world.addBody(body);
-  const item = { mesh, body, kind: 'prop', boundR: targetR, emoji: '📦', gone: false };
+  const item = { mesh, body, kind: 'prop', boundR: targetR, emoji: '📦', gone: false, active: false,
+                 mass0: Math.max(0.4, targetR * targetR * 22), shelf: null };
   items.push(item);
   return item;
+}
+function tryPlaceProp(S, targetR){
+  for(let t = 0; t < 40; t++){
+    const x = (Math.random() - 0.5) * (storeW - targetR * 4 - 4);
+    const z = (Math.random() - 0.5) * (storeD - targetR * 4 - 4);
+    if(Math.hypot(x - holePos.x, z - holePos.z) < S * 14 + targetR) continue;
+    let bad = false;
+    for(const it of items){
+      if(it.gone) continue;
+      const rr = targetR + it.boundR + S * 1.2;
+      if(Math.hypot(x - it.body.position.x, z - it.body.position.z) < rr){ bad = true; break; }
+    }
+    if(bad) continue;
+    for(const p of piles){
+      if(Math.hypot(x - p.x, z - p.z) < targetR + p.baseR + S){ bad = true; break; }
+    }
+    if(bad) continue;
+    makeProp(S, targetR, x, z);
+    return true;
+  }
+  return false;
+}
+
+// ================= 物理の有効化（縁に差し掛かった物だけ） =================
+function activateItem(it){
+  if(it.active || it.gone) return;
+  it.active = true;
+  const b = it.body;
+  b.type = CANNON.Body.DYNAMIC;
+  b.mass = it.mass0;
+  b.updateMassProperties();
+  b.velocity.set(0, 0, 0);
+  b.angularVelocity.set(0, 0, 0);
+  b.allowSleep = true;
+  b.sleepState = 0;
+  b.wakeUp();
+  if(it.kind === 'shelf'){
+    for(const p of items) if(p.shelf === it) activateItem(p);
+  }
+}
+const UP = new CANNON.Vec3(0, 1, 0);
+function activationScan(){
+  const margin = Math.max(0.6, holeR * 0.8);
+  for(const it of items){
+    if(it.gone || it.active) continue;
+    const dx = it.body.position.x - holePos.x;
+    const dz = it.body.position.z - holePos.z;
+    const reach = it.kind === 'shelf' ? it.L / 2 : it.boundR;
+    const rr = holeR + reach + margin;
+    if(dx * dx + dz * dz < rr * rr) activateItem(it);
+  }
+  // 倒れかけた棚に触れる物も目覚める（連鎖）
+  for(const it of items){
+    if(it.gone || !it.active || it.kind !== 'shelf') continue;
+    const up = it.body.quaternion.vmult(UP);
+    if(up.y >= 0.92) continue;
+    for(const o of items){
+      if(o.gone || o.active) continue;
+      const dx = o.body.position.x - it.body.position.x;
+      const dz = o.body.position.z - it.body.position.z;
+      const rr = it.L * 0.8 + o.boundR;
+      if(dx * dx + dz * dz < rr * rr) activateItem(o);
+    }
+  }
+}
+
+// ================= 落下の記録と補充 =================
+function countFall(it){
+  it.gone = true;
+  world.removeBody(it.body);
+  scene.remove(it.mesh);
+  const effR = it.kind === 'shelf' ? it.needR : it.boundR;
+  const ratio = effR / holeR;
+  holeR = Math.sqrt(holeR * holeR + effR * effR * (it.kind === 'shelf' ? 0.5 : 0.95));
+  swallowedTotal++;
+  combo = (nowSec - lastConsumeAt < 2.2) ? combo + 1 : 1;
+  lastConsumeAt = nowSec;
+  shake = Math.min(13, 2.5 + ratio * 11);
+  fallSound(ratio, combo);
+  floaters.push({ x: holePos.x, z: holePos.z, text: '+1', t: 0, color: '#222' });
+  if(combo >= 3) floaters.push({ x: holePos.x, z: holePos.z - holeR, text: '🔥x' + combo, t: 0, color: '#e67e00' });
+  if(it.kind === 'shelf') floaters.push({ x: holePos.x, z: holePos.z - holeR * 1.6, text: '棚ごと落ちた！', t: 0, color: '#8e44ad' });
+  spawnReplacement(it);
+  updateHUD();
+}
+function spawnReplacement(it){
+  if(it.kind === 'product'){
+    if(piles.length){
+      const pile = piles[Math.floor(Math.random() * piles.length)];
+      makePileItem(storeS, pile);
+    }
+  } else if(it.kind === 'prop'){
+    tryPlaceProp(storeS, it.boundR);
+  } else if(it.kind === 'shelf'){
+    const gen = storeGen, S = storeS, ax = it.ax, az = it.az;
+    setTimeout(() => {
+      if(gen !== storeGen) return;
+      const sh = makeShelf(S, ax, az);
+      stockShelf(sh);
+    }, 1200);
+  }
+}
+function checkFalls(){
+  for(const it of items){
+    if(it.gone || !it.active) continue;
+    if(it.body.position.y <= -HOLE_DEPTH) countFall(it);
+  }
+}
+
+// ================= 店づくり =================
+function floorTexture(){
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d');
+  g.fillStyle = '#e8e4da'; g.fillRect(0, 0, 256, 256);
+  g.strokeStyle = '#c9c2b2'; g.lineWidth = 4;
+  g.strokeRect(0, 0, 256, 256);
+  g.fillStyle = 'rgba(0,0,0,0.03)'; g.fillRect(0, 0, 128, 128); g.fillRect(128, 128, 128, 128);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+let floorMesh = null, wallMeshes = [];
+
+function clearStore(){
+  for(const it of items){
+    if(it.body) world.removeBody(it.body);
+    scene.remove(it.mesh);
+  }
+  items = []; piles = [];
+  for(const b of wallBodies) world.removeBody(b);
+  wallBodies = [];
+  if(floorMesh){ scene.remove(floorMesh); floorMesh.geometry.dispose(); floorMesh = null; }
+  for(const m of wallMeshes) scene.remove(m);
+  wallMeshes = [];
+}
+function addWallBody(hx, hy, hz, x, y, z){
+  const b = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
+  b.position.set(x, y, z);
+  world.addBody(b); wallBodies.push(b);
 }
 
 function buildStore(no){
   clearStore();
-  cleared = false; combo = 0;
+  storeGen++;
+  combo = 0;
   const S = holeR;
+  storeS = S;
   storeW = Math.max(56, S * 160);
   storeD = storeW * 0.72;
   holePos.x = 0; holePos.z = storeD * 0.32;
   const tex = floorTexture();
   tex.repeat.set(storeW / 4, storeD / 4);
-  floorMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(storeW, storeD),
-    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })
-  );
+  const floorMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+  applyHoleOpening(floorMat);
+  floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(storeW, storeD), floorMat);
   floorMesh.rotation.x = -Math.PI / 2;
   floorMesh.receiveShadow = true;
   scene.add(floorMesh);
@@ -441,36 +594,33 @@ function buildStore(no){
       shelves.push(makeShelf(S, storeW * fx3, rz));
     }
   }
-  for(const sh of shelves){
-    for(const by of sh.boardYs){
-      const n = 6 + Math.floor(Math.random() * 3);
-      for(let i = 0; i < n; i++) makeProduct(S, sh, by);
-    }
-  }
+  for(const sh of shelves) stockShelf(sh);
   const PROP_COUNT = 16;
-  const fracs = [];
   for(let i = 0; i < PROP_COUNT; i++){
     const base = i / (PROP_COUNT - 1);
-    fracs.push(Math.max(0, Math.min(1, base + (Math.random() - 0.5) * 0.05)));
+    const frac = Math.max(0, Math.min(1, base + (Math.random() - 0.5) * 0.05));
+    tryPlaceProp(S, S * (0.35 + frac * 2.3));
   }
-  let tries = 0, placed = 0;
-  while(placed < PROP_COUNT && tries < 600){
-    tries++;
-    const targetR = S * (0.35 + fracs[placed] * 2.3);
-    const x = (Math.random() - 0.5) * (storeW - targetR * 4 - 4);
-    const z = (Math.random() - 0.5) * (storeD - targetR * 4 - 4);
-    if(Math.hypot(x - holePos.x, z - holePos.z) < S * 14) continue;
+  // 物の山 ×4
+  let pileTries = 0;
+  while(piles.length < 4 && pileTries < 200){
+    pileTries++;
+    const baseR = S * 3.4;
+    const x = (Math.random() - 0.5) * (storeW - baseR * 2 - 6);
+    const z = (Math.random() - 0.5) * (storeD - baseR * 2 - 6);
+    if(Math.hypot(x - holePos.x, z - holePos.z) < S * 16) continue;
     let bad = false;
-    for(const sh of shelves){
-      if(Math.abs(x - sh.body.position.x) < sh.L / 2 + targetR + S * 2 && Math.abs(z - sh.body.position.z) < sh.D / 2 + targetR + S * 2){ bad = true; break; }
-    }
-    if(bad) continue;
     for(const it of items){
-      if(it.kind === 'prop' && Math.hypot(x - it.body.position.x, z - it.body.position.z) < targetR + it.boundR + S * 1.5){ bad = true; break; }
+      if(Math.hypot(x - it.body.position.x, z - it.body.position.z) < baseR + it.boundR + S * 1.5){ bad = true; break; }
     }
     if(bad) continue;
-    makeProp(S, targetR, x, z);
-    placed++;
+    for(const p of piles){
+      if(Math.hypot(x - p.x, z - p.z) < baseR * 2 + S * 2){ bad = true; break; }
+    }
+    if(bad) continue;
+    const pile = { x, z, baseR, count: 0 };
+    piles.push(pile);
+    for(let i = 0; i < 16; i++) makePileItem(S, pile);
   }
   tileTs = 0; tileAnchorX = null;
   layoutFloor(true);
@@ -487,18 +637,17 @@ function largestItem(){
 }
 function updateHUD(){
   storeLabel.textContent = STORE_NAMES[Math.min(storeNo - 1, STORE_NAMES.length - 1)] + (storeNo > STORE_NAMES.length ? ' ' + storeNo : '');
-  leftLabel.textContent = '残り ' + remainingItems();
+  leftLabel.textContent = '店内 ' + remainingItems();
   sizeLabel.textContent = formatSize(holeR * 2);
   const lg = largestItem();
   if(lg){
-    // 落ちるかどうかは物理が決めるので、判定は表示しない。物の大きさだけ出す
     maxLabel.textContent = lg.emoji + ' ' + formatSize(lg.kind === 'shelf' ? lg.L : lg.boundR * 2);
-  } else maxLabel.textContent = '👑 制覇！';
+  } else maxLabel.textContent = '-';
   comboChip.style.display = combo >= 2 ? 'flex' : 'none';
   if(combo >= 2) comboLabel.textContent = 'x' + combo + ' コンボ';
 }
 
-// ================= 入力（穴はただ移動するだけ） =================
+// ================= 入力 =================
 let joy = null;
 const keys = {};
 window.addEventListener('pointerdown', e => {
@@ -528,72 +677,29 @@ function disarmReset(){
 }
 resetBtn.addEventListener('click', () => {
   if(!resetArmed){
-    // 誤タップ防止：1回目は確認状態にするだけ
     resetArmed = true; resetArmTimer = 3;
     resetBtn.textContent = '？'; resetBtn.style.background = '#ffd93d';
     return;
   }
   disarmReset();
-  // 完全初期化：セーブ（店・穴の大きさ・通算）を全部消して最初から
   localStorage.removeItem('hole3dStore');
   localStorage.removeItem('hole3dR');
   localStorage.removeItem('hole3dTotal');
   storeNo = 1; holeR = 0.35; swallowedTotal = 0;
-  overlay.classList.remove('show');
   save(); buildStore(storeNo);
 });
-document.getElementById('nextBtn').addEventListener('click', () => {
-  overlay.classList.remove('show');
-  storeNo++; save(); buildStore(storeNo);
-});
-
-// ================= 落下の記録（落ちた物は世界の重力で落ちただけ） =================
-function countFall(it){
-  it.gone = true;
-  world.removeBody(it.body);
-  scene.remove(it.mesh);
-  const effR = it.kind === 'shelf' ? it.needR : it.boundR;
-  const ratio = effR / holeR;
-  holeR = Math.sqrt(holeR * holeR + effR * effR * (it.kind === 'shelf' ? 0.5 : 0.95));
-  swallowedTotal++;
-  combo = (nowSec - lastConsumeAt < 1.4) ? combo + 1 : 1;
-  lastConsumeAt = nowSec;
-  shake = Math.min(13, 2.5 + ratio * 11);
-  fallSound(ratio, combo);
-  floaters.push({ x: holePos.x, z: holePos.z, text: '+1', t: 0, color: '#222' });
-  if(combo >= 3) floaters.push({ x: holePos.x, z: holePos.z - holeR, text: '🔥x' + combo, t: 0, color: '#e67e00' });
-  if(it.kind === 'shelf') floaters.push({ x: holePos.x, z: holePos.z - holeR * 1.6, text: '棚ごと落ちた！', t: 0, color: '#8e44ad' });
-  updateHUD();
-  if(remainingItems() === 0 && !cleared){
-    cleared = true; save();
-    clearSound();
-    setTimeout(() => {
-      clearText.innerHTML = '穴は ' + formatSize(holeR * 2) + ' まで大きくなった（通算 ' + swallowedTotal + ' 個）。<br>次の店はもっと大きくて、商品も棚も巨大だよ。';
-      overlay.classList.add('show');
-    }, 600);
-  }
-}
-function checkFalls(){
-  for(const it of items){
-    if(it.gone) continue;
-    const y = it.body.position.y;
-    const threshold = it.kind === 'shelf' ? -(it.L * 0.3 + 0.3) : -(it.boundR + 0.3);
-    if(y < threshold) countFall(it);
-  }
-}
 
 // ================= メインループ =================
-const UP = new CANNON.Vec3(0, 1, 0);
 const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const dt = Math.min(0.05, clock.getDelta());
   nowSec += dt;
   if(resetArmed){ resetArmTimer -= dt; if(resetArmTimer <= 0) disarmReset(); }
-  if(nowSec - lastConsumeAt > 1.4 && combo !== 0){ combo = 0; updateHUD(); }
+  if(nowSec - lastConsumeAt > 2.2 && combo !== 0){ combo = 0; updateHUD(); }
   crashCooldown = Math.max(0, crashCooldown - dt);
 
-  // 穴の移動（位置を動かすだけ。押したり引いたりはしない）
+  // 穴の移動（位置を動かすだけ）
   let ix = 0, iz = 0;
   if(joy){
     const dx = joy.x - joy.ox, dy = joy.y - joy.oy, d = Math.hypot(dx, dy);
@@ -613,16 +719,21 @@ function animate(){
   holePos.z = Math.max(-storeD/2 + holeR * 0.25, Math.min(storeD/2 - holeR * 0.25, holePos.z));
   holeGroup.position.set(holePos.x, 0, holePos.z);
   holeGroup.scale.set(holeR, 1, holeR);
+  floorUniforms.uHoleCenter.value.set(holePos.x, holePos.z);
+  floorUniforms.uHoleRadius.value = holeR * 0.995;
 
   layoutFloor(false);
+  activationScan();
+  world.step(1/60, dt, 3);
+  checkFalls();
 
-  if(!cleared){
-    world.step(1/60, dt, 3);
-    checkFalls();
+  // 穴が店に対して大きくなったら、店を作り直す（穴の大きさは引き継ぐ）
+  if(holeR * 2 > storeW * 0.36){
+    storeNo++; save(); buildStore(storeNo);
   }
 
   for(const it of items){
-    if(it.gone) continue;
+    if(it.gone || !it.active) continue;
     it.mesh.position.copy(it.body.position);
     it.mesh.quaternion.copy(it.body.quaternion);
     if(it.kind === 'shelf' && crashCooldown <= 0){
@@ -631,7 +742,7 @@ function animate(){
     }
   }
 
-  // カメラ（距離に上限なし・引くときは速く）
+  // カメラ
   const distWanted = Math.max(9, holeR * 10);
   smoothDist += (distWanted - smoothDist) * Math.min(1, dt * (distWanted > smoothDist ? 10 : 3.5));
   const dist = smoothDist;
@@ -681,7 +792,7 @@ function drawFx(){
   }
   fxCtx.globalAlpha = 1;
   const lg = largestItem();
-  if(lg && !cleared){
+  if(lg){
     const s = worldToScreen(lg.body.position.x, lg.body.position.z);
     if(s.behind || s.x < -20 || s.x > VW + 20 || s.y < -20 || s.y > VH + 20){
       const hs = worldToScreen(holePos.x, holePos.z);
